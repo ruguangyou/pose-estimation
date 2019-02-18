@@ -1,0 +1,13 @@
+%YAML:1.0
+
+# camera intrinsics
+
+# camera extrinsics
+
+# camera & imu extrinsics
+
+# parameters
+matchRatio: 
+minMatchDist:
+matchThresLow:
+matchThresUp:
