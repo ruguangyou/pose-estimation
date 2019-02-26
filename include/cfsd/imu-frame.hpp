@@ -31,7 +31,7 @@ class ImuFrame {
 
 
     // IMU pose
-    Sophus::SE3d _SE3;
+    // Sophus::SE3d _SE3;
     
 };
 

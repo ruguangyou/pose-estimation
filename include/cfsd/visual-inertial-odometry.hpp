@@ -5,6 +5,7 @@
 #include "cfsd/camera-frame.hpp"
 #include "cfsd/imu-frame.hpp"
 #include "cfsd/key-frame.hpp"
+#include "cfsd/feature-tracker.hpp"
 
 #include <opencv2/calib3d/calib3d.hpp>
 #include <opencv2/feature2d/feature2d.hpp>
@@ -15,7 +16,7 @@ namespace cfsd {
 
 class VisualInertialOdometry {
   public:
-    enum VIOstate { INITIALIZING = -1, OK = 0, LOST };
+    enum VIOstate { INITIALIZING, OK, LOST };
     using Ptr = std::shared_ptr<VisualInertialOdometry>; // typedef std::shared_ptr<VisualInertialOdometry> Ptr;
 
   public:
@@ -28,34 +29,19 @@ class VisualInertialOdometry {
     // todo: compare the performance of these methods
     // void featureTracking(Detector d);
 
-    void bundleAdjustment();
+    // void bundleAdjustment();
 
     // void imuPreintegration();
 
+    void processFrame()
     void addKeyFrame();
 
 
-  protected:
-    // detect and match keypoints
-    // void extractKeypoints();
-    // void matchKeypoints();
-    // void triangulate();
-
-    // select key frame
-    // bool isKeyFrame();
-
-    // preintegration
-    // void preintegrate();
-
-
   private:
+    VIOstate _state;
+
     FeatureTracker::Ptr _featureTracker;
-
     std::vector<KeyFrame::Ptr> _keyFrames;
-    
-
-    cv::Ptr<cv::ORB> _orb;  // orb detector
-
 };
 
 } // namespace cfsd
