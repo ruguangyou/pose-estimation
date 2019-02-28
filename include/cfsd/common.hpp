@@ -26,4 +26,14 @@
 #include <unordered_map>    // std::unordered_map and std::unordered_multimap unordered associative containers
 #include <vector>           // std::vector container
 
+typedef float precisionType;
+typedef Eigen::Matrix3f EigenMatrix3Type;
+typedef Eigen::Vector3f EigenVector3Type;
+typedef Eigen::Vector2f EigenVector2Type;
+typedef Eigen::Matrix<float,4,1> EigenVector4Type;
+typedef Sophus::SE3f SophusSE3Type;
+typedef Sophus::SO3f SophusSO3Type;
+typedef cv::Point3f cvPoint3Type;
+typedef cv::Point2f cvPoint2Type;
+
 #endif // COMMON_HPP

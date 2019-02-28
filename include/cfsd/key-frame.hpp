@@ -2,11 +2,12 @@
 #define KEY_FRAME_HPP
 
 #include "cfsd/common.hpp"
+#include "cfsd/config.hpp"
 #include "cfsd/camera-frame.hpp"
 // #include "cfsd/imu-frame.hpp"
 
 #include <opencv2/calib3d/calib3d.hpp>
-#include <opencv2/feature2d/feature2d.hpp>
+#include <opencv2/features2d/features2d.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
 
 namespace cfsd {
@@ -19,9 +20,10 @@ class KeyFrame {
 
     KeyFrame();
     ~KeyFrame();
+    KeyFrame(long id, long timestamp, CameraFrame::Ptr camFrame, bool verbose, bool debug);
 
     // factoty function
-    static KeyFrame::Ptr create();
+    static KeyFrame::Ptr create(long timestamp, CameraFrame::Ptr camFrame, bool verbose, bool debug);
 
     // feature matching between left and right images
     // triangulate to get 3D points corresponding to matched keypoints
@@ -29,29 +31,35 @@ class KeyFrame {
 
   private:
     unsigned long _id;
-    double _timestamp;
-    bool _verbose;
+    long _timestamp;
+    bool _verbose, _debug;
 
     // camera and imu frames
     CameraFrame::Ptr _camFrame;
     // ImuFrame::Ptr _imuFrame;
 
+    // feature detector and matching parameters
+    cv::Ptr<cv::ORB> _orb;
+    float _matchRatio; // ratio for selecting good matches
+    float _minMatchDist; // min match distance, based on experience, e.g. 30.0f
+
     // keypoints, descriptors and 3D points
-    std::vector<cv::KeyPoint> _camKeypoints;  // left camera
+    std::vector<cv::KeyPoint> _camKeypoints; // left camera
     cv::Mat _camDescriptors;
-    std::vector<cv::Point3f> _points3D; // 3D points related to keypoints
+    std::vector<cvPoint3Type> _points3D; // 3D points related to keypoints
 
     // pose
-    Sophus::SE3d _SE3CamLeft, _SE3Imu;
+    SophusSE3Type _SE3CamLeft, _SE3CamRight; // _SE3Imu;
 
   public:
     // getter functions
     inline const std::vector<cv::KeyPoint>& getCamKeypoints() const { return _camKeypoints; }
     inline const cv::Mat& getDescriptors() const { return _camDescriptors; }
-    inline const std::vector<cv::Point3f>& getPoints3D() const { return _points3D; }
-    inline const Eigen::Matrix<double,3,4>& getCamLeftPose() const { return _SE3CamLeft.matrix3x4(); }
+    inline const std::vector<cvPoint3Type>& getPoints3D() const { return _points3D; }
+    inline const Eigen::Matrix<precisionType,3,4> getCamLeftPose() const { return _SE3CamLeft.matrix3x4(); }
+    inline size_t getNumOfPoints() const { return _points3D.size(); }
 
-    void setCamPose(Sophus::SE3d camPose);
+    void setCamPose(SophusSE3Type camPose);
     
 };
 

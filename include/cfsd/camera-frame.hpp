@@ -2,30 +2,33 @@
 #define CAMERA_FRAME_HPP
 
 #include "cfsd/common.hpp"
+#include <opencv2/imgproc/imgproc.hpp>
 
 namespace cfsd {
 
 class CameraFrame {
-    // camera intrinsic parameters
-    static Eigen::Matrix3d _camLeft, _camRight;
-    static Eigen::Vector3d _distLeft, _distRight;
-    // camera extrinsic parameters
-    static Sophus::SE3d _right2left;
-    static Sophus::SE3d _left2right;
-    // camera & imu extrinsics
-    // static Sophus::SE3d _left2imu; // left camera to imu
-
   public:
+    // camera intrinsic parameters
+    static EigenMatrix3Type _camLeft;
+    static EigenMatrix3Type _camRight;
+    static EigenVector4Type _distLeft;
+    static EigenVector4Type _distRight;
+    // camera extrinsic parameters
+    static SophusSE3Type _right2left;
+    static SophusSE3Type _left2right;
+    // camera & imu extrinsics
+    // static SophusSE3Type _left2imu; // left camera to imu
+
     using Ptr = std::shared_ptr<CameraFrame>;
 
     // constructor and deconstructor
     CameraFrame();
     ~CameraFrame();
 
-    CameraFrame(long id, double timestamp, cv::Mat img);
+    CameraFrame(long id, long timestamp, cv::Mat img);
 
     // factory function
-    static CameraFrame::Ptr create(double timestamp, cv::Mat img);
+    static CameraFrame::Ptr create(long timestamp, cv::Mat img);
 
     // setting camera parameters
     static void setIntrinsics(cv::Mat& camLeft, cv::Mat& distLeft, cv::Mat& camRight, cv::Mat& distRight);
@@ -39,23 +42,23 @@ class CameraFrame {
 
   private:
     unsigned long _id;
-    double _timestamp;
+    long _timestamp;
     // left and right images from stereo camera
     cv::Mat _imgLeft, _imgRight;
 
   public:
     // getter funtions
-    inline double getTimestamp() const { return _timestamp; }
+    inline long getTimestamp() const { return _timestamp; }
     inline const cv::Mat& getImgLeft() const { return _imgLeft; }
     inline const cv::Mat& getImgRight() const { return _imgRight; }
-    inline const Eigen::Matrix3d& getCamLeft() const { return _camLeft; }
-    inline const Eigen::Vector3d& getDistLeft() const { return _distLeft; }
-    inline const Eigen::Matrix3d& getCamRight() const { return _camRight; }
-    inline const Eigen::Vector3d& getDistRight() const { return _distRight; }
-    inline const Sophus::SE3d& getRightToLeft() const { return _right2left; }
-    inline const Sophus::SE3d& getLeftToRight() const { return _left2right; }
+    inline const EigenMatrix3Type& getCamLeft() const { return _camLeft; }
+    inline const EigenMatrix3Type& getCamRight() const { return _camRight; }
+    inline const EigenVector4Type& getDistLeft() const { return _distLeft; }
+    inline const EigenVector4Type& getDistRight() const { return _distRight; }
+    inline const SophusSE3Type& getRightToLeft() const { return _right2left; }
+    inline const SophusSE3Type& getLeftToRight() const { return _left2right; }
 
-    // inline Eigen::Vector3d getCameraCenter() const; // the coordinated is relative to left camera or imu??
+    // inline EigenVector3Type getCameraCenter() const; // the coordinated is relative to left camera or imu??
 
     // coordinates transformation
     /* coordinate system convension defined here:
@@ -63,16 +66,30 @@ class CameraFrame {
         the stereo camera, take left camera as reference
         (so for right camera point, it is first transformed to left camera
         coordinate using extrinsic parameters, then to imu coordinate) */
-    inline Eigen::Vector2d camLeft2pixel (const Eigen::Vector3d& p_c);
-    inline Eigen::Vector2d camRight2pixel(const Eigen::Vector3d& p_c);
-    inline Eigen::Vector3d pixel2camLeft (const Eigen::Vector2d& p_p, const double depth);
-    inline Eigen::Vector3d pixel2camRight(const Eigen::Vector2d& p_p, const double depth);
-    inline Eigen::Vector3d camLeft2world (const Eigen::Vector2d& p_c, const Sophus::SE3d& T_c_w, const double depth);
-    inline Eigen::Vector3d world2camLeft (const Eigen::Vector3d& p_w, const Sophus::SE3d& T_c_w);
-    inline Eigen::Vector3d camLeft2camRight(const Eigen::Vector3d& p_c);
-    inline Eigen::Vector3d camRight2camLeft(const Eigen::Vector3d& p_c);
-    // inline Eigen::Vector3d camLeft2imu(const Eigen::Vector3d& p_c, const Sophus::SE3d& T_c_i);
-    // inline Eigen::Vector3d imu2camLeft(const Eigen::Vector3d& p_i, const Sophus::SE3d& T_c_i);
+    inline EigenVector2Type camLeft2pixel (const EigenVector3Type& p_c) {
+        return EigenVector2Type(p_c(0,0) / p_c(2,0) * _camLeft(0,0) + _camLeft(0,2),
+                                p_c(1,0) / p_c(2,0) * _camLeft(1,1) + _camLeft(1,2));
+    }
+    inline EigenVector2Type camRight2pixel(const EigenVector3Type& p_c) {
+        return EigenVector2Type(p_c(0,0) / p_c(2,0) * _camRight(0,0) + _camRight(0,2),
+                                p_c(1,0) / p_c(2,0) * _camRight(1,1) + _camRight(1,2));
+    }
+    inline EigenVector3Type pixel2camLeft (const EigenVector2Type& p_p, const double depth) {
+        return EigenVector3Type((p_p(0,0) - _camLeft(0,2)) / _camLeft(0,0) * depth,
+                                (p_p(1,0) - _camLeft(1,2)) / _camLeft(1,1) * depth,
+                                depth);
+    }
+    inline EigenVector3Type pixel2camRight(const EigenVector2Type& p_p, const double depth) {
+        return EigenVector3Type((p_p(0,0) - _camRight(0,2)) / _camRight(0,0) * depth,
+                                (p_p(1,0) - _camRight(1,2)) / _camRight(1,1) * depth,
+                                depth);
+    }
+    inline EigenVector3Type camLeft2world (const EigenVector3Type& p_c, const SophusSE3Type& T_c_w) { return T_c_w * p_c; }
+    inline EigenVector3Type world2camLeft (const EigenVector3Type& p_w, const SophusSE3Type& T_c_w) { return T_c_w.inverse() * p_w; }
+    inline EigenVector3Type camLeft2camRight(const EigenVector3Type& p_c) { return _left2right * p_c; }
+    inline EigenVector3Type camRight2camLeft(const EigenVector3Type& p_c) { return _right2left * p_c; }
+    // inline EigenVector3Type camLeft2imu(const EigenVector3Type& p_c, const SophusSE3Type& T_c_i) { return _left2imu * p_c; }
+    // inline EigenVector3Type imu2camLeft(const EigenVector3Type& p_i, const SophusSE3Type& T_c_i) { return _left2imu.inverse() * p_i; }
 
 };
 

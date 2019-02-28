@@ -8,8 +8,15 @@ namespace cfsd {
 class Config {
   public:
     ~Config();
+    
     static void setParameterFile(const std::string& filename);
-    template <typename T> static T get(const std::string& key);
+    
+    template <typename T>
+    static T get(const std::string& key) {
+        T value;
+        _config->_file[key] >> value;
+        return value;
+    }
   
   private:
     static std::shared_ptr<Config> _config;

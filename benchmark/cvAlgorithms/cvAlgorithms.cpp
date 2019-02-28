@@ -118,6 +118,13 @@ int main (int argc, char **argv) {
         return 1;
     }
 
+    if (strcmp(argv[1], "2_left.jpg")) {
+        std::cout << "ok" << std::endl;
+    }
+    else {
+        std::cout << "no" << std::endl;
+    }
+
     cv::Mat img_1 = cv::imread(argv[1], CV_LOAD_IMAGE_COLOR);
     cv::Mat img_2 = cv::imread(argv[2], CV_LOAD_IMAGE_COLOR);
     cv::Mat img_11 = cv::imread(argv[3], CV_LOAD_IMAGE_COLOR);

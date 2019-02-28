@@ -1,0 +1,32 @@
+[
+{
+  "directory": "/home/ruguang/docker-CFSD/cfsd/2019/state-estimation/build",
+  "command": "/usr/bin/g++-7   -isystem /usr/local/include -I/home/ruguang/docker-CFSD/cfsd/2019/state-estimation/include -isystem /home/ruguang/docker-CFSD/cfsd/2019/state-estimation/build -I/usr/include/eigen3 -I/usr/local/include/opencv  -O0 -g -D USE_VIEWER -g   -std=c++14 -o CMakeFiles/state-estimation-core.dir/src/config.cpp.o -c /home/ruguang/docker-CFSD/cfsd/2019/state-estimation/src/config.cpp",
+  "file": "/home/ruguang/docker-CFSD/cfsd/2019/state-estimation/src/config.cpp"
+},
+{
+  "directory": "/home/ruguang/docker-CFSD/cfsd/2019/state-estimation/build",
+  "command": "/usr/bin/g++-7   -isystem /usr/local/include -I/home/ruguang/docker-CFSD/cfsd/2019/state-estimation/include -isystem /home/ruguang/docker-CFSD/cfsd/2019/state-estimation/build -I/usr/include/eigen3 -I/usr/local/include/opencv  -O0 -g -D USE_VIEWER -g   -std=c++14 -o CMakeFiles/state-estimation-core.dir/src/camera-frame.cpp.o -c /home/ruguang/docker-CFSD/cfsd/2019/state-estimation/src/camera-frame.cpp",
+  "file": "/home/ruguang/docker-CFSD/cfsd/2019/state-estimation/src/camera-frame.cpp"
+},
+{
+  "directory": "/home/ruguang/docker-CFSD/cfsd/2019/state-estimation/build",
+  "command": "/usr/bin/g++-7   -isystem /usr/local/include -I/home/ruguang/docker-CFSD/cfsd/2019/state-estimation/include -isystem /home/ruguang/docker-CFSD/cfsd/2019/state-estimation/build -I/usr/include/eigen3 -I/usr/local/include/opencv  -O0 -g -D USE_VIEWER -g   -std=c++14 -o CMakeFiles/state-estimation-core.dir/src/key-frame.cpp.o -c /home/ruguang/docker-CFSD/cfsd/2019/state-estimation/src/key-frame.cpp",
+  "file": "/home/ruguang/docker-CFSD/cfsd/2019/state-estimation/src/key-frame.cpp"
+},
+{
+  "directory": "/home/ruguang/docker-CFSD/cfsd/2019/state-estimation/build",
+  "command": "/usr/bin/g++-7   -isystem /usr/local/include -I/home/ruguang/docker-CFSD/cfsd/2019/state-estimation/include -isystem /home/ruguang/docker-CFSD/cfsd/2019/state-estimation/build -I/usr/include/eigen3 -I/usr/local/include/opencv  -O0 -g -D USE_VIEWER -g   -std=c++14 -o CMakeFiles/state-estimation-core.dir/src/feature-tracker.cpp.o -c /home/ruguang/docker-CFSD/cfsd/2019/state-estimation/src/feature-tracker.cpp",
+  "file": "/home/ruguang/docker-CFSD/cfsd/2019/state-estimation/src/feature-tracker.cpp"
+},
+{
+  "directory": "/home/ruguang/docker-CFSD/cfsd/2019/state-estimation/build",
+  "command": "/usr/bin/g++-7   -isystem /usr/local/include -I/home/ruguang/docker-CFSD/cfsd/2019/state-estimation/include -isystem /home/ruguang/docker-CFSD/cfsd/2019/state-estimation/build -I/usr/include/eigen3 -I/usr/local/include/opencv  -O0 -g -D USE_VIEWER -g   -std=c++14 -o CMakeFiles/state-estimation-core.dir/src/visual-inertial-odometry.cpp.o -c /home/ruguang/docker-CFSD/cfsd/2019/state-estimation/src/visual-inertial-odometry.cpp",
+  "file": "/home/ruguang/docker-CFSD/cfsd/2019/state-estimation/src/visual-inertial-odometry.cpp"
+},
+{
+  "directory": "/home/ruguang/docker-CFSD/cfsd/2019/state-estimation/build",
+  "command": "/usr/bin/g++-7  -DGFLAGS_IS_A_DLL=0 -isystem /usr/local/include -I/home/ruguang/docker-CFSD/cfsd/2019/state-estimation/include -isystem /home/ruguang/docker-CFSD/cfsd/2019/state-estimation/build -isystem /usr/include/eigen3 -isystem /usr/local/include/opencv  -O0 -g -D USE_VIEWER -g   -pthread -std=c++14 -o CMakeFiles/state-estimation.dir/src/state-estimation.cpp.o -c /home/ruguang/docker-CFSD/cfsd/2019/state-estimation/src/state-estimation.cpp",
+  "file": "/home/ruguang/docker-CFSD/cfsd/2019/state-estimation/src/state-estimation.cpp"
+}
+]

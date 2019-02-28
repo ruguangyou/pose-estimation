@@ -16,6 +16,7 @@ std::shared_ptr<Config> Config::_config = nullptr; // static data member initial
 void Config::setParameterFile(const std::string& filename) {
     if (_config == nullptr) {
         _config = std::shared_ptr<Config> (new Config());
+        std::cout << "Open file " << filename << std::endl;
     }
     _config->_file = cv::FileStorage(filename.c_str(), cv::FileStorage::READ);
 
@@ -24,13 +25,6 @@ void Config::setParameterFile(const std::string& filename) {
         _config->_file.release();
         return;
     }
-}
-
-template <typename T>
-T Initializer::get(const std::string& key) {
-    T value;
-    _config->_file[key] >> value;
-    return value;
 }
 
 } // namespace cfsd

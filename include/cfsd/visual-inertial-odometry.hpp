@@ -2,28 +2,20 @@
 #define VISUAL_INERTIAL_ODOMETRY_HPP
 
 #include "cfsd/common.hpp"
-#include "cfsd/camera-frame.hpp"
-#include "cfsd/imu-frame.hpp"
-#include "cfsd/key-frame.hpp"
 #include "cfsd/feature-tracker.hpp"
-
-#include <opencv2/calib3d/calib3d.hpp>
-#include <opencv2/feature2d/feature2d.hpp>
-#include <opencv2/imgproc/imgproc.cpp>
-#include <opencv2/highgui/highgui.cpp>
+// #include "cfsd/map.hpp"
 
 namespace cfsd {
 
 class VisualInertialOdometry {
   public:
-    enum VIOstate { INITIALIZING, OK, LOST };
+    enum VIOstate { INITIALIZING, RUNNING, LOST };
     using Ptr = std::shared_ptr<VisualInertialOdometry>; // typedef std::shared_ptr<VisualInertialOdometry> Ptr;
 
   public:
-    VisualInertialOdometry();
-    ~VisualInertialOdometry();
+    VisualInertialOdometry(bool verbose, bool debug);
 
-    static VisualInertialOdometry::Ptr create();
+    static VisualInertialOdometry::Ptr create(bool verbose, bool debug);
     
     // several feature tracking methods are available to choose
     // todo: compare the performance of these methods
@@ -33,15 +25,20 @@ class VisualInertialOdometry {
 
     // void imuPreintegration();
 
-    void processFrame()
-    void addKeyFrame();
-
+    void processFrame(long timestamp, cv::Mat& img);
 
   private:
+    bool _verbose, _debug;
     VIOstate _state;
 
     FeatureTracker::Ptr _featureTracker;
     std::vector<KeyFrame::Ptr> _keyFrames;
+    std::vector<std::vector<cv::DMatch>> _frameMatches;
+    std::vector<SophusSE3Type> _camPoses;
+    // Map::Ptr _map;
+
+  public:
+    inline const SophusSE3Type& getLatestCamPose() const { return _camPoses.back(); }
 };
 
 } // namespace cfsd

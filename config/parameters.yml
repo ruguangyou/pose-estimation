@@ -1,4 +1,8 @@
 %YAML:1.0
+# camera image resolution, 2560x720(30Hz), 1344x376(60Hz)
+width: 1344
+height: 376
+
 # left camera intrinsics
 camLeft: !!opencv-matrix
     rows: 3
@@ -45,4 +49,20 @@ translationLeftToRight: !!opencv-matrix
     dt: f
     data: [ -0.113323, 0.000475, -0.003484]
 
-# parameters
+# feature detector parameters
+detectorType: "ORB"  # available (ORB, BRISK)
+# ORB
+numberOfFeatures: 500
+scaleFactor: 1.2
+levelPyramid: 8
+
+# feature matching parameters
+matchRatio: 1.5    # the distance of a good match should be smaller than minDist*matchRatio
+minMatchDist: 30.0 # another number for selecting good matches, from experience
+matchThresLow: 0.6 # lower bound of matching percentage, for determining key frame
+matchThresUp: 0.8  # upper bound of matching percentage, for determining key frame
+
+#max_num_lost: 10
+#min_inliers: 10
+#keyframe_rotation: 0.1
+#keyframe_translation: 0.1

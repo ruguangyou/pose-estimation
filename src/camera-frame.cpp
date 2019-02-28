@@ -2,20 +2,28 @@
 
 namespace cfsd {
 
+// static parameters need initilization
+EigenMatrix3Type CameraFrame::_camLeft(EigenMatrix3Type::Zero());
+EigenMatrix3Type CameraFrame::_camRight(EigenMatrix3Type::Zero());
+EigenVector4Type CameraFrame::_distLeft(EigenVector4Type::Zero());
+EigenVector4Type CameraFrame::_distRight(EigenVector4Type::Zero());
+SophusSE3Type CameraFrame::_right2left(EigenMatrix3Type::Identity(), EigenVector3Type::Zero());
+SophusSE3Type CameraFrame::_left2right(EigenMatrix3Type::Identity(), EigenVector3Type::Zero());
+
 // default construtor
 CameraFrame::CameraFrame() {}
 
 CameraFrame::~CameraFrame() {}
 
-CameraFrame::CameraFrame(long id, double timestamp, cv::Mat img)
+CameraFrame::CameraFrame(long id, long timestamp, cv::Mat img)
     : _id(id), _timestamp(timestamp) {
         _imgLeft = img(cv::Range(0, img.rows), cv::Range(0, img.cols/2));
         _imgRight = img(cv::Range(0, img.rows), cv::Range(img.cols/2, img.cols));
     }
 
-CameraFrame::Ptr CameraFrame::create(double timestamp, cv::Mat img) {
-    static long factory_id = 0;
-    return CameraFrame::Ptr(new CameraFrame(factory_id++, timestamp, img));
+CameraFrame::Ptr CameraFrame::create(long timestamp, cv::Mat img) {
+    static long frameCounter = 0;
+    return CameraFrame::Ptr(new CameraFrame(frameCounter++, timestamp, img));
 }
 
 void CameraFrame::setIntrinsics(cv::Mat& camLeft, cv::Mat& distLeft, cv::Mat& camRight, cv::Mat& distRight) {
@@ -26,11 +34,11 @@ void CameraFrame::setIntrinsics(cv::Mat& camLeft, cv::Mat& distLeft, cv::Mat& ca
 }
 
 void CameraFrame::setExtrinsics(cv::Mat& R, cv::Mat& t) {
-    Eigen::Matrix3d _R;
-    Eigen::Vector3d _t;
+    EigenMatrix3Type _R;
+    EigenVector3Type _t;
     cv::cv2eigen(R, _R);
     cv::cv2eigen(t, _t);
-    _left2right = Sophus::SE3d(_R, _t);
+    _left2right = SophusSE3Type(_R, _t);
     _right2left = _left2right.inverse();
 }
 
@@ -48,57 +56,13 @@ void CameraFrame::setExtrinsics(cv::Mat& R, cv::Mat& t) {
 
 void CameraFrame::undistort() {
     // the images should be undistorted
-    cv::undistort(_imgLeft, _imgLeft, _camLeft, _distLeft);
-    cv::undistort(_imgRight, _imgRight, _camRight, _distRight);
+    cv::Mat camLeft, distLeft, camRight, distRight;
+    cv::eigen2cv(_camLeft, camLeft);
+    cv::eigen2cv(_distLeft, distLeft);
+    cv::eigen2cv(_camRight, camRight);
+    cv::eigen2cv(_distRight, distRight);
+    cv::undistort(_imgLeft, _imgLeft, camLeft, distLeft);
+    cv::undistort(_imgRight, _imgRight, camRight, distRight);
 }
-
-// coordinate tranformation
-Eigen::Vector2d CameraFrame::camLeft2pixel(const Eigen::Vector3d& p_c) {
-    return Eigen::Vector2d(p_c(0,0) / p_c(2,0) * _camLeft(0,0) + _camLeft(0,2),
-                           p_c(1,0) / p_c(2,0) * _camLeft(1,1) + _camLeft(1,2));
-}
-
-Eigen::Vector2d CameraFrame::camRight2pixel(const Eigen::Vector3d& p_c) {
-    return Eigen::Vector2d(p_c(0,0) / p_c(2,0) * _camRight(0,0) + _camRight(0,2),
-                           p_c(1,0) / p_c(2,0) * _camRight(1,1) + _camRight(1,2));
-}
-
-Eigen::Vector3d CameraFrame::pixel2camLeft(const Eigen::Vector2d& p_p, const double depth) {
-    return Eigen::Vector3d((p_p(0,0) - _camLeft(0,2)) / _camLeft(0,0) * depth,
-                           (p_p(1,0) - _camLeft(1,2)) / _camLeft(1,1) * depth,
-                           depth);
-}
-
-Eigen::Vector3d CameraFrame::pixel2camRight(const Eigen::Vector2d& p_p, const double depth) {
-    return Eigen::Vector3d((p_p(0,0) - _camRight(0,2)) / _camRight(0,0) * depth,
-                           (p_p(1,0) - _camRight(1,2)) / _camRight(1,1) * depth,
-                           depth);
-}
-
-Eigen::Vector3d CameraFrame::camLeft2world(const Eigen::Vector2d& p_c, const Sophus::SE3d& T_c_w) {
-    // T_c_w is the transform from left camera to world
-    return T_c_w * p_c;
-}
-
-Eigen::Vector2d CameraFrame::world2camLeft(const Eigen::Vector3d& p_w, const Sophus::SE3d& T_c_w) {
-    return T_c_w.inverse() * p_w;
-}
-
-Eigen::Vector3d CameraFrame::camRight2camLeft(const Eigen::Vector3d& p_c) {
-    return _left2right * p_c;
-}
-
-Eigen::Vector3d CameraFrame::camRight2camLeft(const Eigen::Vector3d& p_c) {
-    return _right2left * p_c;
-}
-
-// Eigen::Vector3d CameraFrame::camLeft2imu(const Eigen::Vector3d& p_c) {
-//     return _left2imu * p_c;
-// }
-
-// Eigen::Vector3d CameraFrame::imu2camLeft(const Eigen::Vector3d& p_i) {
-//     return _left2imu.inverse() * p_i;
-// }
-
 
 } // namespace cfsd

@@ -3,10 +3,10 @@
 
 #include "cfsd/common.hpp"
 #include "cfsd/config.hpp"
-#include "cfsd/camera-frame.hpp"
+#include "cfsd/key-frame.hpp"
 
 #include <opencv2/calib3d/calib3d.hpp>
-#include <opencv2/feature2d/feature2d.hpp>
+#include <opencv2/features2d/features2d.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
 
 namespace cfsd {
@@ -19,10 +19,10 @@ class FeatureTracker {
     // default constructor and deconstructor
     FeatureTracker();
     ~FeatureTracker();
-    FeatureTracker(DetectorType type, bool verbose);
+    FeatureTracker(bool verbose, bool debug);
 
     // factory function
-    static FeatureTracker::Ptr create(DetectorType type, bool verbose);
+    static FeatureTracker::Ptr create(bool verbose, bool debug);
 
     // extract and match keypoints
     void extractKeypoints(); // extract current camera keypoints
@@ -32,7 +32,7 @@ class FeatureTracker {
     // compute camera pose:
     // shoule use RANSAC scheme for outlier rejection,
     // and solve 3D-2D PnP problem (in particular, P3P problem)
-    void computePose(Sophus::SE3d& pose);
+    void computeCamPose(SophusSE3Type& pose);
 
   private: 
     // unsigned long _id;
@@ -65,11 +65,12 @@ class FeatureTracker {
     float _matchPercent;
 
   public:
-    inline const KeyFrame::Ptr& getKeyFrame() const { return _keyRef; }
-    inline const CameraFrame::Ptr& getCamFrame() const {return _camCur; }
+    inline KeyFrame::Ptr getKeyFrame() const { return _keyRef; }
+    inline CameraFrame::Ptr getCamFrame() const {return _camCur; }
+    inline std::vector<cv::DMatch> getDMatch() const { return _matches; }
 
-    void setKeyFrame(KeyFrame::Ptr keyFrame);
-    void setCameraFrame(CameraFrame::Ptr camFrame);
+    inline void setKeyFrame(KeyFrame::Ptr keyFrame) { _keyRef = keyFrame; }
+    inline void setCamFrame(CameraFrame::Ptr camFrame) { _camCur = camFrame; }
 
 };
 

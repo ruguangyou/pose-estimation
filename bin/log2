@@ -1,0 +1,355 @@
+Open file ../config/parameters.yml
+Setup ORB detector
+
+timestamp: 1551350587314597
+Current camera position:
+0
+0
+0
+Current camera orientation (roll,pitch,yaw):
+0
+0
+0
+Elapsed time: 30.4691ms
+
+Elapsed time: 20.1374ms
+
+Elapsed time: 15.2203ms
+
+Elapsed time: 12.6311ms
+
+Elapsed time: 12.1988ms
+
+Elapsed time: 23.0552ms
+
+Elapsed time: 13.534ms
+
+Elapsed time: 24.9926ms
+
+Elapsed time: 10.6366ms
+
+Elapsed time: 11.3019ms
+
+Elapsed time: 11.0588ms
+
+Elapsed time: 11.0394ms
+
+Elapsed time: 23.038ms
+
+Elapsed time: 19.2747ms
+
+Elapsed time: 10.2299ms
+
+Elapsed time: 10.4598ms
+
+Elapsed time: 9.86104ms
+
+Elapsed time: 13.8496ms
+
+Elapsed time: 17.1439ms
+
+Elapsed time: 11.2675ms
+
+Elapsed time: 19.2628ms
+
+Elapsed time: 24.5746ms
+
+Elapsed time: 15.737ms
+
+Elapsed time: 18.4888ms
+
+Elapsed time: 13.4113ms
+
+Elapsed time: 11.1178ms
+
+Elapsed time: 19.8028ms
+
+Elapsed time: 14.4837ms
+
+Elapsed time: 12.5201ms
+
+Elapsed time: 14.1174ms
+
+Elapsed time: 15.4169ms
+
+Elapsed time: 14.297ms
+
+Elapsed time: 18.9929ms
+
+Elapsed time: 19.7021ms
+
+Elapsed time: 14.8602ms
+
+Elapsed time: 23.992ms
+
+timestamp: 1551350588546086
+Current camera position:
+    0.0082515
+-0.00072121
+-0.00335193
+Current camera orientation (roll,pitch,yaw):
+    0.0106919
+ 0.00115124
+0.000597024
+Elapsed time: 54.9722ms
+
+Elapsed time: 11.6156ms
+
+Elapsed time: 12.8809ms
+
+Elapsed time: 10.1074ms
+
+Elapsed time: 11.0022ms
+
+Elapsed time: 14.6987ms
+
+Elapsed time: 39.7947ms
+
+Elapsed time: 12.6136ms
+
+Elapsed time: 13.3095ms
+
+Elapsed time: 24.4476ms
+
+Elapsed time: 12.3348ms
+
+Elapsed time: 12.2773ms
+
+Elapsed time: 11.9827ms
+
+Elapsed time: 15.5493ms
+
+Elapsed time: 14.6448ms
+
+Elapsed time: 15.3347ms
+
+Elapsed time: 13.3087ms
+
+Elapsed time: 14.1966ms
+
+Elapsed time: 14.9892ms
+
+Elapsed time: 13.6821ms
+
+Elapsed time: 14.8144ms
+
+Elapsed time: 23.3623ms
+
+Elapsed time: 16.4292ms
+
+Elapsed time: 15.0629ms
+
+Elapsed time: 17.7887ms
+
+Elapsed time: 12.5486ms
+
+Elapsed time: 10.0193ms
+
+Elapsed time: 11.7085ms
+
+Elapsed time: 16.6261ms
+
+Elapsed time: 12.5144ms
+
+Elapsed time: 15.916ms
+
+Elapsed time: 15.1807ms
+
+Elapsed time: 14.0758ms
+
+Elapsed time: 26.1607ms
+
+Elapsed time: 13.9525ms
+
+Elapsed time: 12.224ms
+
+Elapsed time: 15.7902ms
+
+Elapsed time: 17.1219ms
+
+Elapsed time: 18.1091ms
+
+Elapsed time: 16.5409ms
+
+Elapsed time: 26.9783ms
+
+Elapsed time: 18.9056ms
+
+Elapsed time: 14.5882ms
+
+Elapsed time: 10.9483ms
+
+Elapsed time: 13.9658ms
+
+Elapsed time: 10.0897ms
+
+Elapsed time: 11.7367ms
+
+Elapsed time: 14.2464ms
+
+timestamp: 1551350590771673
+Current camera position:
+   -0.00369978
+-0.000453107
+ -0.00173015
+Current camera orientation (roll,pitch,yaw):
+   0.0215072
+ 0.0020921
+0.00149152
+Elapsed time: 53.5962ms
+
+Elapsed time: 19.4847ms
+
+Elapsed time: 20.2802ms
+
+Elapsed time: 16.6943ms
+
+Elapsed time: 14.4211ms
+
+Elapsed time: 13.91ms
+
+Elapsed time: 15.676ms
+
+Elapsed time: 17.7163ms
+
+Elapsed time: 13.4172ms
+
+Elapsed time: 16.7209ms
+
+Elapsed time: 17.1287ms
+
+Elapsed time: 20.459ms
+
+Elapsed time: 13.8946ms
+
+Elapsed time: 10.6782ms
+
+Elapsed time: 11.1873ms
+
+Elapsed time: 12.8268ms
+
+Elapsed time: 11.3128ms
+
+Elapsed time: 12.0359ms
+
+Elapsed time: 10.1384ms
+
+Elapsed time: 11.1292ms
+
+Elapsed time: 19.2081ms
+
+Elapsed time: 10.6177ms
+
+Elapsed time: 12.9481ms
+
+Elapsed time: 12.8948ms
+
+Elapsed time: 14.6712ms
+
+Elapsed time: 12.3465ms
+
+Elapsed time: 12.7859ms
+
+Elapsed time: 12.8774ms
+
+Elapsed time: 11.3738ms
+
+Elapsed time: 9.76114ms
+
+Elapsed time: 13.6187ms
+
+Elapsed time: 12.3961ms
+
+Elapsed time: 14.6916ms
+
+Elapsed time: 8.40242ms
+
+Elapsed time: 13.1185ms
+
+Elapsed time: 17.2995ms
+
+Elapsed time: 20.4116ms
+
+Elapsed time: 16.2347ms
+
+Elapsed time: 11.3766ms
+
+Elapsed time: 13.9082ms
+
+Elapsed time: 12.4566ms
+
+Elapsed time: 13.4007ms
+
+Elapsed time: 23.7572ms
+
+Elapsed time: 14.1147ms
+
+Elapsed time: 24.2906ms
+
+Elapsed time: 11.2315ms
+
+Elapsed time: 11.9967ms
+
+Elapsed time: 12.0502ms
+
+Elapsed time: 11.9315ms
+
+Elapsed time: 11.528ms
+
+Elapsed time: 9.98723ms
+
+Elapsed time: 10.8159ms
+
+Elapsed time: 9.47851ms
+
+Elapsed time: 12.3229ms
+
+Elapsed time: 12.3041ms
+
+Elapsed time: 12.5832ms
+
+Elapsed time: 14.1002ms
+
+Elapsed time: 13.8825ms
+
+Elapsed time: 12.4478ms
+
+timestamp: 1551350592543494
+Current camera position:
+   0.00479792
+-0.00328169
+ -0.0059145
+Current camera orientation (roll,pitch,yaw):
+    0.032163
+0.00227711
+0.00161701
+Elapsed time: 47.7388ms
+
+Elapsed time: 11.0566ms
+
+Elapsed time: 9.79163ms
+
+Elapsed time: 9.85546ms
+
+Elapsed time: 16.8447ms
+
+Elapsed time: 16.5458ms
+
+Elapsed time: 19.2254ms
+
+Elapsed time: 18.6749ms
+
+Elapsed time: 17.0799ms
+
+Elapsed time: 21.3928ms
+
+Elapsed time: 14.781ms
+
+Elapsed time: 17.4471ms
+
+Elapsed time: 17.2644ms
+
+Elapsed time: 15.2488ms
+
+Elapsed time: 24.3873ms
+
