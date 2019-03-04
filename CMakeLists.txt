@@ -15,7 +15,7 @@
 
 cmake_minimum_required(VERSION 3.2)
 
-project(state-estimation)
+project(cfsd-state-estimation)
 # Compiler setting
 # set(CMAKE_CXX_COMPILER "g++")
 # set(CMAKE_BUILD_TYPE "Debug")
@@ -38,7 +38,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 # Build a static binary.
 set(CMAKE_EXE_LINKER_FLAGS "-static-libgcc -static-libstdc++")
-set(CMAKE_CXX_FLAGS "-O0 -g -D USE_VIEWER")
+set(CMAKE_CXX_FLAGS "-O0 -g -D DEBUG")
 # # Add further warning levels.
 # set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} \
 #     -D_XOPEN_SOURCE=700 \
@@ -68,16 +68,16 @@ set(LIBRARY_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/lib)
 # ${CMAKE_BINARY_DIR} is the state-estimation/build/ directory
 add_custom_command(OUTPUT ${CMAKE_BINARY_DIR}/cluon-msc
     WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
-    COMMAND ${CMAKE_COMMAND} -E create_symlink ${CMAKE_SOURCE_DIR}/include/cfsd/${CLUON_COMPLETE} ${CMAKE_BINARY_DIR}/cluon-complete.hpp
+    COMMAND ${CMAKE_COMMAND} -E create_symlink ${CMAKE_SOURCE_DIR}/include/${CLUON_COMPLETE} ${CMAKE_BINARY_DIR}/cluon-complete.hpp
     COMMAND ${CMAKE_COMMAND} -E create_symlink ${CMAKE_BINARY_DIR}/cluon-complete.hpp ${CMAKE_BINARY_DIR}/cluon-complete.cpp
     COMMAND ${CMAKE_CXX_COMPILER} -o ${CMAKE_BINARY_DIR}/cluon-msc ${CMAKE_BINARY_DIR}/cluon-complete.cpp -std=c++14 -pthread -D HAVE_CLUON_MSC
-    DEPENDS ${CMAKE_SOURCE_DIR}/include/cfsd/${CLUON_COMPLETE})
+    DEPENDS ${CMAKE_SOURCE_DIR}/include/${CLUON_COMPLETE})
 ################################################################################
 # Generate opendlv-standard-message-set.hpp from ${OPENDLV_STANDARD_MESSAGE_SET} file.
 add_custom_command(OUTPUT ${CMAKE_BINARY_DIR}/opendlv-standard-message-set.hpp
     WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
-    COMMAND ${CMAKE_BINARY_DIR}/cluon-msc --cpp --out=${CMAKE_BINARY_DIR}/opendlv-standard-message-set.hpp ${CMAKE_SOURCE_DIR}/include/cfsd/${OPENDLV_STANDARD_MESSAGE_SET}
-    DEPENDS ${CMAKE_SOURCE_DIR}/include/cfsd/${OPENDLV_STANDARD_MESSAGE_SET} ${CMAKE_BINARY_DIR}/cluon-msc)
+    COMMAND ${CMAKE_BINARY_DIR}/cluon-msc --cpp --out=${CMAKE_BINARY_DIR}/opendlv-standard-message-set.hpp ${CMAKE_SOURCE_DIR}/include/${OPENDLV_STANDARD_MESSAGE_SET}
+    DEPENDS ${CMAKE_SOURCE_DIR}/include/${OPENDLV_STANDARD_MESSAGE_SET} ${CMAKE_BINARY_DIR}/cluon-msc)
 
 ################################################################################
 # Include directories
@@ -114,25 +114,22 @@ include_directories(${OpenCV_INCLUDE_DIRS})
 set(LIBRARIES ${LIBRARIES} ${OpenCV_LIBS})
 
 # Ceres
-find_package(Ceres REQUIRED)
-include_directories(${CERES_INCLUDE_DIRS})
-set(LIBRARIES ${LIBRARIES} ${CERES_LIBRARIES})
+# find_package(Ceres REQUIRED)
+# include_directories(${CERES_INCLUDE_DIRS})
+# set(LIBRARIES ${LIBRARIES} ${CERES_LIBRARIES})
 
 ################################################################################
 # Generate static libs
-
 add_library(${PROJECT_NAME}-core STATIC
     ${CMAKE_SOURCE_DIR}/src/config.cpp
-    ${CMAKE_SOURCE_DIR}/src/camera-frame.cpp
-    ${CMAKE_SOURCE_DIR}/src/key-frame.cpp
+    # ${CMAKE_SOURCE_DIR}/src/key-frame.cpp
     ${CMAKE_SOURCE_DIR}/src/feature-tracker.cpp
     # ${CMAKE_SOURCE_DIR}/src/map.cpp
-    ${CMAKE_SOURCE_DIR}/src/visual-inertial-odometry.cpp
-    )
+    ${CMAKE_SOURCE_DIR}/src/visual-inertial-slam.cpp)
 
 ################################################################################
 # Create executable
-add_executable(${PROJECT_NAME} ${CMAKE_SOURCE_DIR}/src/${PROJECT_NAME}.cpp ${CMAKE_BINARY_DIR}/opendlv-standard-message-set.hpp)
+add_executable(${PROJECT_NAME} ${CMAKE_SOURCE_DIR}/src/${PROJECT_NAME}.cpp ${CMAKE_SOURCE_DIR}/src/image-reader.cpp ${CMAKE_BINARY_DIR}/opendlv-standard-message-set.hpp)
 target_link_libraries(${PROJECT_NAME} ${PROJECT_NAME}-core ${LIBRARIES})
 
 ################################################################################

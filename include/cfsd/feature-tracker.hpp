@@ -2,8 +2,8 @@
 #define FEATURE_TRACKER_HPP
 
 #include "cfsd/common.hpp"
-#include "cfsd/config.hpp"
-#include "cfsd/key-frame.hpp"
+#include "cfsd/camera-model.hpp"
+// #include "cfsd/key-frame.hpp"
 
 #include <opencv2/calib3d/calib3d.hpp>
 #include <opencv2/features2d/features2d.hpp>
@@ -11,66 +11,91 @@
 
 namespace cfsd {
 
+struct Feature {
+    Feature() {}
+    Feature(const cvPoint2Type& pixelL, const cvPoint2Type& pixelR, const cv::Mat& descriptorL, const cv::Mat& descriptorR)
+      : _matchedTimes(0), _pixelL(pixelL), _pixelR(pixelR), _descriptorL(descriptorL), _descriptorR(descriptorR) {}
+
+    int _matchedTimes;
+
+    cvPoint2Type _pixelL;
+    cvPoint2Type _pixelR;
+    
+    cv::Mat _descriptorL;
+    cv::Mat _descriptorR;
+};
+
 class FeatureTracker {
   public:
-    enum DetectorType { ORB = 0, BRISK = 1 };
-    using Ptr = std::shared_ptr<FeatureTracker>;
+    enum DetectorType {
+        ORB = 0,
+        BRISK = 1
+    };
+
+    static size_t _featureCount;
   
-    // default constructor and deconstructor
-    FeatureTracker();
-    ~FeatureTracker();
-    FeatureTracker(bool verbose, bool debug);
+    FeatureTracker(const bool verbose);
 
-    // factory function
-    static FeatureTracker::Ptr create(bool verbose, bool debug);
+    // Feature matching and tracking, including:
+    // - internal match (current frame's left and right image)
+    // - external track (current features and past features)
+    // - refinement? (improve the quality of matching)
+    void processFrame(const cv::Mat& imgLeft, const cv::Mat& imgRight);
 
-    // extract and match keypoints
-    void extractKeypoints(); // extract current camera keypoints
-    void matchKeypoints();   // match current frame and key frame
-    bool curIsKeyFrame();    // determine if current frame would be a key frame
+    void internalMatch(const cv::Mat& imgLeft, const cv::Mat& imgRight, std::vector<cvPoint2Type>& curPixelsL, std::vector<cvPoint2Type>& curPixelsR, cv::Mat& curDescriptorsL, cv::Mat& curDescriptorsR);
+
+    void externalTrack(const std::vector<cvPoint2Type>& curPixelsL, const std::vector<cvPoint2Type>& curPixelsR, const cv::Mat& curDescriptorsL, const cv::Mat& curDescriptorsR);
+
+    void featurePoolUpdate();
     
-    // compute camera pose:
-    // shoule use RANSAC scheme for outlier rejection,
-    // and solve 3D-2D PnP problem (in particular, P3P problem)
-    void computeCamPose(SophusSE3Type& pose);
+    // [Update] decide not to do so for the sake of computational efficiency, instead using estimation from IMU and performing optimization.
+    // Compute camera pose: shoule use RANSAC scheme for outlier rejection, and solve 3D-2D PnP problem (in particular, P3P problem).
+    // void computeCamPose(SophusSE3Type& pose);
 
-  private: 
-    // unsigned long _id;
-    // double _timestamp;
-    bool _verbose, _debug;
+  private:
+    bool _verbose;
+
+    // Detector to be used (ORB, BRISK, ...)
     DetectorType _detectorType;
-    
-    KeyFrame::Ptr _keyRef; // reference frame is a key frame
-    CameraFrame::Ptr _camCur;
-
-    // keypoints and descriptors of current camera frame's left image
-    std::vector<cv::KeyPoint> _keypoints;
-    cv::Mat _descriptors;
-
-    // detector
-    // cv::Ptr<cv::FeatureDetector> _detector;
     cv::Ptr<cv::ORB> _orb;
     cv::Ptr<cv::BRISK> _brisk;
+
+    // Features that pass circular matching, i.e. curLeft <=> histLeft <=> histRight <=> curRight <=> curLeft
+    // store the id of the matched features, s.t. the _matchedTimes could be easily updated;
+    // also store the id of the not matches old features, s.t. they could be removed.
+    std::vector<size_t> _matchedFeatureIDs, _notMatchedFeatureIDs;
+
     
-    // feature matching parameters
-    std::vector<cv::DMatch> _matches;
-    float _matchRatio;    // ratio for selecting good matches
-    float _minMatchDist;  // min match distance, based on experience, e.g. 30.0f
+    // Features in the current frame that have no match with history features, will be added into the feature pool.
+    std::vector<cvPoint2Type> _newPixelsL, _newPixelsR; 
+    cv::Mat _newDescriptorsL, _newDescriptorsR;
 
-    // key frame selection parameters
-    float _matchThresLow; // lower bound of matching percentage
-    float _matchThresUp;  // upper bound of matching percentage
+    // Only part of the image is considered to be useful (e.g. the upper half of the image containing sky contributes little to useful features)
+    // cv::Mat _mask;
 
-    // percentage of good matches in total matches, for key frame selection
-    float _matchPercent;
+    // Match distance should be less than max(_matchRatio*minDist, _minMatchDist)
+    // Ratio for selecting good matches.
+    float _matchRatio;  
+    // Min match distance, based on experience, e.g. 30.0f
+    float _minMatchDist;
 
-  public:
-    inline KeyFrame::Ptr getKeyFrame() const { return _keyRef; }
-    inline CameraFrame::Ptr getCamFrame() const {return _camCur; }
-    inline std::vector<cv::DMatch> getDMatch() const { return _matches; }
+    // Max times a feature coule be matched, i.e., max times a feature could be seen by different frames.
+    int _maxMatchedTimes;
 
-    inline void setKeyFrame(KeyFrame::Ptr keyFrame) { _keyRef = keyFrame; }
-    inline void setCamFrame(CameraFrame::Ptr camFrame) { _camCur = camFrame; }
+    // History features' id and descriptors
+    std::vector<size_t> _histFeatureIDs;
+    cv::Mat _histDescriptorsL, _histDescriptorsR;
+
+    // Available features from history frames.
+    // - new features would be added
+    // - matched features' _matchedTimes will be updated
+    // - old features that are not useful anymore would be removed
+    // so std::map container is choosed due to the efficient access, insert and erase operation.
+    std::map<size_t, Feature> _features;
+
+    // If the image is cropped, the pixel coordinate of keypoints would be different with the uncropped ones,
+    // it would cause dismatching between 3D points and 2D pixels when doing projection.
+    int _cropOffset;
 
 };
 

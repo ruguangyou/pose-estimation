@@ -111,57 +111,57 @@ depend:
 .PHONY : depend
 
 #=============================================================================
-# Target rules for targets named state-estimation-core
+# Target rules for targets named cfsd-state-estimation-core
 
 # Build rule for target.
-state-estimation-core: cmake_check_build_system
-	$(MAKE) -f CMakeFiles/Makefile2 state-estimation-core
-.PHONY : state-estimation-core
+cfsd-state-estimation-core: cmake_check_build_system
+	$(MAKE) -f CMakeFiles/Makefile2 cfsd-state-estimation-core
+.PHONY : cfsd-state-estimation-core
 
 # fast build rule for target.
-state-estimation-core/fast:
-	$(MAKE) -f CMakeFiles/state-estimation-core.dir/build.make CMakeFiles/state-estimation-core.dir/build
-.PHONY : state-estimation-core/fast
+cfsd-state-estimation-core/fast:
+	$(MAKE) -f CMakeFiles/cfsd-state-estimation-core.dir/build.make CMakeFiles/cfsd-state-estimation-core.dir/build
+.PHONY : cfsd-state-estimation-core/fast
 
 #=============================================================================
-# Target rules for targets named state-estimation
+# Target rules for targets named cfsd-state-estimation
 
 # Build rule for target.
-state-estimation: cmake_check_build_system
-	$(MAKE) -f CMakeFiles/Makefile2 state-estimation
-.PHONY : state-estimation
+cfsd-state-estimation: cmake_check_build_system
+	$(MAKE) -f CMakeFiles/Makefile2 cfsd-state-estimation
+.PHONY : cfsd-state-estimation
 
 # fast build rule for target.
-state-estimation/fast:
-	$(MAKE) -f CMakeFiles/state-estimation.dir/build.make CMakeFiles/state-estimation.dir/build
-.PHONY : state-estimation/fast
+cfsd-state-estimation/fast:
+	$(MAKE) -f CMakeFiles/cfsd-state-estimation.dir/build.make CMakeFiles/cfsd-state-estimation.dir/build
+.PHONY : cfsd-state-estimation/fast
 
-src/camera-frame.o: src/camera-frame.cpp.o
+src/cfsd-state-estimation.o: src/cfsd-state-estimation.cpp.o
 
-.PHONY : src/camera-frame.o
+.PHONY : src/cfsd-state-estimation.o
 
 # target to build an object file
-src/camera-frame.cpp.o:
-	$(MAKE) -f CMakeFiles/state-estimation-core.dir/build.make CMakeFiles/state-estimation-core.dir/src/camera-frame.cpp.o
-.PHONY : src/camera-frame.cpp.o
+src/cfsd-state-estimation.cpp.o:
+	$(MAKE) -f CMakeFiles/cfsd-state-estimation.dir/build.make CMakeFiles/cfsd-state-estimation.dir/src/cfsd-state-estimation.cpp.o
+.PHONY : src/cfsd-state-estimation.cpp.o
 
-src/camera-frame.i: src/camera-frame.cpp.i
+src/cfsd-state-estimation.i: src/cfsd-state-estimation.cpp.i
 
-.PHONY : src/camera-frame.i
+.PHONY : src/cfsd-state-estimation.i
 
 # target to preprocess a source file
-src/camera-frame.cpp.i:
-	$(MAKE) -f CMakeFiles/state-estimation-core.dir/build.make CMakeFiles/state-estimation-core.dir/src/camera-frame.cpp.i
-.PHONY : src/camera-frame.cpp.i
+src/cfsd-state-estimation.cpp.i:
+	$(MAKE) -f CMakeFiles/cfsd-state-estimation.dir/build.make CMakeFiles/cfsd-state-estimation.dir/src/cfsd-state-estimation.cpp.i
+.PHONY : src/cfsd-state-estimation.cpp.i
 
-src/camera-frame.s: src/camera-frame.cpp.s
+src/cfsd-state-estimation.s: src/cfsd-state-estimation.cpp.s
 
-.PHONY : src/camera-frame.s
+.PHONY : src/cfsd-state-estimation.s
 
 # target to generate assembly for a file
-src/camera-frame.cpp.s:
-	$(MAKE) -f CMakeFiles/state-estimation-core.dir/build.make CMakeFiles/state-estimation-core.dir/src/camera-frame.cpp.s
-.PHONY : src/camera-frame.cpp.s
+src/cfsd-state-estimation.cpp.s:
+	$(MAKE) -f CMakeFiles/cfsd-state-estimation.dir/build.make CMakeFiles/cfsd-state-estimation.dir/src/cfsd-state-estimation.cpp.s
+.PHONY : src/cfsd-state-estimation.cpp.s
 
 src/config.o: src/config.cpp.o
 
@@ -169,7 +169,7 @@ src/config.o: src/config.cpp.o
 
 # target to build an object file
 src/config.cpp.o:
-	$(MAKE) -f CMakeFiles/state-estimation-core.dir/build.make CMakeFiles/state-estimation-core.dir/src/config.cpp.o
+	$(MAKE) -f CMakeFiles/cfsd-state-estimation-core.dir/build.make CMakeFiles/cfsd-state-estimation-core.dir/src/config.cpp.o
 .PHONY : src/config.cpp.o
 
 src/config.i: src/config.cpp.i
@@ -178,7 +178,7 @@ src/config.i: src/config.cpp.i
 
 # target to preprocess a source file
 src/config.cpp.i:
-	$(MAKE) -f CMakeFiles/state-estimation-core.dir/build.make CMakeFiles/state-estimation-core.dir/src/config.cpp.i
+	$(MAKE) -f CMakeFiles/cfsd-state-estimation-core.dir/build.make CMakeFiles/cfsd-state-estimation-core.dir/src/config.cpp.i
 .PHONY : src/config.cpp.i
 
 src/config.s: src/config.cpp.s
@@ -187,7 +187,7 @@ src/config.s: src/config.cpp.s
 
 # target to generate assembly for a file
 src/config.cpp.s:
-	$(MAKE) -f CMakeFiles/state-estimation-core.dir/build.make CMakeFiles/state-estimation-core.dir/src/config.cpp.s
+	$(MAKE) -f CMakeFiles/cfsd-state-estimation-core.dir/build.make CMakeFiles/cfsd-state-estimation-core.dir/src/config.cpp.s
 .PHONY : src/config.cpp.s
 
 src/feature-tracker.o: src/feature-tracker.cpp.o
@@ -196,7 +196,7 @@ src/feature-tracker.o: src/feature-tracker.cpp.o
 
 # target to build an object file
 src/feature-tracker.cpp.o:
-	$(MAKE) -f CMakeFiles/state-estimation-core.dir/build.make CMakeFiles/state-estimation-core.dir/src/feature-tracker.cpp.o
+	$(MAKE) -f CMakeFiles/cfsd-state-estimation-core.dir/build.make CMakeFiles/cfsd-state-estimation-core.dir/src/feature-tracker.cpp.o
 .PHONY : src/feature-tracker.cpp.o
 
 src/feature-tracker.i: src/feature-tracker.cpp.i
@@ -205,7 +205,7 @@ src/feature-tracker.i: src/feature-tracker.cpp.i
 
 # target to preprocess a source file
 src/feature-tracker.cpp.i:
-	$(MAKE) -f CMakeFiles/state-estimation-core.dir/build.make CMakeFiles/state-estimation-core.dir/src/feature-tracker.cpp.i
+	$(MAKE) -f CMakeFiles/cfsd-state-estimation-core.dir/build.make CMakeFiles/cfsd-state-estimation-core.dir/src/feature-tracker.cpp.i
 .PHONY : src/feature-tracker.cpp.i
 
 src/feature-tracker.s: src/feature-tracker.cpp.s
@@ -214,89 +214,62 @@ src/feature-tracker.s: src/feature-tracker.cpp.s
 
 # target to generate assembly for a file
 src/feature-tracker.cpp.s:
-	$(MAKE) -f CMakeFiles/state-estimation-core.dir/build.make CMakeFiles/state-estimation-core.dir/src/feature-tracker.cpp.s
+	$(MAKE) -f CMakeFiles/cfsd-state-estimation-core.dir/build.make CMakeFiles/cfsd-state-estimation-core.dir/src/feature-tracker.cpp.s
 .PHONY : src/feature-tracker.cpp.s
 
-src/key-frame.o: src/key-frame.cpp.o
+src/image-reader.o: src/image-reader.cpp.o
 
-.PHONY : src/key-frame.o
-
-# target to build an object file
-src/key-frame.cpp.o:
-	$(MAKE) -f CMakeFiles/state-estimation-core.dir/build.make CMakeFiles/state-estimation-core.dir/src/key-frame.cpp.o
-.PHONY : src/key-frame.cpp.o
-
-src/key-frame.i: src/key-frame.cpp.i
-
-.PHONY : src/key-frame.i
-
-# target to preprocess a source file
-src/key-frame.cpp.i:
-	$(MAKE) -f CMakeFiles/state-estimation-core.dir/build.make CMakeFiles/state-estimation-core.dir/src/key-frame.cpp.i
-.PHONY : src/key-frame.cpp.i
-
-src/key-frame.s: src/key-frame.cpp.s
-
-.PHONY : src/key-frame.s
-
-# target to generate assembly for a file
-src/key-frame.cpp.s:
-	$(MAKE) -f CMakeFiles/state-estimation-core.dir/build.make CMakeFiles/state-estimation-core.dir/src/key-frame.cpp.s
-.PHONY : src/key-frame.cpp.s
-
-src/state-estimation.o: src/state-estimation.cpp.o
-
-.PHONY : src/state-estimation.o
+.PHONY : src/image-reader.o
 
 # target to build an object file
-src/state-estimation.cpp.o:
-	$(MAKE) -f CMakeFiles/state-estimation.dir/build.make CMakeFiles/state-estimation.dir/src/state-estimation.cpp.o
-.PHONY : src/state-estimation.cpp.o
+src/image-reader.cpp.o:
+	$(MAKE) -f CMakeFiles/cfsd-state-estimation.dir/build.make CMakeFiles/cfsd-state-estimation.dir/src/image-reader.cpp.o
+.PHONY : src/image-reader.cpp.o
 
-src/state-estimation.i: src/state-estimation.cpp.i
+src/image-reader.i: src/image-reader.cpp.i
 
-.PHONY : src/state-estimation.i
+.PHONY : src/image-reader.i
 
 # target to preprocess a source file
-src/state-estimation.cpp.i:
-	$(MAKE) -f CMakeFiles/state-estimation.dir/build.make CMakeFiles/state-estimation.dir/src/state-estimation.cpp.i
-.PHONY : src/state-estimation.cpp.i
+src/image-reader.cpp.i:
+	$(MAKE) -f CMakeFiles/cfsd-state-estimation.dir/build.make CMakeFiles/cfsd-state-estimation.dir/src/image-reader.cpp.i
+.PHONY : src/image-reader.cpp.i
 
-src/state-estimation.s: src/state-estimation.cpp.s
+src/image-reader.s: src/image-reader.cpp.s
 
-.PHONY : src/state-estimation.s
+.PHONY : src/image-reader.s
 
 # target to generate assembly for a file
-src/state-estimation.cpp.s:
-	$(MAKE) -f CMakeFiles/state-estimation.dir/build.make CMakeFiles/state-estimation.dir/src/state-estimation.cpp.s
-.PHONY : src/state-estimation.cpp.s
+src/image-reader.cpp.s:
+	$(MAKE) -f CMakeFiles/cfsd-state-estimation.dir/build.make CMakeFiles/cfsd-state-estimation.dir/src/image-reader.cpp.s
+.PHONY : src/image-reader.cpp.s
 
-src/visual-inertial-odometry.o: src/visual-inertial-odometry.cpp.o
+src/visual-inertial-slam.o: src/visual-inertial-slam.cpp.o
 
-.PHONY : src/visual-inertial-odometry.o
+.PHONY : src/visual-inertial-slam.o
 
 # target to build an object file
-src/visual-inertial-odometry.cpp.o:
-	$(MAKE) -f CMakeFiles/state-estimation-core.dir/build.make CMakeFiles/state-estimation-core.dir/src/visual-inertial-odometry.cpp.o
-.PHONY : src/visual-inertial-odometry.cpp.o
+src/visual-inertial-slam.cpp.o:
+	$(MAKE) -f CMakeFiles/cfsd-state-estimation-core.dir/build.make CMakeFiles/cfsd-state-estimation-core.dir/src/visual-inertial-slam.cpp.o
+.PHONY : src/visual-inertial-slam.cpp.o
 
-src/visual-inertial-odometry.i: src/visual-inertial-odometry.cpp.i
+src/visual-inertial-slam.i: src/visual-inertial-slam.cpp.i
 
-.PHONY : src/visual-inertial-odometry.i
+.PHONY : src/visual-inertial-slam.i
 
 # target to preprocess a source file
-src/visual-inertial-odometry.cpp.i:
-	$(MAKE) -f CMakeFiles/state-estimation-core.dir/build.make CMakeFiles/state-estimation-core.dir/src/visual-inertial-odometry.cpp.i
-.PHONY : src/visual-inertial-odometry.cpp.i
+src/visual-inertial-slam.cpp.i:
+	$(MAKE) -f CMakeFiles/cfsd-state-estimation-core.dir/build.make CMakeFiles/cfsd-state-estimation-core.dir/src/visual-inertial-slam.cpp.i
+.PHONY : src/visual-inertial-slam.cpp.i
 
-src/visual-inertial-odometry.s: src/visual-inertial-odometry.cpp.s
+src/visual-inertial-slam.s: src/visual-inertial-slam.cpp.s
 
-.PHONY : src/visual-inertial-odometry.s
+.PHONY : src/visual-inertial-slam.s
 
 # target to generate assembly for a file
-src/visual-inertial-odometry.cpp.s:
-	$(MAKE) -f CMakeFiles/state-estimation-core.dir/build.make CMakeFiles/state-estimation-core.dir/src/visual-inertial-odometry.cpp.s
-.PHONY : src/visual-inertial-odometry.cpp.s
+src/visual-inertial-slam.cpp.s:
+	$(MAKE) -f CMakeFiles/cfsd-state-estimation-core.dir/build.make CMakeFiles/cfsd-state-estimation-core.dir/src/visual-inertial-slam.cpp.s
+.PHONY : src/visual-inertial-slam.cpp.s
 
 # Help Target
 help:
@@ -305,27 +278,24 @@ help:
 	@echo "... clean"
 	@echo "... depend"
 	@echo "... rebuild_cache"
-	@echo "... state-estimation-core"
 	@echo "... edit_cache"
-	@echo "... state-estimation"
-	@echo "... src/camera-frame.o"
-	@echo "... src/camera-frame.i"
-	@echo "... src/camera-frame.s"
+	@echo "... cfsd-state-estimation-core"
+	@echo "... cfsd-state-estimation"
+	@echo "... src/cfsd-state-estimation.o"
+	@echo "... src/cfsd-state-estimation.i"
+	@echo "... src/cfsd-state-estimation.s"
 	@echo "... src/config.o"
 	@echo "... src/config.i"
 	@echo "... src/config.s"
 	@echo "... src/feature-tracker.o"
 	@echo "... src/feature-tracker.i"
 	@echo "... src/feature-tracker.s"
-	@echo "... src/key-frame.o"
-	@echo "... src/key-frame.i"
-	@echo "... src/key-frame.s"
-	@echo "... src/state-estimation.o"
-	@echo "... src/state-estimation.i"
-	@echo "... src/state-estimation.s"
-	@echo "... src/visual-inertial-odometry.o"
-	@echo "... src/visual-inertial-odometry.i"
-	@echo "... src/visual-inertial-odometry.s"
+	@echo "... src/image-reader.o"
+	@echo "... src/image-reader.i"
+	@echo "... src/image-reader.s"
+	@echo "... src/visual-inertial-slam.o"
+	@echo "... src/visual-inertial-slam.i"
+	@echo "... src/visual-inertial-slam.s"
 .PHONY : help
 
 

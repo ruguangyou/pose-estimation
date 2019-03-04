@@ -1,0 +1,2 @@
+/usr/bin/ar qc ../lib/libcfsd-state-estimation-core.a  CMakeFiles/cfsd-state-estimation-core.dir/src/config.cpp.o CMakeFiles/cfsd-state-estimation-core.dir/src/feature-tracker.cpp.o CMakeFiles/cfsd-state-estimation-core.dir/src/visual-inertial-slam.cpp.o
+/usr/bin/ranlib ../lib/libcfsd-state-estimation-core.a

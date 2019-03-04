@@ -1,2 +1,0 @@
-/usr/bin/ar qc ../lib/libstate-estimation-core.a  CMakeFiles/state-estimation-core.dir/src/config.cpp.o CMakeFiles/state-estimation-core.dir/src/camera-frame.cpp.o CMakeFiles/state-estimation-core.dir/src/key-frame.cpp.o CMakeFiles/state-estimation-core.dir/src/feature-tracker.cpp.o CMakeFiles/state-estimation-core.dir/src/visual-inertial-odometry.cpp.o
-/usr/bin/ranlib ../lib/libstate-estimation-core.a

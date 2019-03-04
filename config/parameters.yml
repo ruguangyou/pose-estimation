@@ -1,7 +1,7 @@
 %YAML:1.0
 # camera image resolution, 2560x720(30Hz), 1344x376(60Hz)
-width: 1344
-height: 376
+imageWidth: 1344
+imageHeight: 376
 
 # left camera intrinsics
 camLeft: !!opencv-matrix
@@ -10,13 +10,13 @@ camLeft: !!opencv-matrix
     dt: f
     data: [ 342.791722, 0.000000, 334.706838, 0.000000, 344.124357, 196.550958, 0.000000, 0.000000, 1.000000]
 radDistLeft: !!opencv-matrix
-    rows: 1
-    cols: 2
+    rows: 2
+    cols: 1
     dt: f
     data: [ -0.161924, -0.015441]
 tanDistLeft: !!opencv-matrix
-    rows: 1
-    cols: 2
+    rows: 2
+    cols: 1
     dt: f
     data: [ 0.000000, 0.000000]
 
@@ -27,13 +27,13 @@ camRight: !!opencv-matrix
     dt: f
     data: [ 341.251536, 0.000000, 349.920843, 0.000000, 342.367160, 198.743062, 0.000000, 0.000000, 1.000000]
 radDistRight: !!opencv-matrix
-    rows: 1
-    cols: 2
+    rows: 2
+    cols: 1
     dt: f
     data: [ -0.158054, -0.057100]
 tanDistRight: !!opencv-matrix
-    rows: 1
-    cols: 2
+    rows: 2
+    cols: 1
     dt: f
     data: [ 0.000000, 0.000000]
 
@@ -44,8 +44,8 @@ rotationLeftToRight: !!opencv-matrix
     dt: f
     data: [ 0.999980, 0.000561, -0.006365, -0.000626, 0.999948, -0.010216, 0.006359, 0.010220, 0.999928]
 translationLeftToRight: !!opencv-matrix
-    rows: 1
-    cols: 3
+    rows: 3
+    cols: 1
     dt: f
     data: [ -0.113323, 0.000475, -0.003484]
 
@@ -59,8 +59,9 @@ levelPyramid: 8
 # feature matching parameters
 matchRatio: 1.5    # the distance of a good match should be smaller than minDist*matchRatio
 minMatchDist: 30.0 # another number for selecting good matches, from experience
-matchThresLow: 0.6 # lower bound of matching percentage, for determining key frame
-matchThresUp: 0.8  # upper bound of matching percentage, for determining key frame
+maxMatchedTimes: 3 # Max times a feature coule be matched
+#matchThresLow: 0.6 # lower bound of matching percentage, for determining key frame
+#matchThresUp: 0.8  # upper bound of matching percentage, for determining key frame
 
 #max_num_lost: 10
 #min_inliers: 10

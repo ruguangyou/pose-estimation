@@ -6,23 +6,24 @@ Config::Config() {}
 
 Config::~Config() {
     // close file when deconstructing
-    if (_config->_file.isOpened()) {
-        _config->_file.release();
+    if (_pConfig->_file.isOpened()) {
+        _pConfig->_file.release();
     }
 }
 
-std::shared_ptr<Config> Config::_config = nullptr; // static data member initialization
+// static data member initialization
+std::shared_ptr<Config> Config::_pConfig = nullptr;
 
 void Config::setParameterFile(const std::string& filename) {
-    if (_config == nullptr) {
-        _config = std::shared_ptr<Config> (new Config());
+    if (_pConfig == nullptr) {
+        _pConfig = std::shared_ptr<Config> (new Config());
         std::cout << "Open file " << filename << std::endl;
     }
-    _config->_file = cv::FileStorage(filename.c_str(), cv::FileStorage::READ);
+    _pConfig->_file = cv::FileStorage(filename.c_str(), cv::FileStorage::READ);
 
-    if (_config->_file.isOpened() == false) {
+    if (_pConfig->_file.isOpened() == false) {
         std::cerr << "Parameter file " << filename << " does not exist" << std::endl;
-        _config->_file.release();
+        _pConfig->_file.release();
         return;
     }
 }
