@@ -56,14 +56,58 @@ numberOfFeatures: 500
 scaleFactor: 1.2
 levelPyramid: 8
 
+# image mask (we don't want to detect keypoints in the sky and vehicle body)
+#     #########################
+#     |-----------------------|
+# hf1 |-----------------------| (sky)
+#     |                       |
+#     |                       |
+# hf2 |       ---------       | (vehicle body)
+#     |      -----------      |
+#     #########################
+#         wf1 wf2   wf3 wf4
+## these numbers are obtained after undistorting for 1344x376 resolution
+## pixel representation:
+h1: 160
+h2: 290
+w1L: 105
+w2L: 305
+w3L: 385
+w4L: 595
+w1R: 90
+w2R: 290
+w3R: 370
+w4R: 580
+## factor representation:
+hf1: 0.426  # height factor (~= 160/376)
+hf2: 0.772
+wf1L: 0.156 # width factor of left image (~= 105/672)
+wf2L: 0.454
+wf3L: 0.573
+wf4L: 0.886
+wf1R: 0.134 # width factor of right image
+wf2R: 0.432
+wf3R: 0.551
+wf4R: 0.863
+
 # feature matching parameters
 matchRatio: 1.5    # the distance of a good match should be smaller than minDist*matchRatio
 minMatchDist: 30.0 # another number for selecting good matches, from experience
 maxMatchedTimes: 3 # Max times a feature coule be matched
-#matchThresLow: 0.6 # lower bound of matching percentage, for determining key frame
-#matchThresUp: 0.8  # upper bound of matching percentage, for determining key frame
 
 #max_num_lost: 10
 #min_inliers: 10
 #keyframe_rotation: 0.1
 #keyframe_translation: 0.1
+
+# opendlv od4 communication
+ellipseID: 112
+
+# imu paramteres
+samplingRate: # [Hz] adjustable in sbgCenter
+gNorm: 9.81734   # [m/s^2] gravitational acceleration (might need slightly modification in case of different location)
+accNoise: 0.000057 # [g*sqrt(s)] accelerometer measurement noise density, 57 micro-g/sqrt(Hz) from "Ellipse_Series_Leaflet.pdf"
+gyrNoise: 0.15 # [degree/sqrt(h)] gyroscope measurement noise density, 0.15 degree/sqrt(hr)
+accBias: 0.000014 # [g] accelerometer bias random walk noise, 14 micro-g
+gyrBias: 7 # [degree/h] gyroscope bias random walk noise, 7 degree/h
+

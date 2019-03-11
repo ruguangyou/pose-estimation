@@ -13,10 +13,16 @@ namespace cfsd {
 
 struct Feature {
     Feature() {}
-    Feature(const cvPoint2Type& pixelL, const cvPoint2Type& pixelR, const cv::Mat& descriptorL, const cv::Mat& descriptorR)
-      : _matchedTimes(0), _pixelL(pixelL), _pixelR(pixelR), _descriptorL(descriptorL), _descriptorR(descriptorR) {}
+
+    Feature(const int& frameCount, const cvPoint2Type& pixelL, const cvPoint2Type& pixelR, const cv::Mat& descriptorL, const cv::Mat& descriptorR)
+      : _matchedTimes(0), _pixelL(pixelL), _pixelR(pixelR), _descriptorL(descriptorL), _descriptorR(descriptorR) {
+        _seenByFrames.push_back(frameCount);    
+    }
 
     int _matchedTimes;
+
+    // ID of frames which can observe this feature (useful to know this when doing reprojection)
+    std::vector<int> _seenByFrames;
 
     cvPoint2Type _pixelL;
     cvPoint2Type _pixelR;
@@ -31,22 +37,26 @@ class FeatureTracker {
         ORB = 0,
         BRISK = 1
     };
-
-    static size_t _featureCount;
   
-    FeatureTracker(const bool verbose);
+    FeatureTracker(const cfsd::Ptr<CameraModel>& pCameraModel, const bool verbose);
 
     // Feature matching and tracking, including:
     // - internal match (current frame's left and right image)
     // - external track (current features and past features)
     // - refinement? (improve the quality of matching)
-    void processFrame(const cv::Mat& imgLeft, const cv::Mat& imgRight);
+    void process(const cv::Mat& imgLeft, const cv::Mat& imgRight);
 
     void internalMatch(const cv::Mat& imgLeft, const cv::Mat& imgRight, std::vector<cvPoint2Type>& curPixelsL, std::vector<cvPoint2Type>& curPixelsR, cv::Mat& curDescriptorsL, cv::Mat& curDescriptorsR);
 
     void externalTrack(const std::vector<cvPoint2Type>& curPixelsL, const std::vector<cvPoint2Type>& curPixelsR, const cv::Mat& curDescriptorsL, const cv::Mat& curDescriptorsR);
 
     void featurePoolUpdate();
+
+    // TODO:
+    // RANSAC remove outliers?
+    // undistort image (mask needs to be updated)
+    // triangulation (don't change the sign of homogeneous coordinates)
+    // far and near points (based on the depth)
     
     // [Update] decide not to do so for the sake of computational efficiency, instead using estimation from IMU and performing optimization.
     // Compute camera pose: shoule use RANSAC scheme for outlier rejection, and solve 3D-2D PnP problem (in particular, P3P problem).
@@ -54,6 +64,15 @@ class FeatureTracker {
 
   private:
     bool _verbose;
+
+    // Camera Model.
+    cfsd::Ptr<CameraModel> _pCameraModel;
+
+    // Feature ID.
+    size_t _featureCount;
+    
+    // Frame ID.
+    int _frameCount;
 
     // Detector to be used (ORB, BRISK, ...)
     DetectorType _detectorType;
@@ -71,7 +90,7 @@ class FeatureTracker {
     cv::Mat _newDescriptorsL, _newDescriptorsR;
 
     // Only part of the image is considered to be useful (e.g. the upper half of the image containing sky contributes little to useful features)
-    // cv::Mat _mask;
+    cv::Mat _maskL, _maskR;
 
     // Match distance should be less than max(_matchRatio*minDist, _minMatchDist)
     // Ratio for selecting good matches.
@@ -95,7 +114,7 @@ class FeatureTracker {
 
     // If the image is cropped, the pixel coordinate of keypoints would be different with the uncropped ones,
     // it would cause dismatching between 3D points and 2D pixels when doing projection.
-    int _cropOffset;
+    // int _cropOffset;
 
 };
 

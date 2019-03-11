@@ -6,19 +6,17 @@
 
 namespace cfsd {
 
+struct MapPoint {
+
+};
+
 class Map {
   public: 
-    using Ptr = std::shared_ptr<Map>;
-
-    Map();
-    ~Map();
-    Map(bool verbose, bool debug);
-    
-    static Map::Ptr create(bool verbose, bool debug);
+    Map(bool verbose);
 
   
   private:
-    bool _verbose, _debug;
+    bool _verbose;
 
     
 };

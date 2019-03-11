@@ -2,10 +2,7 @@
 
 namespace cfsd {
 
-// static data member initialization
-size_t FeatureTracker::_featureCount = 0;
-
-FeatureTracker::FeatureTracker(const bool verbose) : _verbose(verbose) {
+FeatureTracker::FeatureTracker(const cfsd::Ptr<CameraModel>& pCameraModel, const bool verbose) : _pCameraModel(pCameraModel), _verbose(verbose), _featureCount(0), _frameCount(0) {
     std::string type = Config::get<std::string>("detectorType");
     if (type == "ORB") {
         _detectorType = ORB;
@@ -40,9 +37,79 @@ FeatureTracker::FeatureTracker(const bool verbose) : _verbose(verbose) {
             break;
         }
     }
+
+    int height = Config::get<int>("imageHeight");
+    int width = Config::get<int>("imageWidth") / 2;
+    _maskL = cv::Mat::zeros(height, width, CV_8U);
+    _maskR = cv::Mat::zeros(height, width, CV_8U);
+    // Pixel representation.
+    int h1  = Config::get<int>("h1");
+    int h2  = Config::get<int>("h2");
+    int w1L = Config::get<int>("w1L");
+    int w2L = Config::get<int>("w2L");
+    int w3L = Config::get<int>("w3L");
+    int w4L = Config::get<int>("w4L");
+    int w1R = Config::get<int>("w1R");
+    int w2R = Config::get<int>("w2R");
+    int w3R = Config::get<int>("w3R");
+    int w4R = Config::get<int>("w4R");
+    for (int i = h1; i < height; ++i) {
+        int x1L = (height-h2) / (w1L-w2L) * (i-height) + w1L;
+        int x2L = (height-h2) / (w4L-w3L) * (i-height) + w4L;
+        int x1R = (height-h2) / (w1R-w2R) * (i-height) + w1R;
+        int x2R = (height-h2) / (w4R-w3R) * (i-height) + w4R;
+        for (int j = 0; j < width; ++j) {
+            if (i < h2) {
+                _maskL.at<char>(i,j) = 255;
+                _maskR.at<char>(i,j) = 255;
+            }
+            else {
+                if (j < x1L || j > x2L)
+                    _maskL.at<char>(i,j) = 255;
+                if (j < x1R || j > x2R)
+                    _maskR.at<char>(i,j) = 255;
+            }
+        }
+    }
+    // Factor representation.
+    // float hf1  = Config::get<float>("hf1");
+    // float hf2  = Config::get<float>("hf2");
+    // float wf1L = Config::get<float>("wf1L");
+    // float wf2L = Config::get<float>("wf2L");
+    // float wf3L = Config::get<float>("wf3L");
+    // float wf4L = Config::get<float>("wf4L");
+    // float wf1R = Config::get<float>("wf1R");
+    // float wf2R = Config::get<float>("wf2R");
+    // float wf3R = Config::get<float>("wf3R");
+    // float wf4R = Config::get<float>("wf4R");
+    // for (int i = height*hf1; i < height; ++i) {
+    //     int x1L = (height*(1-hf2)) / (width*(wf1L-wf2L)) * (i-height) + width*wf1L;
+    //     int x2L = (height*(1-hf2)) / (width*(wf4L-wf3L)) * (i-height) + width*wf4L;
+    //     int x1R = (height*(1-hf2)) / (width*(wf1R-wf2R)) * (i-height) + width*wf1R;
+    //     int x2R = (height*(1-hf2)) / (width*(wf4R-wf3R)) * (i-height) + width*wf4R;
+    //     for (int j = 0; j < width; ++j) {
+    //         if (i < height*hf2) {
+    //             _maskL.at<char>(i,j) = 255;
+    //             _maskR.at<char>(i,j) = 255;
+    //         }
+    //         else {
+    //             if (j < x1L || j > x2L)
+    //                 _maskL.at<char>(i,j) = 255;
+    //             if (j < x1R || j > x2R)
+    //                 _maskR.at<char>(i,j) = 255;
+    //         }
+    //     }
+    // }
+
 }
 
-void FeatureTracker::processFrame(const cv::Mat& imgLeft, const cv::Mat& imgRight) {
+void FeatureTracker::process(const cv::Mat& grayLeft, const cv::Mat& grayRight) {
+    // Undistort image (detection mask needs to be updated)
+    // (Note: there will be some blurring at the bottom-left and bottom-right corner)
+    cv::Mat imgLeft, imgRight;
+    cv::undistort(grayLeft, imgLeft, _pCameraModel->_cvCamLeft, _pCameraModel->_cvDistLeft);
+    cv::undistort(grayRight, imgRight, _pCameraModel->_cvCamRight, _pCameraModel->_cvDistRight);
+    
     // Current camera frame's keypoints' pixel position and descriptors.
     std::vector<cvPoint2Type> curPixelsL, curPixelsR;
     cv::Mat curDescriptorsL, curDescriptorsR;
@@ -53,13 +120,14 @@ void FeatureTracker::processFrame(const cv::Mat& imgLeft, const cv::Mat& imgRigh
     
     featurePoolUpdate();
 
+    _frameCount++;
 }
 
 void FeatureTracker::internalMatch(const cv::Mat& imgLeft, const cv::Mat& imgRight, std::vector<cvPoint2Type>& curPixelsL, std::vector<cvPoint2Type>& curPixelsR, cv::Mat& curDescriptorsL, cv::Mat& curDescriptorsR) {
     std::vector<cv::KeyPoint> keypointsL, keypointsR;
     cv::Mat descriptorsL, descriptorsR;
-    _orb->detectAndCompute(imgLeft,  cv::noArray(), keypointsL, descriptorsL);
-    _orb->detectAndCompute(imgRight, cv::noArray(), keypointsR, descriptorsR);
+    _orb->detectAndCompute(imgLeft,  _maskL, keypointsL, descriptorsL);
+    _orb->detectAndCompute(imgRight, _maskR, keypointsR, descriptorsR);
     
     cv::BFMatcher matcher(cv::NORM_HAMMING); // Brute Force Mathcer
     // cv::FlannBasedMatcher matcher; // Fast Approximate Nearest Neighbor Search Library (maybe not suitable for ORB whose descriptor is binary)
@@ -98,14 +166,14 @@ void FeatureTracker::internalMatch(const cv::Mat& imgLeft, const cv::Mat& imgRig
         }
     }
 
-    // #ifdef DEBUG
-    // // Draw only good matches.
-    // cv::Mat img_matches;
-    // cv::drawMatches(imgLeft, keypointsL, imgRight, keypointsR, good_matches, img_matches);
-    // cv::imshow("Left-Right Good Matches", img_matches);
-    // cv::waitKey(0);
-    // std::cout << "Left-Right matches: " << good_matches.size() << std::endl;
-    // #endif
+    #ifdef DEBUG
+    // Draw only good matches.
+    cv::Mat img_matches;
+    cv::drawMatches(imgLeft, keypointsL, imgRight, keypointsR, good_matches, img_matches);
+    cv::imshow("Left-Right Good Matches", img_matches);
+    cv::waitKey(0);
+    std::cout << "Left-Right matches: " << good_matches.size() << std::endl;
+    #endif
 }
 
 void FeatureTracker::externalTrack(const std::vector<cvPoint2Type>& curPixelsL, const std::vector<cvPoint2Type>& curPixelsR, const cv::Mat& curDescriptorsL, const cv::Mat& curDescriptorsR) {
@@ -197,12 +265,14 @@ void FeatureTracker::featurePoolUpdate() {
     #endif
 
     // Insert new features.
-    for (int i = 0; i < _newPixelsL.size(); ++i)
-        _features[_featureCount++] = Feature(_newPixelsL[i], _newPixelsR[i], _newDescriptorsL.row(i), _newDescriptorsR.row(i));
+    for (int i = 0; i < _newPixelsL.size(); ++i) {
+        _features[_featureCount++] = Feature(_frameCount, _newPixelsL[i], _newPixelsR[i], _newDescriptorsL.row(i), _newDescriptorsR.row(i));
+    }
 
     // Update _matchedTimes.
-    for (int i = 0; i < _matchedFeatureIDs.size(); ++i)
+    for (int i = 0; i < _matchedFeatureIDs.size(); ++i) {
         _features[_matchedFeatureIDs[i]]._matchedTimes++;
+    }
 
     // Erase not matched old features.
     for (int i = 0; i < _notMatchedFeatureIDs.size(); ++i) {

@@ -1,5 +1,5 @@
 clear
-load('stereoCalibParameters_360p.mat');
+loa('stereoCalibParameters_360p.mat');
 
 % left camera
 matlab2opencv(stereoParams.CameraParameters1.IntrinsicMatrix', 'camLeft', 'parameters.yml', 'w');

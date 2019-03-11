@@ -3,9 +3,15 @@
 
 #include "cfsd/camera-model.hpp"
 #include "cfsd/feature-tracker.hpp"
+#include "cfsd/imu-preintegrator.hpp"
 // #include "cfsd/map.hpp"
 
 namespace cfsd {
+
+enum SensorType {
+  ACCELEROMETER,
+  GYROSCOPE
+};
 
 class VisualInertialSLAM {
   public:
@@ -19,7 +25,9 @@ class VisualInertialSLAM {
   public:
     VisualInertialSLAM(const bool verbose);
 
-    void process(const long& timestamp, const cv::Mat& img);
+    void processImage(const long& timestamp, const cv::Mat& img);
+
+    void processImu(const cfsd::SensorType& st, const long& timestamp, const float& x, const float& y, const float& z);
 
   private:
     bool _verbose;
@@ -28,6 +36,8 @@ class VisualInertialSLAM {
     cfsd::Ptr<CameraModel> _pCameraModel;
 
     cfsd::Ptr<FeatureTracker> _pFeatureTracker;
+
+    cfsd::Ptr<ImuPreintegrator> _pImuPreintegrator;
 
     // Map::Ptr _map;
     

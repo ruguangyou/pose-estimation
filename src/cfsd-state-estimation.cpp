@@ -45,6 +45,43 @@ int main(int argc, char** argv) {
         // Interface to VI-SLAM.
         cfsd::Ptr<cfsd::VisualInertialSLAM> pVISLAM{new cfsd::VisualInertialSLAM(verbose)};
 
+        // Sender stamp of microservice opendlv-proxy-ellipse2n
+        const int ellipseID = Config::get<int>("ellipseID");
+        
+        // Function to call on newly arriving Envelopes which contain accelerometer data.
+        auto accRecived{
+            [&pVISLAM, &ellipseID] (cluon::data::Envelope &&envelope) {
+                if (envelope.senderStamp() == ellipseID) {
+                    opendlv::proxy::AccelerationReading accData = cluon::extractMessage<opendlv::proxy::AccelerationReading>(std::move(envelope));
+                    cluon::data::TimeStamp ts = envelope.sampleTimeStamp();
+                    long timestamp = cluon::time::toMicroseconds(ts);
+                    float accX = accData.accelerationX();
+                    float accY = accData.accelerationY();
+                    float accZ = accData.accelerationZ();
+                    pVISLAM->processImu(cfsd::SensorType::ACCELEROMETER, timestamp, accX, accY, accZ);
+                }
+            }
+        };
+    
+        // Function to call on newly arriving Envelopes which contain gyroscope data.
+        auto gyrRecived{
+            [&pVISLAM, &ellipseID] (cluon::data::Envelope &&envelope) {
+                if (envelope.senderStamp() == ellipseID) {
+                    opendlv::proxy::AngularVelocityReading gyrData = cluon::extractMessage<opendlv::proxy::AngularVelocityReading>(std::move(envelope));
+                    cluon::data::TimeStamp ts = envelope.sampleTimeStamp();
+                    long timestamp = cluon::time::toMicroseconds(ts);
+                    float gyrX = gyrData.angularVelocityX();
+                    float gyrY = gyrData.angularVelocityY();
+                    float gyrZ = gyrData.angularVelocityZ();
+                    pVISLAM->processImu(cfsd::SensorType::GYROSCOPE, timestamp, gryX, gryY, gyrZ);
+                }
+            }
+        };
+
+        // Set a delegate to be called data-triggered on arrival of a new Envelope for a given message identifier.
+        od4.dataTrigger(opendlv::proxy::AccelerationReading::ID(), accRecived);
+        od4.dataTrigger(opendlv::proxy::AngularVelocityReading::ID(), gyrRecived);
+
         // An independent thread for continuously reading image data from shared memory,
         // s.t. the timestamp will not depend on the running time of our algorithms.   
         std::thread imgReaderThread(&cfsd::ImageReader::run, pImgReader);
