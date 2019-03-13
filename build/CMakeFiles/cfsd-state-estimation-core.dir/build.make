@@ -81,9 +81,57 @@ CMakeFiles/cfsd-state-estimation-core.dir/src/config.cpp.o.provides: CMakeFiles/
 CMakeFiles/cfsd-state-estimation-core.dir/src/config.cpp.o.provides.build: CMakeFiles/cfsd-state-estimation-core.dir/src/config.cpp.o
 
 
+CMakeFiles/cfsd-state-estimation-core.dir/src/optimizer.cpp.o: CMakeFiles/cfsd-state-estimation-core.dir/flags.make
+CMakeFiles/cfsd-state-estimation-core.dir/src/optimizer.cpp.o: ../src/optimizer.cpp
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/ruguang/docker-CFSD/cfsd/2019/state-estimation/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_2) "Building CXX object CMakeFiles/cfsd-state-estimation-core.dir/src/optimizer.cpp.o"
+	/usr/bin/g++-7  $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -o CMakeFiles/cfsd-state-estimation-core.dir/src/optimizer.cpp.o -c /home/ruguang/docker-CFSD/cfsd/2019/state-estimation/src/optimizer.cpp
+
+CMakeFiles/cfsd-state-estimation-core.dir/src/optimizer.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Preprocessing CXX source to CMakeFiles/cfsd-state-estimation-core.dir/src/optimizer.cpp.i"
+	/usr/bin/g++-7 $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/ruguang/docker-CFSD/cfsd/2019/state-estimation/src/optimizer.cpp > CMakeFiles/cfsd-state-estimation-core.dir/src/optimizer.cpp.i
+
+CMakeFiles/cfsd-state-estimation-core.dir/src/optimizer.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Compiling CXX source to assembly CMakeFiles/cfsd-state-estimation-core.dir/src/optimizer.cpp.s"
+	/usr/bin/g++-7 $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/ruguang/docker-CFSD/cfsd/2019/state-estimation/src/optimizer.cpp -o CMakeFiles/cfsd-state-estimation-core.dir/src/optimizer.cpp.s
+
+CMakeFiles/cfsd-state-estimation-core.dir/src/optimizer.cpp.o.requires:
+
+.PHONY : CMakeFiles/cfsd-state-estimation-core.dir/src/optimizer.cpp.o.requires
+
+CMakeFiles/cfsd-state-estimation-core.dir/src/optimizer.cpp.o.provides: CMakeFiles/cfsd-state-estimation-core.dir/src/optimizer.cpp.o.requires
+	$(MAKE) -f CMakeFiles/cfsd-state-estimation-core.dir/build.make CMakeFiles/cfsd-state-estimation-core.dir/src/optimizer.cpp.o.provides.build
+.PHONY : CMakeFiles/cfsd-state-estimation-core.dir/src/optimizer.cpp.o.provides
+
+CMakeFiles/cfsd-state-estimation-core.dir/src/optimizer.cpp.o.provides.build: CMakeFiles/cfsd-state-estimation-core.dir/src/optimizer.cpp.o
+
+
+CMakeFiles/cfsd-state-estimation-core.dir/src/imu-preintegrator.cpp.o: CMakeFiles/cfsd-state-estimation-core.dir/flags.make
+CMakeFiles/cfsd-state-estimation-core.dir/src/imu-preintegrator.cpp.o: ../src/imu-preintegrator.cpp
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/ruguang/docker-CFSD/cfsd/2019/state-estimation/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_3) "Building CXX object CMakeFiles/cfsd-state-estimation-core.dir/src/imu-preintegrator.cpp.o"
+	/usr/bin/g++-7  $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -o CMakeFiles/cfsd-state-estimation-core.dir/src/imu-preintegrator.cpp.o -c /home/ruguang/docker-CFSD/cfsd/2019/state-estimation/src/imu-preintegrator.cpp
+
+CMakeFiles/cfsd-state-estimation-core.dir/src/imu-preintegrator.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Preprocessing CXX source to CMakeFiles/cfsd-state-estimation-core.dir/src/imu-preintegrator.cpp.i"
+	/usr/bin/g++-7 $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/ruguang/docker-CFSD/cfsd/2019/state-estimation/src/imu-preintegrator.cpp > CMakeFiles/cfsd-state-estimation-core.dir/src/imu-preintegrator.cpp.i
+
+CMakeFiles/cfsd-state-estimation-core.dir/src/imu-preintegrator.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Compiling CXX source to assembly CMakeFiles/cfsd-state-estimation-core.dir/src/imu-preintegrator.cpp.s"
+	/usr/bin/g++-7 $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/ruguang/docker-CFSD/cfsd/2019/state-estimation/src/imu-preintegrator.cpp -o CMakeFiles/cfsd-state-estimation-core.dir/src/imu-preintegrator.cpp.s
+
+CMakeFiles/cfsd-state-estimation-core.dir/src/imu-preintegrator.cpp.o.requires:
+
+.PHONY : CMakeFiles/cfsd-state-estimation-core.dir/src/imu-preintegrator.cpp.o.requires
+
+CMakeFiles/cfsd-state-estimation-core.dir/src/imu-preintegrator.cpp.o.provides: CMakeFiles/cfsd-state-estimation-core.dir/src/imu-preintegrator.cpp.o.requires
+	$(MAKE) -f CMakeFiles/cfsd-state-estimation-core.dir/build.make CMakeFiles/cfsd-state-estimation-core.dir/src/imu-preintegrator.cpp.o.provides.build
+.PHONY : CMakeFiles/cfsd-state-estimation-core.dir/src/imu-preintegrator.cpp.o.provides
+
+CMakeFiles/cfsd-state-estimation-core.dir/src/imu-preintegrator.cpp.o.provides.build: CMakeFiles/cfsd-state-estimation-core.dir/src/imu-preintegrator.cpp.o
+
+
 CMakeFiles/cfsd-state-estimation-core.dir/src/feature-tracker.cpp.o: CMakeFiles/cfsd-state-estimation-core.dir/flags.make
 CMakeFiles/cfsd-state-estimation-core.dir/src/feature-tracker.cpp.o: ../src/feature-tracker.cpp
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/ruguang/docker-CFSD/cfsd/2019/state-estimation/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_2) "Building CXX object CMakeFiles/cfsd-state-estimation-core.dir/src/feature-tracker.cpp.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/ruguang/docker-CFSD/cfsd/2019/state-estimation/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_4) "Building CXX object CMakeFiles/cfsd-state-estimation-core.dir/src/feature-tracker.cpp.o"
 	/usr/bin/g++-7  $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -o CMakeFiles/cfsd-state-estimation-core.dir/src/feature-tracker.cpp.o -c /home/ruguang/docker-CFSD/cfsd/2019/state-estimation/src/feature-tracker.cpp
 
 CMakeFiles/cfsd-state-estimation-core.dir/src/feature-tracker.cpp.i: cmake_force
@@ -107,7 +155,7 @@ CMakeFiles/cfsd-state-estimation-core.dir/src/feature-tracker.cpp.o.provides.bui
 
 CMakeFiles/cfsd-state-estimation-core.dir/src/visual-inertial-slam.cpp.o: CMakeFiles/cfsd-state-estimation-core.dir/flags.make
 CMakeFiles/cfsd-state-estimation-core.dir/src/visual-inertial-slam.cpp.o: ../src/visual-inertial-slam.cpp
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/ruguang/docker-CFSD/cfsd/2019/state-estimation/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_3) "Building CXX object CMakeFiles/cfsd-state-estimation-core.dir/src/visual-inertial-slam.cpp.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/ruguang/docker-CFSD/cfsd/2019/state-estimation/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_5) "Building CXX object CMakeFiles/cfsd-state-estimation-core.dir/src/visual-inertial-slam.cpp.o"
 	/usr/bin/g++-7  $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -o CMakeFiles/cfsd-state-estimation-core.dir/src/visual-inertial-slam.cpp.o -c /home/ruguang/docker-CFSD/cfsd/2019/state-estimation/src/visual-inertial-slam.cpp
 
 CMakeFiles/cfsd-state-estimation-core.dir/src/visual-inertial-slam.cpp.i: cmake_force
@@ -132,6 +180,8 @@ CMakeFiles/cfsd-state-estimation-core.dir/src/visual-inertial-slam.cpp.o.provide
 # Object files for target cfsd-state-estimation-core
 cfsd__state__estimation__core_OBJECTS = \
 "CMakeFiles/cfsd-state-estimation-core.dir/src/config.cpp.o" \
+"CMakeFiles/cfsd-state-estimation-core.dir/src/optimizer.cpp.o" \
+"CMakeFiles/cfsd-state-estimation-core.dir/src/imu-preintegrator.cpp.o" \
 "CMakeFiles/cfsd-state-estimation-core.dir/src/feature-tracker.cpp.o" \
 "CMakeFiles/cfsd-state-estimation-core.dir/src/visual-inertial-slam.cpp.o"
 
@@ -139,11 +189,13 @@ cfsd__state__estimation__core_OBJECTS = \
 cfsd__state__estimation__core_EXTERNAL_OBJECTS =
 
 ../lib/libcfsd-state-estimation-core.a: CMakeFiles/cfsd-state-estimation-core.dir/src/config.cpp.o
+../lib/libcfsd-state-estimation-core.a: CMakeFiles/cfsd-state-estimation-core.dir/src/optimizer.cpp.o
+../lib/libcfsd-state-estimation-core.a: CMakeFiles/cfsd-state-estimation-core.dir/src/imu-preintegrator.cpp.o
 ../lib/libcfsd-state-estimation-core.a: CMakeFiles/cfsd-state-estimation-core.dir/src/feature-tracker.cpp.o
 ../lib/libcfsd-state-estimation-core.a: CMakeFiles/cfsd-state-estimation-core.dir/src/visual-inertial-slam.cpp.o
 ../lib/libcfsd-state-estimation-core.a: CMakeFiles/cfsd-state-estimation-core.dir/build.make
 ../lib/libcfsd-state-estimation-core.a: CMakeFiles/cfsd-state-estimation-core.dir/link.txt
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --bold --progress-dir=/home/ruguang/docker-CFSD/cfsd/2019/state-estimation/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_4) "Linking CXX static library ../lib/libcfsd-state-estimation-core.a"
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --bold --progress-dir=/home/ruguang/docker-CFSD/cfsd/2019/state-estimation/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_6) "Linking CXX static library ../lib/libcfsd-state-estimation-core.a"
 	$(CMAKE_COMMAND) -P CMakeFiles/cfsd-state-estimation-core.dir/cmake_clean_target.cmake
 	$(CMAKE_COMMAND) -E cmake_link_script CMakeFiles/cfsd-state-estimation-core.dir/link.txt --verbose=$(VERBOSE)
 
@@ -153,6 +205,8 @@ CMakeFiles/cfsd-state-estimation-core.dir/build: ../lib/libcfsd-state-estimation
 .PHONY : CMakeFiles/cfsd-state-estimation-core.dir/build
 
 CMakeFiles/cfsd-state-estimation-core.dir/requires: CMakeFiles/cfsd-state-estimation-core.dir/src/config.cpp.o.requires
+CMakeFiles/cfsd-state-estimation-core.dir/requires: CMakeFiles/cfsd-state-estimation-core.dir/src/optimizer.cpp.o.requires
+CMakeFiles/cfsd-state-estimation-core.dir/requires: CMakeFiles/cfsd-state-estimation-core.dir/src/imu-preintegrator.cpp.o.requires
 CMakeFiles/cfsd-state-estimation-core.dir/requires: CMakeFiles/cfsd-state-estimation-core.dir/src/feature-tracker.cpp.o.requires
 CMakeFiles/cfsd-state-estimation-core.dir/requires: CMakeFiles/cfsd-state-estimation-core.dir/src/visual-inertial-slam.cpp.o.requires
 

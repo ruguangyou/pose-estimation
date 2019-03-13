@@ -4,7 +4,7 @@
 # compile CXX with /usr/bin/g++-7
 CXX_FLAGS = -O0 -g -D DEBUG -g   -pthread -std=c++14
 
-CXX_DEFINES = 
+CXX_DEFINES = -DGFLAGS_IS_A_DLL=0
 
-CXX_INCLUDES = -isystem /usr/local/include -I/home/ruguang/docker-CFSD/cfsd/2019/state-estimation/include -isystem /home/ruguang/docker-CFSD/cfsd/2019/state-estimation/build -I/usr/include/eigen3 -isystem /usr/local/include/opencv 
+CXX_INCLUDES = -isystem /usr/local/include -I/home/ruguang/docker-CFSD/cfsd/2019/state-estimation/include -isystem /home/ruguang/docker-CFSD/cfsd/2019/state-estimation/build -isystem /usr/include/eigen3 -isystem /usr/local/include/opencv 
 

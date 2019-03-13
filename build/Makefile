@@ -244,6 +244,60 @@ src/image-reader.cpp.s:
 	$(MAKE) -f CMakeFiles/cfsd-state-estimation.dir/build.make CMakeFiles/cfsd-state-estimation.dir/src/image-reader.cpp.s
 .PHONY : src/image-reader.cpp.s
 
+src/imu-preintegrator.o: src/imu-preintegrator.cpp.o
+
+.PHONY : src/imu-preintegrator.o
+
+# target to build an object file
+src/imu-preintegrator.cpp.o:
+	$(MAKE) -f CMakeFiles/cfsd-state-estimation-core.dir/build.make CMakeFiles/cfsd-state-estimation-core.dir/src/imu-preintegrator.cpp.o
+.PHONY : src/imu-preintegrator.cpp.o
+
+src/imu-preintegrator.i: src/imu-preintegrator.cpp.i
+
+.PHONY : src/imu-preintegrator.i
+
+# target to preprocess a source file
+src/imu-preintegrator.cpp.i:
+	$(MAKE) -f CMakeFiles/cfsd-state-estimation-core.dir/build.make CMakeFiles/cfsd-state-estimation-core.dir/src/imu-preintegrator.cpp.i
+.PHONY : src/imu-preintegrator.cpp.i
+
+src/imu-preintegrator.s: src/imu-preintegrator.cpp.s
+
+.PHONY : src/imu-preintegrator.s
+
+# target to generate assembly for a file
+src/imu-preintegrator.cpp.s:
+	$(MAKE) -f CMakeFiles/cfsd-state-estimation-core.dir/build.make CMakeFiles/cfsd-state-estimation-core.dir/src/imu-preintegrator.cpp.s
+.PHONY : src/imu-preintegrator.cpp.s
+
+src/optimizer.o: src/optimizer.cpp.o
+
+.PHONY : src/optimizer.o
+
+# target to build an object file
+src/optimizer.cpp.o:
+	$(MAKE) -f CMakeFiles/cfsd-state-estimation-core.dir/build.make CMakeFiles/cfsd-state-estimation-core.dir/src/optimizer.cpp.o
+.PHONY : src/optimizer.cpp.o
+
+src/optimizer.i: src/optimizer.cpp.i
+
+.PHONY : src/optimizer.i
+
+# target to preprocess a source file
+src/optimizer.cpp.i:
+	$(MAKE) -f CMakeFiles/cfsd-state-estimation-core.dir/build.make CMakeFiles/cfsd-state-estimation-core.dir/src/optimizer.cpp.i
+.PHONY : src/optimizer.cpp.i
+
+src/optimizer.s: src/optimizer.cpp.s
+
+.PHONY : src/optimizer.s
+
+# target to generate assembly for a file
+src/optimizer.cpp.s:
+	$(MAKE) -f CMakeFiles/cfsd-state-estimation-core.dir/build.make CMakeFiles/cfsd-state-estimation-core.dir/src/optimizer.cpp.s
+.PHONY : src/optimizer.cpp.s
+
 src/visual-inertial-slam.o: src/visual-inertial-slam.cpp.o
 
 .PHONY : src/visual-inertial-slam.o
@@ -293,6 +347,12 @@ help:
 	@echo "... src/image-reader.o"
 	@echo "... src/image-reader.i"
 	@echo "... src/image-reader.s"
+	@echo "... src/imu-preintegrator.o"
+	@echo "... src/imu-preintegrator.i"
+	@echo "... src/imu-preintegrator.s"
+	@echo "... src/optimizer.o"
+	@echo "... src/optimizer.i"
+	@echo "... src/optimizer.s"
 	@echo "... src/visual-inertial-slam.o"
 	@echo "... src/visual-inertial-slam.i"
 	@echo "... src/visual-inertial-slam.s"

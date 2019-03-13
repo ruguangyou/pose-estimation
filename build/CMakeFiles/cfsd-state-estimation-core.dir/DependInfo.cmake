@@ -6,6 +6,8 @@ set(CMAKE_DEPENDS_LANGUAGES
 set(CMAKE_DEPENDS_CHECK_CXX
   "/home/ruguang/docker-CFSD/cfsd/2019/state-estimation/src/config.cpp" "/home/ruguang/docker-CFSD/cfsd/2019/state-estimation/build/CMakeFiles/cfsd-state-estimation-core.dir/src/config.cpp.o"
   "/home/ruguang/docker-CFSD/cfsd/2019/state-estimation/src/feature-tracker.cpp" "/home/ruguang/docker-CFSD/cfsd/2019/state-estimation/build/CMakeFiles/cfsd-state-estimation-core.dir/src/feature-tracker.cpp.o"
+  "/home/ruguang/docker-CFSD/cfsd/2019/state-estimation/src/imu-preintegrator.cpp" "/home/ruguang/docker-CFSD/cfsd/2019/state-estimation/build/CMakeFiles/cfsd-state-estimation-core.dir/src/imu-preintegrator.cpp.o"
+  "/home/ruguang/docker-CFSD/cfsd/2019/state-estimation/src/optimizer.cpp" "/home/ruguang/docker-CFSD/cfsd/2019/state-estimation/build/CMakeFiles/cfsd-state-estimation-core.dir/src/optimizer.cpp.o"
   "/home/ruguang/docker-CFSD/cfsd/2019/state-estimation/src/visual-inertial-slam.cpp" "/home/ruguang/docker-CFSD/cfsd/2019/state-estimation/build/CMakeFiles/cfsd-state-estimation-core.dir/src/visual-inertial-slam.cpp.o"
   )
 set(CMAKE_CXX_COMPILER_ID "GNU")

@@ -1,5 +1,7 @@
 file(REMOVE_RECURSE
   "CMakeFiles/cfsd-state-estimation-core.dir/src/config.cpp.o"
+  "CMakeFiles/cfsd-state-estimation-core.dir/src/optimizer.cpp.o"
+  "CMakeFiles/cfsd-state-estimation-core.dir/src/imu-preintegrator.cpp.o"
   "CMakeFiles/cfsd-state-estimation-core.dir/src/feature-tracker.cpp.o"
   "CMakeFiles/cfsd-state-estimation-core.dir/src/visual-inertial-slam.cpp.o"
   "../lib/libcfsd-state-estimation-core.pdb"
