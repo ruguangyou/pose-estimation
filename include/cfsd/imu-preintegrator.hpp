@@ -3,6 +3,7 @@
 
 #include "cfsd/common.hpp"
 #include "cfsd/config.hpp"
+#include "cfsd/optimizer.hpp"
 
 namespace cfsd {
 
@@ -19,7 +20,7 @@ namespace cfsd {
 
 class ImuPreintegrator {
   public:
-    ImuPreintegrator(const bool verbose);
+    ImuPreintegrator(const cfsd::Ptr<Optimizer>& pOptimizer, const bool verbose);
 
     // Reinitialize after finishing processing IMU measurements between two consecutive camera frames.
     void reinitialize();
@@ -28,27 +29,29 @@ class ImuPreintegrator {
     void process();
 
     // Iteratively preintegrate IMU measurements.
-    void iterate();
+    void iterate(const SophusSO3Type& dR);
 
     // Calculate right jacobian of SO3.
     void rightJacobianSO3(const EigenVector3Type& omega);
 
     // Propagate preintegration noise.
-    void propagate(const EigenMatrix3Type& temp);
+    void propagate(const SophusSO3Type& dR, const EigenMatrix3Type& temp);
 
     // Calculate jacobians of R, v, p with respect to bias.
     void jacobians(EigenMatrix3Type& temp);
 
+    // Convert relative transformation to absolute.
+    void recover(const int& n);
 
-    // Data from the sensor "ellipse2n" is in IMU coordinate system; convert to camera coordinate system if needed.
-    void coordinateImu2Camera();
-
+    // Store data in queue.
     void collectAccData(const long& timestamp, const float& accX, const float& accY, const float& accZ);
-
     void collectGyrData(const long& timestamp, const float& gyrX, const float& gyrY, const float& gyrZ);
 
   private:
     bool _verbose;
+
+    // Interface to optimizer.
+    cfsd::Ptr<Optimizer> _pOptimizer;
 
     // A very small number that helps determine if a rotation is close to zero.
     float _epsilon;
@@ -85,20 +88,39 @@ class ImuPreintegrator {
     // Store data in a queue since acc and gry data are sent separately by od4; push if new data comes in, and pop it after preintegrating.
     // IMU raw data read from ellipse2n is float type.
     
+    // Angular velocity in IMU coordinate system.
+    std::queue<EigenVector3Type> _gyrQueue;
+
     // Acceleration in IMU coordinate system.
     std::queue<EigenVector3Type> _accQueue;
     
-    // Angular velocity in IMU coordinate system.
-    std::queue<EigenVector3Type> _gryQueue;
-    
     // Timestamps.
     std::queue<long> _timestampQueue;
+
+    // Mutex that protects queue, since od4 runs as an independent thread and will send messages continuously.
+    std::mutex _gyrMutex, _accMutex;
 
     // Acceleration and angular velocity to be processed (from queue's front).
     EigenVector3Type _acc, _gyr;
 
     // Bias of accelerometer and gyroscope.
     EigenVector3Type _biasAcc, _biasGyr;
+
+    // State (R, v, p) and bias (bg, ba) from time i to j
+    //   camear: *                         *
+    //      imu: * * * * * * * * * * * * * *
+    //           i ----------------------> j
+    SophusSO3Type _R_i, _R_j;
+    EigenVector3Type _v_i, _v_j;
+    EigenVector3Type _p_i, _p_j;
+
+    // Bias increment.
+    EigenVector3Type _delta_bg, _delta_ba;
+
+    // The number of imu frames between two consecutive camera frames.
+    // e.g. if camera 60 Hz, imu 900 Hz, then _iter = 15
+    int _iters;
+    int _iterCount;
 
     // Preintegrated delta_R, delta_v, delta_p.
     SophusSO3Type _delta_R_next, _delta_R_prev;
@@ -118,8 +140,11 @@ class ImuPreintegrator {
     // Covariance matrix of preintegrated noise [delta_rvec, delta_v, delta_p]
     Eigen::Matrix<precisionType,9,9> _covPreintegration;
     
-    // Covatiance matrix of measurement discrete-time noise [n_gd, n_ad]
+    // Covariance matrix of measurement discrete-time noise [n_gd, n_ad]
     Eigen::Matrix<precisionType,6,6> _covMeasurement;
+
+    // Covariance matrix of discrete-time bias [b_gd, b_ad]
+    Eigen::Matrix<precisionType,6,6> _covBias;
 
     // EKF data of ellipse2n (Euler angles? Quaternions?)
     // standard deviations?

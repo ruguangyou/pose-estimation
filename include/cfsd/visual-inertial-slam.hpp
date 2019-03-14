@@ -4,6 +4,7 @@
 #include "cfsd/camera-model.hpp"
 #include "cfsd/feature-tracker.hpp"
 #include "cfsd/imu-preintegrator.hpp"
+#include "cfsd/optimizer.hpp"
 // #include "cfsd/map.hpp"
 
 namespace cfsd {
@@ -37,9 +38,11 @@ class VisualInertialSLAM {
 
     cfsd::Ptr<FeatureTracker> _pFeatureTracker;
 
+    cfsd::Ptr<Optimizer> _pOptimizer;
+
     cfsd::Ptr<ImuPreintegrator> _pImuPreintegrator;
 
-    // Map::Ptr _map;
+    // cfsd::Ptr<Map> _pMap;
     
 };
 

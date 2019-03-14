@@ -38,7 +38,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 # Build a static binary.
 set(CMAKE_EXE_LINKER_FLAGS "-static-libgcc -static-libstdc++")
-set(CMAKE_CXX_FLAGS "-O0 -g -D DEBUG")
+set(CMAKE_CXX_FLAGS "-O0 -g -D DEBUG_IMU") # DEBUG_IMG DEBUG_IMU
 # # Add further warning levels.
 # set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} \
 #     -D_XOPEN_SOURCE=700 \
@@ -114,15 +114,17 @@ include_directories(${OpenCV_INCLUDE_DIRS})
 set(LIBRARIES ${LIBRARIES} ${OpenCV_LIBS})
 
 # Ceres
-# find_package(Ceres REQUIRED)
-# include_directories(${CERES_INCLUDE_DIRS})
-# set(LIBRARIES ${LIBRARIES} ${CERES_LIBRARIES})
+find_package(Ceres REQUIRED)
+include_directories(${CERES_INCLUDE_DIRS})
+set(LIBRARIES ${LIBRARIES} ${CERES_LIBRARIES})
 
 ################################################################################
 # Generate static libs
 add_library(${PROJECT_NAME}-core STATIC
     ${CMAKE_SOURCE_DIR}/src/config.cpp
     # ${CMAKE_SOURCE_DIR}/src/key-frame.cpp
+    ${CMAKE_SOURCE_DIR}/src/optimizer.cpp
+    ${CMAKE_SOURCE_DIR}/src/imu-preintegrator.cpp
     ${CMAKE_SOURCE_DIR}/src/feature-tracker.cpp
     # ${CMAKE_SOURCE_DIR}/src/map.cpp
     ${CMAKE_SOURCE_DIR}/src/visual-inertial-slam.cpp)

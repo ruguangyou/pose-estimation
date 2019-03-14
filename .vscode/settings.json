@@ -51,6 +51,7 @@
         "utility": "cpp",
         "algorithm": "cpp",
         "cstdarg": "cpp",
-        "core": "cpp"
+        "core": "cpp",
+        "cinttypes": "cpp"
     }
 }

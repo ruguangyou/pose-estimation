@@ -46,7 +46,7 @@ int main(int argc, char** argv) {
         cfsd::Ptr<cfsd::VisualInertialSLAM> pVISLAM{new cfsd::VisualInertialSLAM(verbose)};
 
         // Sender stamp of microservice opendlv-proxy-ellipse2n
-        const int ellipseID = Config::get<int>("ellipseID");
+        const int ellipseID = cfsd::Config::get<int>("ellipseID");
         
         // Function to call on newly arriving Envelopes which contain accelerometer data.
         auto accRecived{
@@ -73,7 +73,7 @@ int main(int argc, char** argv) {
                     float gyrX = gyrData.angularVelocityX();
                     float gyrY = gyrData.angularVelocityY();
                     float gyrZ = gyrData.angularVelocityZ();
-                    pVISLAM->processImu(cfsd::SensorType::GYROSCOPE, timestamp, gryX, gryY, gyrZ);
+                    pVISLAM->processImu(cfsd::SensorType::GYROSCOPE, timestamp, gyrX, gyrY, gyrZ);
                 }
             }
         };
@@ -103,7 +103,7 @@ int main(int argc, char** argv) {
         // Endless loop; end the program by pressing Ctrl-C.
         while (od4.isRunning()) {
             if (pImgReader->getQueueSize() == 0) {
-                std::cout << "No image coming in yet. Wait..." << std::endl;
+                if (verbose) std::cout << "No image coming in yet. Wait..." << std::endl;
                 continue;
             }
             cv::Mat img;
@@ -113,15 +113,13 @@ int main(int argc, char** argv) {
             cv::Mat gray;
             cv::cvtColor(img, gray, CV_BGR2GRAY);
 
-            // #ifdef DEBUG
+            // #ifdef DEBUG_IMG
             // cv::imshow("Gray", gray);
             // cv::waitKey(0);
             // #endif
 
             auto start = std::chrono::steady_clock::now();
-            //##################
-            pVISLAM->process(timestamp, gray);
-            //##################
+            pVISLAM->processImage(timestamp, gray);
             auto end = std::chrono::steady_clock::now();
             std::cout << "Elapsed time: " << std::chrono::duration<double, std::milli>(end-start).count() << "ms" << std::endl << std::endl;
 

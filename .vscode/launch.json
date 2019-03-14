@@ -9,7 +9,7 @@
             "type": "cppdbg",
             "request": "launch",
             "program": "${workspaceFolder}/bin/cfsd-state-estimation",
-            "args": ["--cid=253","--name=img.argb","--config=../config/parameters.yml", "--verbose"],
+            "args": ["--cid=253","--name=img.argb","--config=../config/parameters.yml"],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}/bin",
             "environment": [],

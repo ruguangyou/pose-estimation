@@ -15,7 +15,7 @@
 #include <opencv2/core/core.hpp>
 #include <opencv2/core/eigen.hpp> // cv::eigen2cv, cv::cv2eigen
 
-#ifdef DEBUG
+#ifdef DEBUG_IMG
 #include <opencv2/highgui/highgui.hpp>
 #endif
 

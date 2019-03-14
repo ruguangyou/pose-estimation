@@ -149,7 +149,7 @@ void FeatureTracker::internalMatch(const cv::Mat& imgLeft, const cv::Mat& imgRig
     //     if (dist > maxDist) maxDist = dist;
     // }
 
-    #ifdef DEBUG
+    #ifdef DEBUG_IMG
     std::vector<cv::DMatch> good_matches;
     #endif
     // Only keep good matches (i.e. whose distance is less than matchRatio * minDist,
@@ -160,13 +160,13 @@ void FeatureTracker::internalMatch(const cv::Mat& imgLeft, const cv::Mat& imgRig
             curPixelsR.push_back(keypointsR[m.trainIdx].pt);
             curDescriptorsL.push_back(descriptorsL.row(m.queryIdx));
             curDescriptorsR.push_back(descriptorsR.row(m.trainIdx));
-            #ifdef DEBUG
+            #ifdef DEBUG_IMG
             good_matches.push_back(m);
             #endif
         }
     }
 
-    #ifdef DEBUG
+    #ifdef DEBUG_IMG
     // Draw only good matches.
     cv::Mat img_matches;
     cv::drawMatches(imgLeft, keypointsL, imgRight, keypointsR, good_matches, img_matches);
@@ -187,7 +187,7 @@ void FeatureTracker::externalTrack(const std::vector<cvPoint2Type>& curPixelsL, 
         return;
     }
 
-    #ifdef DEBUG
+    #ifdef DEBUG_IMG
     int r = 0;
     #endif
 
@@ -200,7 +200,7 @@ void FeatureTracker::externalTrack(const std::vector<cvPoint2Type>& curPixelsL, 
     // Store the correspondence map <queryIdx, trainIdx> of 'left' matching.
     std::map<int,int> mapCurHist;
     
-    #ifdef DEBUG
+    #ifdef DEBUG_IMG
     std::cout << "# histDescriptorsL: " << _histDescriptorsL.rows << std::endl
               << "#  curDescriptorsL: " << curDescriptorsL.rows << std::endl;
     #endif
@@ -226,7 +226,7 @@ void FeatureTracker::externalTrack(const std::vector<cvPoint2Type>& curPixelsL, 
     for (auto& m : matchesR) {
         // Only consider those good matches.
         if (m.distance < std::max(_matchRatio * minDist, _minMatchDist)) {
-            #ifdef DEBUG
+            #ifdef DEBUG_IMG
             r++;
             #endif
             
@@ -246,7 +246,7 @@ void FeatureTracker::externalTrack(const std::vector<cvPoint2Type>& curPixelsL, 
         }
     }
 
-    #ifdef DEBUG
+    #ifdef DEBUG_IMG
     std::cout << " Left hist-cur matches: " << mapCurHist.size() << std::endl
               << "Right hist-cur matches: " << r << std::endl
               << "      Circular matches: " << _matchedFeatureIDs.size() << std::endl
@@ -259,7 +259,7 @@ void FeatureTracker::externalTrack(const std::vector<cvPoint2Type>& curPixelsL, 
 void FeatureTracker::featurePoolUpdate() {
     // The number of new and old features in the pool should be well balanced.
 
-    #ifdef DEBUG
+    #ifdef DEBUG_IMG
     std::cout << "Number of features in pool before updating: " << _features.size() << std::endl;
     int e = 0;
     #endif
@@ -284,7 +284,7 @@ void FeatureTracker::featurePoolUpdate() {
     _histDescriptorsL = cv::Mat(); _histDescriptorsR = cv::Mat();
     for (auto f = _features.begin(); f != _features.end(); ++f) {
         if (f->second._matchedTimes > _maxMatchedTimes) {
-            #ifdef DEBUG
+            #ifdef DEBUG_IMG
             e++;
             #endif
 
@@ -297,7 +297,7 @@ void FeatureTracker::featurePoolUpdate() {
         }
     }
 
-    #ifdef DEBUG
+    #ifdef DEBUG_IMG
     std::cout << "Number of features in pool after updaing: " << _features.size() << std::endl
               << "(" << _newPixelsL.size() << " features inserted, " << _notMatchedFeatureIDs.size() << " not matched old features erased, " << e << " too old features erased)" << std::endl;
     #endif

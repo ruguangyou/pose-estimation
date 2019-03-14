@@ -8,7 +8,9 @@ VisualInertialSLAM::VisualInertialSLAM(const bool verbose) : _state(OK), _verbos
     
     _pFeatureTracker = std::make_shared<FeatureTracker>(_pCameraModel, verbose);
     
-    _pImuPreingegrator = std::make_shared<ImuPreintegrator>(verbose);
+    _pOptimizer = std::make_shared<Optimizer>(verbose);
+
+    _pImuPreintegrator = std::make_shared<ImuPreintegrator>(_pOptimizer, verbose);
     
     // _map = Map::create(_verbose, _debug);
 }
@@ -21,7 +23,7 @@ void VisualInertialSLAM::processImage(const long& timestamp, const cv::Mat& gray
             cv::Mat grayL = gray(cv::Rect(0, 0, gray.cols/2, gray.rows));
             cv::Mat grayR = gray(cv::Rect(gray.cols/2, 0, gray.cols/2, gray.rows));
             
-            #ifdef DEBUG
+            #ifdef DEBUG_IMG
             cv::imshow("grayL", grayL);
             cv::imshow("grayR", grayR);
             cv::waitKey(0);

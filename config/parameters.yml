@@ -2,6 +2,7 @@
 # camera image resolution, 2560x720(30Hz), 1344x376(60Hz)
 imageWidth: 1344
 imageHeight: 376
+cameraFrequency: 60
 
 # left camera intrinsics
 camLeft: !!opencv-matrix
@@ -101,13 +102,13 @@ maxMatchedTimes: 3 # Max times a feature coule be matched
 #keyframe_translation: 0.1
 
 # opendlv od4 communication
-ellipseID: 112
+ellipseID: 112 # sender stamp of proxy-ellipse2n
+# ID: # sender stamp of this microservice
 
 # imu paramteres
-samplingRate: # [Hz] adjustable in sbgCenter
-gNorm: 9.81734   # [m/s^2] gravitational acceleration (might need slightly modification in case of different location)
+samplingRate: 250 # [Hz] adjustable in sbgCenter; however, the sampling frequency 250Hz in opendlv-proxy-ellipse2n timeTrigger function
+gravity: 9.81734 # [m/s^2] gravitational acceleration (might need slightly modification in case of different location)
 accNoise: 0.000057 # [g*sqrt(s)] accelerometer measurement noise density, 57 micro-g/sqrt(Hz) from "Ellipse_Series_Leaflet.pdf"
-gyrNoise: 0.15 # [degree/sqrt(h)] gyroscope measurement noise density, 0.15 degree/sqrt(hr)
+gyrNoise: 4.3633e-5 # [rad/sqrt(s)] gyroscope measurement noise density, 0.15 degree/sqrt(hr)
 accBias: 0.000014 # [g] accelerometer bias random walk noise, 14 micro-g
-gyrBias: 7 # [degree/h] gyroscope bias random walk noise, 7 degree/h
-
+gyrBias: 3.3937e-5 # [rad/s] gyroscope bias random walk noise, 7 degree/h

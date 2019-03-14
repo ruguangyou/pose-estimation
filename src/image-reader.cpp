@@ -39,7 +39,7 @@ void ImageReader::run() {
             
             if(_verbose) { std::cout << _queueSize << " images are waiting in the queue!" << std::endl; }
 
-            #ifdef DEBUG
+            #ifdef DEBUG_IMG
             if (_queueSize > 99) {
                 std::cout << "Queue is full, stop reading!" << std::endl;
                 break;
