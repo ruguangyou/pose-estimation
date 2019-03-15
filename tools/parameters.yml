@@ -1,0 +1,41 @@
+%YAML:1.0
+camLeft: !!opencv-matrix
+    rows: 3
+    cols: 3
+    dt: f
+    data: [ 342.791722, 0.000000, 334.706838, 0.000000, 344.124357, 196.550958, 0.000000, 0.000000, 1.000000]
+radDistLeft: !!opencv-matrix
+    rows: 2
+    cols: 1
+    dt: f
+    data: [ -0.161924, -0.015441]
+tanDistLeft: !!opencv-matrix
+    rows: 2
+    cols: 1
+    dt: f
+    data: [ 0.000000, 0.000000]
+camRight: !!opencv-matrix
+    rows: 3
+    cols: 3
+    dt: f
+    data: [ 341.251536, 0.000000, 349.920843, 0.000000, 342.367160, 198.743062, 0.000000, 0.000000, 1.000000]
+radDistRight: !!opencv-matrix
+    rows: 2
+    cols: 1
+    dt: f
+    data: [ -0.158054, -0.057100]
+tanDistRight: !!opencv-matrix
+    rows: 2
+    cols: 1
+    dt: f
+    data: [ 0.000000, 0.000000]
+rotationLeftToRight: !!opencv-matrix
+    rows: 3
+    cols: 3
+    dt: f
+    data: [ 0.999980, 0.000561, -0.006365, -0.000626, 0.999948, -0.010216, 0.006359, 0.010220, 0.999928]
+translationLeftToRight: !!opencv-matrix
+    rows: 3
+    cols: 1
+    dt: f
+    data: [ -0.113323, 0.000475, -0.003484]
