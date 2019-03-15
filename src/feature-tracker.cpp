@@ -71,36 +71,6 @@ FeatureTracker::FeatureTracker(const cfsd::Ptr<CameraModel>& pCameraModel, const
             }
         }
     }
-    // Factor representation.
-    // float hf1  = Config::get<float>("hf1");
-    // float hf2  = Config::get<float>("hf2");
-    // float wf1L = Config::get<float>("wf1L");
-    // float wf2L = Config::get<float>("wf2L");
-    // float wf3L = Config::get<float>("wf3L");
-    // float wf4L = Config::get<float>("wf4L");
-    // float wf1R = Config::get<float>("wf1R");
-    // float wf2R = Config::get<float>("wf2R");
-    // float wf3R = Config::get<float>("wf3R");
-    // float wf4R = Config::get<float>("wf4R");
-    // for (int i = height*hf1; i < height; ++i) {
-    //     int x1L = (height*(1-hf2)) / (width*(wf1L-wf2L)) * (i-height) + width*wf1L;
-    //     int x2L = (height*(1-hf2)) / (width*(wf4L-wf3L)) * (i-height) + width*wf4L;
-    //     int x1R = (height*(1-hf2)) / (width*(wf1R-wf2R)) * (i-height) + width*wf1R;
-    //     int x2R = (height*(1-hf2)) / (width*(wf4R-wf3R)) * (i-height) + width*wf4R;
-    //     for (int j = 0; j < width; ++j) {
-    //         if (i < height*hf2) {
-    //             _maskL.at<char>(i,j) = 255;
-    //             _maskR.at<char>(i,j) = 255;
-    //         }
-    //         else {
-    //             if (j < x1L || j > x2L)
-    //                 _maskL.at<char>(i,j) = 255;
-    //             if (j < x1R || j > x2R)
-    //                 _maskR.at<char>(i,j) = 255;
-    //         }
-    //     }
-    // }
-
 }
 
 void FeatureTracker::process(const cv::Mat& grayLeft, const cv::Mat& grayRight) {

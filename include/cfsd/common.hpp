@@ -40,18 +40,19 @@
 #include <set>              // std::set and std::multiset associative containers
 
 // pre-defined type (easy to change between float and double type)
-typedef float precisionType;
-typedef Eigen::Matrix3f EigenMatrix3Type;
-typedef Eigen::Vector3f EigenVector3Type;
-typedef Eigen::Vector2f EigenVector2Type;
-typedef Eigen::Matrix<float,4,1> EigenVector4Type;
-typedef Sophus::SE3f SophusSE3Type;
-typedef Sophus::SO3f SophusSO3Type;
-typedef cv::Point3f cvPoint3Type;
-typedef cv::Point2f cvPoint2Type;
-typedef cv::Matx33f cvMatrix3Type;
-typedef cv::Matx41f cvVector4Type;
-typedef cv::Matx34f cvMatrix34Type;
+typedef double precisionType;
+typedef Eigen::Matrix3d EigenMatrix3Type;
+typedef Eigen::Vector3d EigenVector3Type;
+typedef Eigen::Vector2d EigenVector2Type;
+typedef Eigen::Matrix<double,4,1> EigenVector4Type;
+typedef Eigen::Quaterniond EigenQuaternionType;
+typedef Sophus::SE3d SophusSE3Type;
+typedef Sophus::SO3d SophusSO3Type;
+typedef cv::Point3d cvPoint3Type;
+typedef cv::Point2d cvPoint2Type;
+typedef cv::Matx33d cvMatrix3Type;
+typedef cv::Matx41d cvVector4Type;
+typedef cv::Matx34d cvMatrix34Type;
 
 // pre-defined smart pointer type
 namespace cfsd {

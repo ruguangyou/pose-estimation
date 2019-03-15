@@ -28,7 +28,15 @@ class CameraModel {
         EigenVector3Type t;
         cv::cv2eigen(Config::get<cv::Mat>("rotationLeftToRight"), R);
         cv::cv2eigen(Config::get<cv::Mat>("translationLeftToRight"), t);
-        _sophusLeft2Right = SophusSE3Type(R, t);
+        // std::cout << R.determinant() << std::endl;
+        // std::cout << R * R.transpose() << std::endl;
+
+        EigenQuaternionType q = EigenQuaternionType(R);
+        // std::cout << q.norm() << std::endl;
+
+        // _sophusLeft2Right = SophusSE3Type(R, t);  // Note: this would fail because R*R' is not exactly identity matrix
+        _sophusLeft2Right = SophusSE3Type(q, t);     // however, convert R to quaternion will not have such problem
+        // std::cout << _sophusLeft2Right.matrix3x4() << std::endl;
         _sophusRight2Left = _sophusLeft2Right.inverse();
         cv::eigen2cv(_sophusLeft2Right.matrix3x4(), _cvLeft2Right);
         cv::eigen2cv(_sophusRight2Left.matrix3x4(), _cvRight2Left);

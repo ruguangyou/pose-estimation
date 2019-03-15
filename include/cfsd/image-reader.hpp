@@ -8,6 +8,10 @@
 
 namespace cfsd {
 
+#define WIDTH 1344
+#define HEIGHT 376
+// #define FREQUENCY 30
+
 class ImageReader {
   public:
     ImageReader(cluon::OD4Session& od4, const std::string& sharedMemoryPath, const bool verbose);
@@ -31,8 +35,12 @@ class ImageReader {
     // Smart point (unique_ptr) to shared memory.
     std::unique_ptr<cluon::SharedMemory> _pSharedMemory;
 
-    // Resolution of the image from camera.
+    // Resolution of the image read from shared memory.
     int _height, _width;
+
+    // Resolution that is used in post-processing,
+    // i.e. if image from shared memory is of different size, it will be resized.
+    cv::Size _size;
 
     // Images read from shared memory are stored in a queue.
     std::queue<cv::Mat> _imgQueue;

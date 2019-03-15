@@ -1,9 +1,11 @@
 #include "cfsd/image-reader.hpp"
 
+#include <opencv2/imgproc/imgproc.hpp>
+
 namespace cfsd {
 
 ImageReader::ImageReader(cluon::OD4Session& od4, const std::string& sharedMemoryName, const bool verbose)
-    : _od4(od4), _verbose(verbose), _queueSize(0) {
+    : _od4(od4), _verbose(verbose), _queueSize(0), _size(cv::Size(WIDTH, HEIGHT)) {
         _pSharedMemory = std::make_unique<cluon::SharedMemory>(sharedMemoryName);
         _height = Config::get<int>("imageHeight");
         _width = Config::get<int>("imageWidth");
@@ -11,10 +13,10 @@ ImageReader::ImageReader(cluon::OD4Session& od4, const std::string& sharedMemory
 }
 
 void ImageReader::run() {
-    while(_od4.isRunning()) {
-        // cv::Mat img;
-        // long timestamp;
+    // If the actual camera frequency is faster than the pre-defined one, we drop some frames.
+    // int drop = Config::get<int>("cameraFrequency") / FREQUENCY;
 
+    while(_od4.isRunning()) {
         // Wait for a notification of a new frame.
         _pSharedMemory->wait();
         // Lock the shared memory.
@@ -31,7 +33,10 @@ void ImageReader::run() {
             // Lock the data member.
             std::lock_guard<std::mutex> lockData(_dataMutex);
             
-            _imgQueue.push(wrapped.clone());
+            // If image from shared memory has different size with the pre-defined one, resize it.
+            cv::Mat img;
+            cv::resize(wrapped, img, _size);
+            _imgQueue.push(img);
             
             _timestamps.push(cluon::time::toMicroseconds(TS));
             
