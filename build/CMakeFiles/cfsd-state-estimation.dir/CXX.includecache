@@ -93,6 +93,8 @@ cfsd/optimizer.hpp
 ../include/cfsd/optimizer.hpp
 cfsd/common.hpp
 ../include/cfsd/cfsd/common.hpp
+cfsd/imu-preintegrator.hpp
+../include/cfsd/cfsd/imu-preintegrator.hpp
 ceres/ceres.h
 -
 
@@ -117,12 +119,12 @@ cluon-complete.hpp
 /home/ruguang/docker-CFSD/cfsd/2019/state-estimation/src/cluon-complete.hpp
 opendlv-standard-message-set.hpp
 /home/ruguang/docker-CFSD/cfsd/2019/state-estimation/src/opendlv-standard-message-set.hpp
-opencv2/viz.hpp
--
 
 /home/ruguang/docker-CFSD/cfsd/2019/state-estimation/src/image-reader.cpp
 cfsd/image-reader.hpp
 /home/ruguang/docker-CFSD/cfsd/2019/state-estimation/src/cfsd/image-reader.hpp
+opencv2/imgproc/imgproc.hpp
+-
 
 /usr/include/eigen3/Eigen/Cholesky
 Core

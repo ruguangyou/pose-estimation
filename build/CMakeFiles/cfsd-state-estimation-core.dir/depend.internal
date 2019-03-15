@@ -1132,6 +1132,8 @@ CMakeFiles/cfsd-state-estimation-core.dir/src/imu-preintegrator.cpp.o
  /usr/local/include/sophus/types.hpp
 CMakeFiles/cfsd-state-estimation-core.dir/src/optimizer.cpp.o
  ../include/cfsd/common.hpp
+ ../include/cfsd/config.hpp
+ ../include/cfsd/imu-preintegrator.hpp
  ../include/cfsd/optimizer.hpp
  /home/ruguang/docker-CFSD/cfsd/2019/state-estimation/src/optimizer.cpp
  /usr/include/eigen3/Eigen/Cholesky
