@@ -8,47 +8,47 @@ cameraFrequency: 60
 camLeft: !!opencv-matrix
     rows: 3
     cols: 3
-    dt: f
-    data: [ 342.791722, 0.000000, 334.706838, 0.000000, 344.124357, 196.550958, 0.000000, 0.000000, 1.000000]
+    dt: d
+    data: [ 342.791722406, 0.000000000, 334.706838415, 0.000000000, 344.124356670, 196.550957810, 0.000000000, 0.000000000, 1.000000000]
 radDistLeft: !!opencv-matrix
     rows: 2
     cols: 1
-    dt: f
-    data: [ -0.161924, -0.015441]
+    dt: d
+    data: [ -0.161924070, -0.015440781]
 tanDistLeft: !!opencv-matrix
     rows: 2
     cols: 1
-    dt: f
-    data: [ 0.000000, 0.000000]
+    dt: d
+    data: [ 0.000000000, 0.000000000]
 
 # right camera intrinsics
 camRight: !!opencv-matrix
     rows: 3
     cols: 3
-    dt: f
-    data: [ 341.251536, 0.000000, 349.920843, 0.000000, 342.367160, 198.743062, 0.000000, 0.000000, 1.000000]
+    dt: d
+    data: [ 341.251535539, 0.000000000, 349.920842696, 0.000000000, 342.367160436, 198.743062491, 0.000000000, 0.000000000, 1.000000000]
 radDistRight: !!opencv-matrix
     rows: 2
     cols: 1
-    dt: f
-    data: [ -0.158054, -0.057100]
+    dt: d
+    data: [ -0.158054176, -0.057099581]
 tanDistRight: !!opencv-matrix
     rows: 2
     cols: 1
-    dt: f
-    data: [ 0.000000, 0.000000]
+    dt: d
+    data: [ 0.000000000, 0.000000000]
 
 # camera extrinsics
 rotationLeftToRight: !!opencv-matrix
     rows: 3
     cols: 3
-    dt: f
-    data: [ 0.999980, 0.000561, -0.006365, -0.000626, 0.999948, -0.010216, 0.006359, 0.010220, 0.999928]
+    dt: d
+    data: [ 0.999979587, 0.000561197, -0.006364804, -0.000626206, 0.999947614, -0.010216470, 0.006358737, 0.010220247, 0.999927554]
 translationLeftToRight: !!opencv-matrix
     rows: 3
     cols: 1
-    dt: f
-    data: [ -0.113323, 0.000475, -0.003484]
+    dt: d
+    data: [ -0.113323042, 0.000474592, -0.003483791]
 
 # feature detector parameters
 detectorType: "ORB"  # available (ORB, BRISK)
@@ -79,17 +79,6 @@ w1R: 90
 w2R: 290
 w3R: 370
 w4R: 580
-## factor representation:
-hf1: 0.426  # height factor (~= 160/376)
-hf2: 0.772
-wf1L: 0.156 # width factor of left image (~= 105/672)
-wf2L: 0.454
-wf3L: 0.573
-wf4L: 0.886
-wf1R: 0.134 # width factor of right image
-wf2R: 0.432
-wf3R: 0.551
-wf4R: 0.863
 
 # feature matching parameters
 matchRatio: 1.5    # the distance of a good match should be smaller than minDist*matchRatio

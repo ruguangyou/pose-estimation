@@ -27,12 +27,12 @@ end
 fprintf( file, '%s: !!opencv-matrix\n', variableName);
 fprintf( file, '    rows: %d\n', rows);
 fprintf( file, '    cols: %d\n', cols);
-fprintf( file, '    dt: f\n');
+fprintf( file, '    dt: d\n');
 fprintf( file, '    data: [ ');
 
 % Write variable data
 for i=1:rows*cols
-    fprintf( file, '%.6f', variable(i));
+    fprintf( file, '%.9f', variable(i));
     if (i == rows*cols), break, end
     fprintf( file, ', ');
     % if mod(i,3) == 0

@@ -5,9 +5,9 @@
 #include "cluon-complete.hpp"
 #include "opendlv-standard-message-set.hpp"
 
-#ifdef USE_VIEWER
-#include <opencv2/viz.hpp>
-#endif
+// #ifdef USE_VIEWER
+// #include <opencv2/viz.hpp>
+// #endif
 
 int main(int argc, char** argv) {
     int retCode{0};
@@ -87,18 +87,18 @@ int main(int argc, char** argv) {
         std::thread imgReaderThread(&cfsd::ImageReader::run, pImgReader);
         imgReaderThread.detach(); // permits the thread to execute independently from the thread handle
 
-        #ifdef USE_VIEWER
-        // visualization
-        cv::viz::Viz3d viewer("VIO");
-        cv::viz::WCoordinateSystem worldCoor(1.0), camCoor(0.5); // 1.0 and 0.5 are scale that determine the size of axes
-        cv::Point3d viewerPosition(-1.0,-3.0,-3.0), viewerFocalPoint(0,0,0), viewerYDirection(-1.0,1.0,-1.0);
-        cv::Affine3d viewerPose = cv::viz::makeCameraPose(viewerPosition, viewerFocalPoint, viewerYDirection);
-        viewer.setViewerPose(viewerPose); // set pose of the viewer
-        worldCoor.setRenderingProperty(cv::viz::LINE_WIDTH, 2.0);
-        camCoor.setRenderingProperty(cv::viz::LINE_WIDTH, 1.0);
-        viewer.showWidget("World", worldCoor);
-        viewer.showWidget("Camera", camCoor);
-        #endif
+        // #ifdef USE_VIEWER
+        // // visualization
+        // cv::viz::Viz3d viewer("VIO");
+        // cv::viz::WCoordinateSystem worldCoor(1.0), camCoor(0.5); // 1.0 and 0.5 are scale that determine the size of axes
+        // cv::Point3d viewerPosition(-1.0,-3.0,-3.0), viewerFocalPoint(0,0,0), viewerYDirection(-1.0,1.0,-1.0);
+        // cv::Affine3d viewerPose = cv::viz::makeCameraPose(viewerPosition, viewerFocalPoint, viewerYDirection);
+        // viewer.setViewerPose(viewerPose); // set pose of the viewer
+        // worldCoor.setRenderingProperty(cv::viz::LINE_WIDTH, 2.0);
+        // camCoor.setRenderingProperty(cv::viz::LINE_WIDTH, 1.0);
+        // viewer.showWidget("World", worldCoor);
+        // viewer.showWidget("Camera", camCoor);
+        // #endif
 
         // Endless loop; end the program by pressing Ctrl-C.
         while (od4.isRunning()) {
@@ -123,22 +123,22 @@ int main(int argc, char** argv) {
             auto end = std::chrono::steady_clock::now();
             std::cout << "Elapsed time: " << std::chrono::duration<double, std::milli>(end-start).count() << "ms" << std::endl << std::endl;
 
-            #ifdef USE_VIEWER
-            SophusSE3Type Tcw = vio->getLatestCamPose().inverse();
-            // show the map and the camera pose 
-            cv::Affine3d M(
-                cv::Affine3d::Mat3( 
-                    Tcw.so3().matrix()(0,0), Tcw.so3().matrix()(0,1), Tcw.so3().matrix()(0,2),
-                    Tcw.so3().matrix()(1,0), Tcw.so3().matrix()(1,1), Tcw.so3().matrix()(1,2),
-                    Tcw.so3().matrix()(2,0), Tcw.so3().matrix()(2,1), Tcw.so3().matrix()(2,2)
-                ), 
-                cv::Affine3d::Vec3(
-                    Tcw.translation()(0,0), Tcw.translation()(1,0), Tcw.translation()(2,0)
-                )
-            );
-            viewer.setWidgetPose("Camera", M);
-            viewer.spinOnce(1, true);
-            #endif
+            // #ifdef USE_VIEWER
+            // SophusSE3Type Tcw = vio->getLatestCamPose().inverse();
+            // // show the map and the camera pose 
+            // cv::Affine3d M(
+            //     cv::Affine3d::Mat3( 
+            //         Tcw.so3().matrix()(0,0), Tcw.so3().matrix()(0,1), Tcw.so3().matrix()(0,2),
+            //         Tcw.so3().matrix()(1,0), Tcw.so3().matrix()(1,1), Tcw.so3().matrix()(1,2),
+            //         Tcw.so3().matrix()(2,0), Tcw.so3().matrix()(2,1), Tcw.so3().matrix()(2,2)
+            //     ), 
+            //     cv::Affine3d::Vec3(
+            //         Tcw.translation()(0,0), Tcw.translation()(1,0), Tcw.translation()(2,0)
+            //     )
+            // );
+            // viewer.setWidgetPose("Camera", M);
+            // viewer.spinOnce(1, true);
+            // #endif
         }
     }
     return retCode;
