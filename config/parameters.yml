@@ -1,10 +1,10 @@
 %YAML:1.0
-# camera image resolution, 2560x720(30Hz), 1344x376(60Hz)
+# Camera image resolution, 2560x720(30Hz), 1344x376(60Hz)
 imageWidth: 1344
 imageHeight: 376
 cameraFrequency: 60
 
-# left camera intrinsics
+# Left camera intrinsics
 camLeft: !!opencv-matrix
     rows: 3
     cols: 3
@@ -21,7 +21,7 @@ tanDistLeft: !!opencv-matrix
     dt: d
     data: [ 0.000000000, 0.000000000]
 
-# right camera intrinsics
+# Right camera intrinsics
 camRight: !!opencv-matrix
     rows: 3
     cols: 3
@@ -38,7 +38,7 @@ tanDistRight: !!opencv-matrix
     dt: d
     data: [ 0.000000000, 0.000000000]
 
-# camera extrinsics
+# Camera extrinsics
 rotationLeftToRight: !!opencv-matrix
     rows: 3
     cols: 3
@@ -50,14 +50,14 @@ translationLeftToRight: !!opencv-matrix
     dt: d
     data: [ -0.113323042, 0.000474592, -0.003483791]
 
-# feature detector parameters
-detectorType: "ORB"  # available (ORB, BRISK)
+# Feature detector parameters
+detectorType: "ORB"  # available (ORB, BRISK...)
 # ORB
 numberOfFeatures: 500
 scaleFactor: 1.2
 levelPyramid: 8
 
-# image mask (we don't want to detect keypoints in the sky and vehicle body)
+# Image mask (we don't want to detect keypoints in the sky and vehicle body)
 #     #########################
 #     |-----------------------|
 # hf1 |-----------------------| (sky)
@@ -80,7 +80,7 @@ w2R: 290
 w3R: 370
 w4R: 580
 
-# feature matching parameters
+# Feature matching parameters
 matchRatio: 1.5    # the distance of a good match should be smaller than minDist*matchRatio
 minMatchDist: 30.0 # another number for selecting good matches, from experience
 maxMatchedTimes: 3 # Max times a feature coule be matched
@@ -90,14 +90,22 @@ maxMatchedTimes: 3 # Max times a feature coule be matched
 #keyframe_rotation: 0.1
 #keyframe_translation: 0.1
 
-# opendlv od4 communication
+# OpenDLV OD4 communication
 ellipseID: 112 # sender stamp of proxy-ellipse2n
 # ID: # sender stamp of this microservice
 
-# imu paramteres
+# IMU paramteres
 samplingRate: 250 # [Hz] adjustable in sbgCenter; however, the sampling frequency 250Hz in opendlv-proxy-ellipse2n timeTrigger function
 gravity: 9.81734 # [m/s^2] gravitational acceleration (might need slightly modification in case of different location)
 accNoise: 0.000057 # [g*sqrt(s)] accelerometer measurement noise density, 57 micro-g/sqrt(Hz) from "Ellipse_Series_Leaflet.pdf"
 gyrNoise: 4.3633e-5 # [rad/sqrt(s)] gyroscope measurement noise density, 0.15 degree/sqrt(hr)
 accBias: 0.000014 # [g] accelerometer bias random walk noise, 14 micro-g
 gyrBias: 3.3937e-5 # [rad/s] gyroscope bias random walk noise, 7 degree/h
+
+# Viewer settings
+viewScale: 10
+pointSize: 2
+viewpointX: 0
+viewpointY: -10
+viewpointZ: -0.1
+viewpointF: 2000

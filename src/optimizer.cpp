@@ -59,10 +59,14 @@ void Optimizer::localOptimize(const cfsd::Ptr<ImuPreintegrator>& pImuPreintegrat
     // Parameters to be optimized: rotation, velocity, position, deltaBiasGyr, deltaBiasAcc
     double rvp_i[9]; // r, v, p at time i
     double rvp_j[9]; // r, v, p at time j
-    double bg_ba[6] = {0, 0, 0, 0, 0, 0}; // delta_bg, delta_ba from i to j
+    double bg_ba[6] = {0.01, 0.01, 0.01, 0.01, 0.01, 0.01}; // delta_bg, delta_ba from i to j
 
     // Read initial values from ImuPreintegrator.
     pImuPreintegrator->getParameters(rvp_i, rvp_j);
+
+    #ifdef USE_VIEWER
+    _pViewer->setRawParameters(rvp_i, rvp_j);
+    #endif
 
     // Build the problem.
     ceres::Problem problem;
@@ -80,14 +84,20 @@ void Optimizer::localOptimize(const cfsd::Ptr<ImuPreintegrator>& pImuPreintegrat
     // Run the solver.
     ceres::Solve(options, &problem, &summary);
     
-    if (_verbose) {
+    // if (_verbose) {
         // Show the report.
         std::cout << summary.BriefReport() << std::endl;
         // std::cout << summary.FullReport() << std::endl;
-    }
+        std::cout << "Estimated position at time i: " << rvp_i[6] << ", " << rvp_i[7] << ", " << rvp_i[8] << std::endl;
+        std::cout << "Estimated position at time j: " << rvp_j[6] << ", " << rvp_j[7] << ", " << rvp_j[8] << std::endl;
+    // }
+
+    #ifdef USE_VIEWER
+    _pViewer->setParameters(rvp_i, rvp_j);
+    #endif
 
     // Update state values in ImuPreintegrator.
-    pImuPreintegrator->updateState(rvp_i, rvp_j, bg_ba);
+    pImuPreintegrator->updateState(rvp_j, bg_ba);
 }
 
 

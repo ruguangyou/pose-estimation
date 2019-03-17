@@ -9,12 +9,8 @@ ImuPreintegrator::ImuPreintegrator(const cfsd::Ptr<Optimizer>& pOptimizer, const
         _R_i(SophusSO3Type()),
         _v_i(EigenVector3Type::Zero()),
         _p_i(EigenVector3Type::Zero()),
-        _R_j(SophusSO3Type()),
-        _v_j(EigenVector3Type::Zero()),
-        _p_j(EigenVector3Type::Zero()),
         _biasGyr(EigenVector3Type::Zero()),
         _biasAcc(EigenVector3Type::Zero()),
-        _iterCount(0),
         _delta_R_ij(SophusSO3Type()), 
         _delta_v_ij(EigenVector3Type::Zero()), 
         _delta_p_ij(EigenVector3Type::Zero()),
@@ -63,6 +59,13 @@ ImuPreintegrator::ImuPreintegrator(const cfsd::Ptr<Optimizer>& pOptimizer, const
     _covPreintegration.block<6, 6>(9, 9) = _covBias;
 }
 
+bool ImuPreintegrator::isProcessable() {
+    std::lock_guard<std::mutex> lockGyr(_gyrMutex);
+    std::lock_guard<std::mutex> lockAcc(_accMutex);
+
+    return (_gyrQueue.size() >= _iters && _accQueue.size() >= _iters);
+}
+
 void ImuPreintegrator::reinitialize() {
     _delta_R_ij = SophusSO3Type();
     _delta_v_ij.setZero();
@@ -73,26 +76,23 @@ void ImuPreintegrator::reinitialize() {
     _d_v_bg_ij.setZero();
     _d_p_ba_ij.setZero();
     _d_p_bg_ij.setZero();
-
-    _iterCount = 0;
 }
 
 void ImuPreintegrator::process() {
-    if (_iterCount < _iters) {
-        // Out of this local scope the locks will die.
-        {
+    for (int i = 0; i < _iters; i++) {
+        { // Out of this local scope the locks will die.
             std::lock_guard<std::mutex> lockGyr(_gyrMutex);
             std::lock_guard<std::mutex> lockAcc(_accMutex);
-            
-            // Only receiving acc data or gyr data will not trigger further processing.
-            if (_accQueue.size() == 0 || _gyrQueue.size() == 0) return;
         
             // Acc and gyr to be processed.
             _acc = _accQueue.front();
             _gyr = _gyrQueue.front();
-        }
 
-        auto start = std::chrono::steady_clock::now();
+            // Pop out processed measurements.
+            _accQueue.pop();
+            _gyrQueue.pop();
+            _timestampQueue.pop();
+        }
 
         // #ifdef DEBUG_IMU
         // std::cout << "(camera)\nacc:\n" << _acc << "gyr:\n" << _gyr << std::endl;
@@ -122,28 +122,15 @@ void ImuPreintegrator::process() {
 
         // Jacobians of bias.
         jacobians(Jr, temp);
-        
-        { // Out of this local scope the locks will die.
-            std::lock_guard<std::mutex> lockGyr(_gyrMutex);
-            std::lock_guard<std::mutex> lockAcc(_accMutex);
-            // Pop out processed measurements.
-            _accQueue.pop();
-            _gyrQueue.pop();
-            _timestampQueue.pop();
-        }
-        
-        _iterCount++;
+    }
 
-        auto end = std::chrono::steady_clock::now();
-        std::cout << "Preintegration elapsed time: " << std::chrono::duration<double, std::milli>(end-start).count() << "ms" << std::endl << std::endl;
-    }
-    else {
-        // Local optimization.
-        // shared_from_this() returns a std::shared_ptr<T> that shares ownership of *this with all existing std::shared_ptr that refer to *this.
-        _pOptimizer->localOptimize(shared_from_this());
-        
-        reinitialize();
-    }
+    recover();
+
+    // Local optimization.
+    // shared_from_this() returns a std::shared_ptr<T> that shares ownership of *this with all existing std::shared_ptr that refer to *this.
+    _pOptimizer->localOptimize(shared_from_this());
+    
+    reinitialize();
 }
 
 void ImuPreintegrator::iterate(const SophusSO3Type& dR) {
@@ -154,8 +141,8 @@ void ImuPreintegrator::iterate(const SophusSO3Type& dR) {
 
     // Update this iteration's "ij".
     _delta_R_ij = _delta_R_ijm1 * dR;
-    _delta_v_ij = _delta_v_ijm1 + _delta_R_ijm1.matrix() * (_acc - _biasAcc) * _deltaT;
-    _delta_p_ij = _delta_p_ijm1 + _delta_v_ijm1 * _deltaT + 0.5 * _delta_R_ijm1.matrix() * (_acc - _biasAcc) * _deltaT2;
+    _delta_v_ij = _delta_v_ijm1 + _delta_R_ijm1 * (_acc - _biasAcc) * _deltaT;
+    _delta_p_ij = _delta_p_ijm1 + _delta_v_ijm1 * _deltaT + _delta_R_ijm1 * (_acc - _biasAcc) * _deltaT2 / 2;
 }
 
 EigenMatrix3Type ImuPreintegrator::rightJacobianSO3(const EigenVector3Type& omega) {
@@ -203,7 +190,7 @@ EigenMatrix3Type ImuPreintegrator::rightJacobianInverseSO3(const EigenVector3Typ
         // omega_hat <<      0.0, -omega(2),  omega(1),
         //              omega(2),       0.0, -omega(0),
         //             -omega(1),  omega(0),       0.0;
-        JrInv = EigenMatrix3Type::Identity() + 0.5 * omega_hat + (1 / theta2 - (1 + std::cos(theta)) / (2 * theta * std::sin(theta))) * omega_hat * omega_hat;
+        JrInv = EigenMatrix3Type::Identity() + omega_hat / 2 + (1 / theta2 - (1 + std::cos(theta)) / (2 * theta * std::sin(theta))) * omega_hat * omega_hat;
     }
 
     return JrInv;
@@ -218,15 +205,15 @@ void ImuPreintegrator::propagate(const SophusSO3Type& dR, const EigenMatrix3Type
     Eigen::Matrix<precisionType,9,6> B;
     A.setZero();
     B.setZero();
-    A.block<3, 3>(0, 0) = dR.matrix();
+    A.block<3, 3>(0, 0) = dR.matrix().transpose();
     A.block<3, 3>(3, 0) = -temp * _deltaT;  // temp = _delta_R_ijm1.matrix() * ab_hat
     A.block<3, 3>(3, 3) = EigenMatrix3Type::Identity();
-    A.block<3, 3>(6, 0) = -0.5 * temp * _deltaT2;
+    A.block<3, 3>(6, 0) = -temp * _deltaT2 / 2;
     A.block<3, 3>(6, 3) = _deltaT * EigenMatrix3Type::Identity();
     A.block<3, 3>(6, 6) = EigenMatrix3Type::Identity();
     B.block<3, 3>(0, 0) = Jr * _deltaT;
     B.block<3, 3>(3, 3) = _delta_R_ijm1.matrix() * _deltaT;
-    B.block<3, 3>(6, 3) = 0.5 * _delta_R_ijm1.matrix() * _deltaT2;
+    B.block<3, 3>(6, 3) = _delta_R_ijm1.matrix() * _deltaT2 / 2;
 
     // Update covariance matrix.
     _covPreintegration.block<9, 9>(0, 0) = A * _covPreintegration.block<9, 9>(0, 0) * A.transpose() + B * _covMeasurement * B.transpose();
@@ -241,14 +228,14 @@ void ImuPreintegrator::jacobians(const EigenMatrix3Type& Jr, EigenMatrix3Type& t
     _d_p_bg_ijm1 = _d_p_bg_ij;
 
     // (temp = _delta_R_ijm1.matrix() * ab_hat) -> (temp = _delta_R_ijm1.matrix() * ab_hat * _d_R_bg_ijm1)
-    temp *= _d_R_bg_ijm1;
+    temp = temp * _d_R_bg_ijm1;
 
     // Update jacobians of R, v, p with respect to bias.
     _d_R_bg_ij = -_d_R_bg_ijm1 - Jr * _deltaT;
     _d_v_ba_ij = -_d_v_ba_ijm1 - _delta_R_ijm1.matrix() * _deltaT;
     _d_v_bg_ij = -_d_v_bg_ijm1 - temp * _deltaT;
-    _d_p_ba_ij = _d_p_ba_ijm1 + _d_v_ba_ijm1 * _deltaT - 0.5 * _delta_R_ijm1.matrix() * _deltaT2;
-    _d_p_bg_ij = _d_p_bg_ijm1 + _d_v_bg_ijm1 * _deltaT - 0.5 * temp * _deltaT2;
+    _d_p_ba_ij = _d_p_ba_ijm1 + _d_v_ba_ijm1 * _deltaT - _delta_R_ijm1.matrix() * _deltaT2 / 2;
+    _d_p_bg_ij = _d_p_bg_ijm1 + _d_v_bg_ijm1 * _deltaT - temp * _deltaT2 / 2;
 }
 
 void ImuPreintegrator::recover() {
@@ -256,15 +243,11 @@ void ImuPreintegrator::recover() {
     // This is provided as initial value for ceres optimization.
     _R_j = _R_i * _delta_R_ij;
     _v_j = _v_i + _gravity * _dt + _R_i * _delta_v_ij;
-    _p_j = _p_i + _v_i * _dt + 0.5 * _gravity * _dt2 + _R_i * _delta_p_ij;
+    _p_j = _p_i + _v_i * _dt + _gravity * _dt2 / 2 + _R_i * _delta_p_ij;
     
     // _R_j = _R_i * _delta_R_ij * SophusSO3Type::exp(_d_R_bg_ij * _delta_bg);
     // _v_j = _v_i + _gravity * (_deltaT * n) + _R_i.matrix() * (_delta_v_ij + _d_v_bg_ij * _delta_bg + _d_v_ba_ij * _delta_ba);
     // _p_j = _p_i + _v_i * (_deltaT * n) + 0.5 * _gravity * (_deltaT2 * n * n) + _R_i * (_delta_p_ij + _d_p_bg_ij * _delta_bg + _d_p_ba_ij * _delta_ba);
-
-    #ifdef DEBUG_IMU
-    std::cout << "position:\n" << _p_j << std::endl;
-    #endif
 }
 
 void ImuPreintegrator::getParameters(double* rvp_i, double* rvp_j) {
@@ -290,6 +273,11 @@ void ImuPreintegrator::getParameters(double* rvp_i, double* rvp_j) {
     rvp_j[6] = _p_j(0);
     rvp_j[7] = _p_j(1);
     rvp_j[8] = _p_j(2);
+
+    #ifdef DEBUG_IMU
+    std::cout << "position i: " << rvp_i[6] << ", " << rvp_i[7] << ", " << rvp_i[8] << std::endl;
+    std::cout << "position j: " << rvp_j[6] << ", " << rvp_j[7] << ", " << rvp_j[8] << std::endl;
+    #endif
 }
 
 bool ImuPreintegrator::evaluate(
@@ -312,7 +300,7 @@ bool ImuPreintegrator::evaluate(
     residual.block<3, 1>(3, 0) = R_i.inverse() * dv - (_delta_v_ij + _d_v_bg_ij * delta_bg + _d_v_ba_ij * delta_ba);
 
     // residual(delta_p_ij)
-    EigenVector3Type dp = p_j - p_i - v_i * _dt - 0.5 * _gravity * _dt2;
+    EigenVector3Type dp = p_j - p_i - v_i * _dt - _gravity * _dt2 / 2;
     residual.block<3, 1>(6, 0) = R_i.inverse() * dp - (_delta_p_ij + _d_p_bg_ij * delta_bg + _d_p_ba_ij * delta_ba);
 
     // residual(delta_bg_ij)
@@ -409,21 +397,23 @@ bool ImuPreintegrator::evaluate(
     return true;
 }
 
-void ImuPreintegrator::updateState(double* rvp_i, double* rvp_j, double* bg_ba) {
-    _R_i = SophusSO3Type::exp(EigenVector3Type(rvp_i[0], rvp_i[1], rvp_i[2]));
-    _v_i = EigenVector3Type(rvp_i[3], rvp_i[4], rvp_i[5]);
-    _p_i = EigenVector3Type(rvp_i[6], rvp_i[7], rvp_i[8]);
-    
-    _R_j = SophusSO3Type::exp(EigenVector3Type(rvp_j[0], rvp_j[1], rvp_j[2]));
-    _v_j = EigenVector3Type(rvp_j[3], rvp_j[4], rvp_j[5]);
-    _p_j = EigenVector3Type(rvp_j[6], rvp_j[7], rvp_j[8]);
+void ImuPreintegrator::updateState(double* rvp_j, double* bg_ba) {
+    _R_i = SophusSO3Type::exp(EigenVector3Type(rvp_j[0], rvp_j[1], rvp_j[2]));
+    _v_i = EigenVector3Type(rvp_j[3], rvp_j[4], rvp_j[5]);
+    _p_i = EigenVector3Type(rvp_j[6], rvp_j[7], rvp_j[8]);
 
     _biasGyr += EigenVector3Type(bg_ba[0], bg_ba[1], bg_ba[2]);
     _biasAcc += EigenVector3Type(bg_ba[3], bg_ba[4], bg_ba[5]);
+
+    #ifdef DEBUG_IMU
+    std::cout << "bias gyr: " << _biasGyr(0) << ", " << _biasGyr(1) << ", " << _biasGyr(2) << std::endl;
+    std::cout << "bias acc: " << _biasAcc(0) << ", " << _biasAcc(1) << ", " << _biasAcc(2) << std::endl;
+    #endif
 }
 
 void ImuPreintegrator::collectAccData(const long& timestamp, const float& accX, const float& accY, const float& accZ) {
     std::lock_guard<std::mutex> lockAcc(_accMutex);
+
     if (_accQueue.size() == _timestampQueue.size())
         _timestampQueue.push(timestamp);
     
@@ -434,8 +424,16 @@ void ImuPreintegrator::collectAccData(const long& timestamp, const float& accX, 
             ------ y (pitch)            ------ x (roll)
             |                           |
             | z (yaw)                   | y (pitch)
+        
+        last year's proxy-ellipse2n (this is what will be received if using replay data collected in 2018-12-05)
+                 z |  / x
+                   | /
+           y _ _ _ |/
     */
-    acc << accY, accZ, accX;
+
+    // why accX is negative? even when the vehicle is still?
+    // acc << -accY, -accZ, accX; // converted from last year's coordinate system
+    acc << -accY, -accZ, accX+0.37; // compensation for accX for now, need calibration later
     
     _accQueue.push(acc);
 }
@@ -453,8 +451,13 @@ void ImuPreintegrator::collectGyrData(const long& timestamp, const float& gyrX, 
             ------ y (pitch)            ------ x (roll)
             |                           |
             | z (yaw)                   | y (pitch)
+        
+        last year's proxy-ellipse2n (this is what will be received if using replay data collected in 2018-12-05)
+                 z |  / x
+                   | /
+           y _ _ _ |/
     */
-    gyr << gyrY, gyrZ, gyrX;
+    gyr << -gyrY, -gyrZ, gyrX; // converted from last year's coordinate system
     
     _gyrQueue.push(gyr);
 }

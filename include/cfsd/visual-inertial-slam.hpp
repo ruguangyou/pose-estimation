@@ -7,6 +7,10 @@
 #include "cfsd/optimizer.hpp"
 // #include "cfsd/map.hpp"
 
+#ifdef USE_VIEWER
+#include "cfsd/viewer.hpp"
+#endif
+
 namespace cfsd {
 
 enum SensorType {
@@ -26,9 +30,15 @@ class VisualInertialSLAM {
   public:
     VisualInertialSLAM(const bool verbose);
 
+    #ifdef USE_VIEWER
+    void setViewer(const cfsd::Ptr<Viewer>& pViewer) { _pOptimizer->setViewer(pViewer); }
+    #endif
+
     void processImage(const long& timestamp, const cv::Mat& img);
 
-    void processImu(const cfsd::SensorType& st, const long& timestamp, const float& x, const float& y, const float& z);
+    void processImu();
+
+    void collectImuData(const cfsd::SensorType& st, const long& timestamp, const float& x, const float& y, const float& z);
 
   private:
     bool _verbose;

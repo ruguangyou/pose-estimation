@@ -18,12 +18,21 @@ class Optimizer;
           ------ y (pitch)                    ------ x (roll)
           |                                   |
           | z (yaw)                           | y (pitch)
+
+   last year's proxy-ellipse2n (this is what will be received if using replay data collected in 2018-12-05)
+           z |  / x
+             | /
+     y _ _ _ |/
 */
+
 
 class ImuPreintegrator : public std::enable_shared_from_this<ImuPreintegrator> {
   public:
     ImuPreintegrator(const cfsd::Ptr<Optimizer>& pOptimizer, const bool verbose);
 
+    // Test if the number of collected measurements reaches '_iters'.
+    bool isProcessable();
+    
     // Reinitialize after finishing processing IMU measurements between two consecutive camera frames.
     void reinitialize();
 
@@ -56,7 +65,7 @@ class ImuPreintegrator : public std::enable_shared_from_this<ImuPreintegrator> {
                   double* residuals, double** jacobians);
     
     // Update states from ceres optimization results.
-    void updateState(double* rvp_i, double* rvp_j, double* bg_ba);
+    void updateState(double* rvp_j, double* bg_ba);
 
     // Store data in queue.
     void collectAccData(const long& timestamp, const float& accX, const float& accY, const float& accZ);
@@ -131,7 +140,6 @@ class ImuPreintegrator : public std::enable_shared_from_this<ImuPreintegrator> {
     // The number of imu frames between two consecutive camera frames.
     // e.g. if camera 60 Hz, imu 900 Hz, then _iter = 15
     int _iters;
-    int _iterCount;
 
     // Time between two consecutive camera frames, defined as: _deltaT * _iters
     double _dt, _dt2;

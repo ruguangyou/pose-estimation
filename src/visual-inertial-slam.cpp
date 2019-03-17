@@ -29,7 +29,10 @@ void VisualInertialSLAM::processImage(const long& timestamp, const cv::Mat& gray
             cv::waitKey(0);
             #endif
             
+            auto start = std::chrono::steady_clock::now();
             _pFeatureTracker->process(grayL, grayR);
+            auto end = std::chrono::steady_clock::now();
+            std::cout << "Feature-tracking elapsed time: " << std::chrono::duration<double, std::milli>(end-start).count() << "ms" << std::endl << std::endl;
 
             break;
         }
@@ -42,14 +45,23 @@ void VisualInertialSLAM::processImage(const long& timestamp, const cv::Mat& gray
     }
 }
 
-
-void VisualInertialSLAM::processImu(const cfsd::SensorType& st, const long& timestamp, const float& x, const float& y, const float& z) {
+void VisualInertialSLAM::collectImuData(const cfsd::SensorType& st, const long& timestamp, const float& x, const float& y, const float& z) {
     if (st == ACCELEROMETER)
         _pImuPreintegrator->collectAccData(timestamp, x, y, z);
     else
         _pImuPreintegrator->collectGyrData(timestamp, x, y, z);
-    
+}
+
+void VisualInertialSLAM::processImu() {
+    while (!_pImuPreintegrator->isProcessable()) {
+        // if (_verbose) std::cout << "Measurements not ready!" << std::endl;
+        // Do nothing but wait until a specific number of measurements have been collected.
+    }
+
+    auto start = std::chrono::steady_clock::now();
     _pImuPreintegrator->process();
+    auto end = std::chrono::steady_clock::now();
+    std::cout << "Preintegration elapsed time: " << std::chrono::duration<double, std::milli>(end-start).count() << "ms" << std::endl << std::endl;
 }
 
 

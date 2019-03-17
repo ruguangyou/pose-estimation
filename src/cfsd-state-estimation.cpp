@@ -5,10 +5,6 @@
 #include "cluon-complete.hpp"
 #include "opendlv-standard-message-set.hpp"
 
-// #ifdef USE_VIEWER
-// #include <opencv2/viz.hpp>
-// #endif
-
 int main(int argc, char** argv) {
     int retCode{0};
     std::map<std::string, std::string> commandlineArguments = cluon::getCommandlineArguments(argc, argv);
@@ -45,6 +41,13 @@ int main(int argc, char** argv) {
         // Interface to VI-SLAM.
         cfsd::Ptr<cfsd::VisualInertialSLAM> pVISLAM{new cfsd::VisualInertialSLAM(verbose)};
 
+        #ifdef USE_VIEWER
+        // A thread for visulizing.
+        cfsd::Ptr<cfsd::Viewer> pViewer{new cfsd::Viewer()};
+        pVISLAM->setViewer(pViewer);
+        std::thread viewerThread(&cfsd::Viewer::run, pViewer); // no need to detach, since there is a while loop in Viewer::run()
+        #endif
+
         // Sender stamp of microservice opendlv-proxy-ellipse2n
         const int ellipseID = cfsd::Config::get<int>("ellipseID");
         
@@ -52,13 +55,14 @@ int main(int argc, char** argv) {
         auto accRecived{
             [&pVISLAM, &ellipseID] (cluon::data::Envelope &&envelope) {
                 if (envelope.senderStamp() == ellipseID) {
+                    // std::cout << "acc" << std::endl;
                     opendlv::proxy::AccelerationReading accData = cluon::extractMessage<opendlv::proxy::AccelerationReading>(std::move(envelope));
                     cluon::data::TimeStamp ts = envelope.sampleTimeStamp();
                     long timestamp = cluon::time::toMicroseconds(ts);
                     float accX = accData.accelerationX();
                     float accY = accData.accelerationY();
                     float accZ = accData.accelerationZ();
-                    pVISLAM->processImu(cfsd::SensorType::ACCELEROMETER, timestamp, accX, accY, accZ);
+                    pVISLAM->collectImuData(cfsd::SensorType::ACCELEROMETER, timestamp, accX, accY, accZ);
                 }
             }
         };
@@ -67,13 +71,14 @@ int main(int argc, char** argv) {
         auto gyrRecived{
             [&pVISLAM, &ellipseID] (cluon::data::Envelope &&envelope) {
                 if (envelope.senderStamp() == ellipseID) {
+                    // std::cout << "gyr" << std::endl;
                     opendlv::proxy::AngularVelocityReading gyrData = cluon::extractMessage<opendlv::proxy::AngularVelocityReading>(std::move(envelope));
                     cluon::data::TimeStamp ts = envelope.sampleTimeStamp();
                     long timestamp = cluon::time::toMicroseconds(ts);
                     float gyrX = gyrData.angularVelocityX();
                     float gyrY = gyrData.angularVelocityY();
                     float gyrZ = gyrData.angularVelocityZ();
-                    pVISLAM->processImu(cfsd::SensorType::GYROSCOPE, timestamp, gyrX, gyrY, gyrZ);
+                    pVISLAM->collectImuData(cfsd::SensorType::GYROSCOPE, timestamp, gyrX, gyrY, gyrZ);
                 }
             }
         };
@@ -84,61 +89,34 @@ int main(int argc, char** argv) {
 
         // An independent thread for continuously reading image data from shared memory,
         // s.t. the timestamp will not depend on the running time of our algorithms.   
-        std::thread imgReaderThread(&cfsd::ImageReader::run, pImgReader);
-        imgReaderThread.detach(); // permits the thread to execute independently from the thread handle
-
-        // #ifdef USE_VIEWER
-        // // visualization
-        // cv::viz::Viz3d viewer("VIO");
-        // cv::viz::WCoordinateSystem worldCoor(1.0), camCoor(0.5); // 1.0 and 0.5 are scale that determine the size of axes
-        // cv::Point3d viewerPosition(-1.0,-3.0,-3.0), viewerFocalPoint(0,0,0), viewerYDirection(-1.0,1.0,-1.0);
-        // cv::Affine3d viewerPose = cv::viz::makeCameraPose(viewerPosition, viewerFocalPoint, viewerYDirection);
-        // viewer.setViewerPose(viewerPose); // set pose of the viewer
-        // worldCoor.setRenderingProperty(cv::viz::LINE_WIDTH, 2.0);
-        // camCoor.setRenderingProperty(cv::viz::LINE_WIDTH, 1.0);
-        // viewer.showWidget("World", worldCoor);
-        // viewer.showWidget("Camera", camCoor);
-        // #endif
+        // std::thread imgReaderThread(&cfsd::ImageReader::run, pImgReader);
+        // imgReaderThread.detach(); // permits the thread to execute independently from the thread handle
 
         // Endless loop; end the program by pressing Ctrl-C.
         while (od4.isRunning()) {
-            if (pImgReader->getQueueSize() == 0) {
-                if (verbose) std::cout << "No image coming in yet. Wait..." << std::endl;
-                continue;
-            }
-            cv::Mat img;
-            long timestamp;
-            pImgReader->grabData(img, timestamp);
+            // if (pImgReader->getQueueSize() == 0) {
+            //     if (verbose) std::cout << "No image coming in yet. Wait..." << std::endl;
+            //     continue;
+            // }
+            // cv::Mat img;
+            // long timestamp;
+            // pImgReader->grabData(img, timestamp);
 
-            cv::Mat gray;
-            cv::cvtColor(img, gray, CV_BGR2GRAY);
+            // cv::Mat gray;
+            // cv::cvtColor(img, gray, CV_BGR2GRAY);
 
-            // #ifdef DEBUG_IMG
-            // cv::imshow("Gray", gray);
-            // cv::waitKey(0);
-            // #endif
+            // // #ifdef DEBUG_IMG
+            // // cv::imshow("Gray", gray);
+            // // cv::waitKey(0);
+            // // #endif
 
-            auto start = std::chrono::steady_clock::now();
-            pVISLAM->processImage(timestamp, gray);
-            auto end = std::chrono::steady_clock::now();
-            std::cout << "Elapsed time: " << std::chrono::duration<double, std::milli>(end-start).count() << "ms" << std::endl << std::endl;
+            // pVISLAM->processImage(timestamp, gray);
 
-            // #ifdef USE_VIEWER
-            // SophusSE3Type Tcw = vio->getLatestCamPose().inverse();
-            // // show the map and the camera pose 
-            // cv::Affine3d M(
-            //     cv::Affine3d::Mat3( 
-            //         Tcw.so3().matrix()(0,0), Tcw.so3().matrix()(0,1), Tcw.so3().matrix()(0,2),
-            //         Tcw.so3().matrix()(1,0), Tcw.so3().matrix()(1,1), Tcw.so3().matrix()(1,2),
-            //         Tcw.so3().matrix()(2,0), Tcw.so3().matrix()(2,1), Tcw.so3().matrix()(2,2)
-            //     ), 
-            //     cv::Affine3d::Vec3(
-            //         Tcw.translation()(0,0), Tcw.translation()(1,0), Tcw.translation()(2,0)
-            //     )
-            // );
-            // viewer.setWidgetPose("Camera", M);
-            // viewer.spinOnce(1, true);
-            // #endif
+            pVISLAM->processImu();
+
+            #ifdef USE_VIEWER
+            
+            #endif
         }
     }
     return retCode;
