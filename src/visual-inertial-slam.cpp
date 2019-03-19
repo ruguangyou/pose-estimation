@@ -26,7 +26,7 @@ void VisualInertialSLAM::processImage(const long& timestamp, const cv::Mat& gray
             #ifdef DEBUG_IMG
             cv::imshow("grayL", grayL);
             cv::imshow("grayR", grayR);
-            cv::waitKey(0);
+            cv::waitKey(1);
             #endif
             
             auto start = std::chrono::steady_clock::now();
@@ -52,15 +52,21 @@ void VisualInertialSLAM::collectImuData(const cfsd::SensorType& st, const long& 
         _pImuPreintegrator->collectGyrData(timestamp, x, y, z);
 }
 
-void VisualInertialSLAM::processImu() {
+void VisualInertialSLAM::processImu(const long& timestamp) {
+    auto start = std::chrono::steady_clock::now();
+    std::cout << "Collecting data ..." << std::endl;
     while (!_pImuPreintegrator->isProcessable()) {
         // if (_verbose) std::cout << "Measurements not ready!" << std::endl;
-        // Do nothing but wait until a specific number of measurements have been collected.
+        // Sleep a while and wait until a specific number of measurements have been collected.
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
     }
-
-    auto start = std::chrono::steady_clock::now();
-    _pImuPreintegrator->process();
+    std::cout << "Collecting done." << std::endl;
     auto end = std::chrono::steady_clock::now();
+    std::cout << "Collecting elapsed time: " << std::chrono::duration<double, std::milli>(end-start).count() << "ms" << std::endl << std::endl;
+
+    start = std::chrono::steady_clock::now();
+    _pImuPreintegrator->process(timestamp);
+    end = std::chrono::steady_clock::now();
     std::cout << "Preintegration elapsed time: " << std::chrono::duration<double, std::milli>(end-start).count() << "ms" << std::endl << std::endl;
 }
 

@@ -103,7 +103,7 @@ accBias: 0.000014 # [g] accelerometer bias random walk noise, 14 micro-g
 gyrBias: 3.3937e-5 # [rad/s] gyroscope bias random walk noise, 7 degree/h
 
 # Viewer settings
-viewScale: 10
+viewScale: 2
 pointSize: 2
 viewpointX: 0
 viewpointY: -10

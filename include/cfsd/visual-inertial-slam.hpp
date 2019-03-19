@@ -36,7 +36,7 @@ class VisualInertialSLAM {
 
     void processImage(const long& timestamp, const cv::Mat& img);
 
-    void processImu();
+    void processImu(const long& timestamp);
 
     void collectImuData(const cfsd::SensorType& st, const long& timestamp, const float& x, const float& y, const float& z);
 

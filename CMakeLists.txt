@@ -23,8 +23,8 @@ project(cfsd-state-estimation)
 
 ################################################################################
 # # Defining the relevant versions of OpenDLV Standard Message Set and libcluon.
-set(OPENDLV_STANDARD_MESSAGE_SET opendlv-standard-message-set-v0.9.5.odvd)
-set(CLUON_COMPLETE cluon-complete-v0.0.114.hpp)
+set(OPENDLV_STANDARD_MESSAGE_SET opendlv-standard-message-set-v0.9.7.odvd)
+set(CLUON_COMPLETE cluon-complete-v0.0.121.hpp)
 
 ################################################################################
 # Set the search path for .cmake files.
@@ -154,7 +154,7 @@ add_library(${PROJECT_NAME}-core STATIC
 
 ################################################################################
 # Create executable
-add_executable(${PROJECT_NAME} ${CMAKE_SOURCE_DIR}/src/${PROJECT_NAME}.cpp ${CMAKE_SOURCE_DIR}/src/image-reader.cpp ${CMAKE_BINARY_DIR}/opendlv-standard-message-set.hpp)
+add_executable(${PROJECT_NAME} ${CMAKE_SOURCE_DIR}/src/${PROJECT_NAME}.cpp ${CMAKE_BINARY_DIR}/opendlv-standard-message-set.hpp)
 target_link_libraries(${PROJECT_NAME} ${PROJECT_NAME}-core ${LIBRARIES})
 
 ################################################################################

@@ -6,7 +6,6 @@
 #include "opendlv-standard-message-set.hpp"
 
 int main(int argc, char** argv) {
-    int retCode{0};
     std::map<std::string, std::string> commandlineArguments = cluon::getCommandlineArguments(argc, argv);
     if ( (0 == commandlineArguments.count("cid"))  ||
          (0 == commandlineArguments.count("name")) ||
@@ -23,23 +22,72 @@ int main(int argc, char** argv) {
     // Interface to a running OpenDaVINCI session; here, you can send and receive messages.
     cluon::OD4Session od4{static_cast<uint16_t>(std::stoi(commandlineArguments["cid"]))};
 
-    // Output verbose messages.
+    // If true then output verbose messages.
     const bool verbose{commandlineArguments.count("verbose") != 0};
 
     // Read configuration from parameter file.
     const std::string configFilePath{commandlineArguments["config"]};
     cfsd::Config::setParameterFile(configFilePath);
 
-    // cfsd::ImageReader class reads data from shared memory.
-    const std::string sharedMemoryName{commandlineArguments["name"]};
-    cfsd::Ptr<cfsd::ImageReader> pImgReader{new cfsd::ImageReader(od4, sharedMemoryName, verbose)}; // OK
-    // cfsd::Ptr<cfsd::ImageReader> pImgReader = new cfsd::ImageReader(od4, sharedMemoryName, verbose); // failed to compile, conversion from 'ImageReader*' to 'std::shared_ptr<ImageReader>' is invalid
-    // cfsd::Ptr<cfsd::ImageReader> pImgReader = std::make_shared<cfsd::ImageReader>(od4, sharedMemoryName, verbose); // OK
-    // cfsd::Ptr<cfsd::ImageReader> pImgReader{std::make_shared<cfsd::ImageReader>(od4, sharedMemoryName, verbose)}; // OK
+    // Resolution of the image read from shared memory.
+    const int height = cfsd::Config::get<int>("imageHeight");
+    const int width = cfsd::Config::get<int>("imageWidth");
 
-    if (pImgReader->isSharedMemoryValid(retCode)) {
-        // Interface to VI-SLAM.
-        cfsd::Ptr<cfsd::VisualInertialSLAM> pVISLAM{new cfsd::VisualInertialSLAM(verbose)};
+    // Resolution that is used in post-processing, i.e. if image from shared memory is of different size, it will be resized.
+    cv::Size imgSize(1344, 376);
+
+    // Interface to VI-SLAM.
+    cfsd::Ptr<cfsd::VisualInertialSLAM> pVISLAM{new cfsd::VisualInertialSLAM(verbose)};
+
+    // Sender stamp of microservice opendlv-proxy-ellipse2n
+    const int ellipseID = cfsd::Config::get<int>("ellipseID");
+
+    // Function to call on newly arriving Envelopes which contain accelerometer data.
+    long Ts = cluon::time::toMicroseconds(cluon::time::now());
+    auto accRecived{
+        [&pVISLAM, &ellipseID] (cluon::data::Envelope &&envelope) {
+            if (envelope.senderStamp() == ellipseID) {
+                std::cout << "acc" << std::endl;
+                opendlv::proxy::AccelerationReading accData = cluon::extractMessage<opendlv::proxy::AccelerationReading>(std::move(envelope));
+                cluon::data::TimeStamp ts = envelope.sampleTimeStamp();
+                long timestamp = cluon::time::toMicroseconds(ts);
+                float accX = accData.accelerationX();
+                float accY = accData.accelerationY();
+                float accZ = accData.accelerationZ();
+                pVISLAM->collectImuData(cfsd::SensorType::ACCELEROMETER, timestamp, accX, accY, accZ);
+            }
+        }
+    };
+
+    // Function to call on newly arriving Envelopes which contain gyroscope data.
+    auto gyrRecived{
+        [&pVISLAM, &ellipseID, &Ts] (cluon::data::Envelope &&envelope) {
+            long lastTs = Ts;
+            Ts = cluon::time::toMicroseconds(cluon::time::now());
+            if (envelope.senderStamp() == ellipseID) {
+                std::cout << "gyr" 
+                          << "(elapsed: " << Ts - lastTs << "us)" << std::endl;
+                opendlv::proxy::AngularVelocityReading gyrData = cluon::extractMessage<opendlv::proxy::AngularVelocityReading>(std::move(envelope));
+                cluon::data::TimeStamp ts = envelope.sampleTimeStamp();
+                long timestamp = cluon::time::toMicroseconds(ts);
+                float gyrX = gyrData.angularVelocityX();
+                float gyrY = gyrData.angularVelocityY();
+                float gyrZ = gyrData.angularVelocityZ();
+                pVISLAM->collectImuData(cfsd::SensorType::GYROSCOPE, timestamp, gyrX, gyrY, gyrZ);
+            }
+        }
+    };
+
+    // Set a delegate to be called data-triggered on arrival of a new Envelope for a given message identifier.
+    od4.dataTrigger(opendlv::proxy::AccelerationReading::ID(), accRecived);
+    od4.dataTrigger(opendlv::proxy::AngularVelocityReading::ID(), gyrRecived);
+
+    // Attach to shared memory.
+    const std::string sharedMemoryName{commandlineArguments["name"]};
+    // std::unique_ptr<cluon::SharedMemory> pSharedMemory(new cluon::SharedMemory{sharedMemoryName});
+    // if (pSharedMemory && pSharedMemory->valid()) {
+    if (1) {
+        // std::clog << argv[0] << "attached to shared memory: '" << pSharedMemory->name() << " (" << pSharedMemory->size() << " bytes)." << std::endl;
 
         #ifdef USE_VIEWER
         // A thread for visulizing.
@@ -48,76 +96,45 @@ int main(int argc, char** argv) {
         std::thread viewerThread(&cfsd::Viewer::run, pViewer); // no need to detach, since there is a while loop in Viewer::run()
         #endif
 
-        // Sender stamp of microservice opendlv-proxy-ellipse2n
-        const int ellipseID = cfsd::Config::get<int>("ellipseID");
-        
-        // Function to call on newly arriving Envelopes which contain accelerometer data.
-        auto accRecived{
-            [&pVISLAM, &ellipseID] (cluon::data::Envelope &&envelope) {
-                if (envelope.senderStamp() == ellipseID) {
-                    // std::cout << "acc" << std::endl;
-                    opendlv::proxy::AccelerationReading accData = cluon::extractMessage<opendlv::proxy::AccelerationReading>(std::move(envelope));
-                    cluon::data::TimeStamp ts = envelope.sampleTimeStamp();
-                    long timestamp = cluon::time::toMicroseconds(ts);
-                    float accX = accData.accelerationX();
-                    float accY = accData.accelerationY();
-                    float accZ = accData.accelerationZ();
-                    pVISLAM->collectImuData(cfsd::SensorType::ACCELEROMETER, timestamp, accX, accY, accZ);
-                }
-            }
-        };
-    
-        // Function to call on newly arriving Envelopes which contain gyroscope data.
-        auto gyrRecived{
-            [&pVISLAM, &ellipseID] (cluon::data::Envelope &&envelope) {
-                if (envelope.senderStamp() == ellipseID) {
-                    // std::cout << "gyr" << std::endl;
-                    opendlv::proxy::AngularVelocityReading gyrData = cluon::extractMessage<opendlv::proxy::AngularVelocityReading>(std::move(envelope));
-                    cluon::data::TimeStamp ts = envelope.sampleTimeStamp();
-                    long timestamp = cluon::time::toMicroseconds(ts);
-                    float gyrX = gyrData.angularVelocityX();
-                    float gyrY = gyrData.angularVelocityY();
-                    float gyrZ = gyrData.angularVelocityZ();
-                    pVISLAM->collectImuData(cfsd::SensorType::GYROSCOPE, timestamp, gyrX, gyrY, gyrZ);
-                }
-            }
-        };
-
-        // Set a delegate to be called data-triggered on arrival of a new Envelope for a given message identifier.
-        od4.dataTrigger(opendlv::proxy::AccelerationReading::ID(), accRecived);
-        od4.dataTrigger(opendlv::proxy::AngularVelocityReading::ID(), gyrRecived);
-
-        // An independent thread for continuously reading image data from shared memory,
-        // s.t. the timestamp will not depend on the running time of our algorithms.   
-        // std::thread imgReaderThread(&cfsd::ImageReader::run, pImgReader);
-        // imgReaderThread.detach(); // permits the thread to execute independently from the thread handle
-
         // Endless loop; end the program by pressing Ctrl-C.
         while (od4.isRunning()) {
-            // if (pImgReader->getQueueSize() == 0) {
-            //     if (verbose) std::cout << "No image coming in yet. Wait..." << std::endl;
-            //     continue;
-            // }
             // cv::Mat img;
-            // long timestamp;
-            // pImgReader->grabData(img, timestamp);
+            // long imgTimestamp;
+
+            // // Wait for a notification of a new frame.
+            // pSharedMemory->wait();
+            // // Lock the shared memory.
+            // pSharedMemory->lock();
+            // {
+            //     // Copy image into cvMat structure. Be aware of that any code between lock/unlock is blocking the camera to 
+            //     // provide the next frame. Thus, any computationally heavy algorithms should be placed outside lock/unlock.
+            //     cv::Mat wrapped(height, width, CV_8UC4, pSharedMemory->data());
+                
+            //     // If image from shared memory has different size with the pre-defined one, resize it.
+            //     cv::resize(wrapped, img, imgSize);
+                
+            //     imgTimestamp = cluon::time::toMicroseconds(pSharedMemory->getTimeStamp().second);
+            // }
+            // pSharedMemory->unlock();
 
             // cv::Mat gray;
             // cv::cvtColor(img, gray, CV_BGR2GRAY);
 
-            // // #ifdef DEBUG_IMG
-            // // cv::imshow("Gray", gray);
-            // // cv::waitKey(0);
-            // // #endif
+            // pVISLAM->processImage(imgTimestamp, gray);
 
-            // pVISLAM->processImage(timestamp, gray);
-
-            pVISLAM->processImu();
+            // // imgTimestamp is used for sync.
+            // pVISLAM->processImu(imgTimestamp);
+            pVISLAM->processImu(1);
 
             #ifdef USE_VIEWER
-            
+            // ...
             #endif
         }
     }
-    return retCode;
+    else {
+        std::cerr << "Failed to attach to shared memory." << std::endl;
+        return 1;
+    }
+    
+    return 0;
 }

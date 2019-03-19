@@ -2,11 +2,10 @@
 
 namespace cfsd {
 
-class ImuCostFunction : public ceres::SizedCostFunction<15, /* residuals */
-                                                         9, /* r, v, p at time i */
-                                                         9, /* r, v, p at time j */
-                                                         6 /* bias of gyr and acc */> {
-  public:
+struct ImuCostFunction : public ceres::SizedCostFunction<15, /* residuals */
+                                                          9, /* r, v, p at time i */
+                                                          9, /* r, v, p at time j */
+                                                          6 /* bias of gyr and acc */> {
     ImuCostFunction(const cfsd::Ptr<ImuPreintegrator>& pImuPreintegrator) : _pImuPreintegrator(pImuPreintegrator) {}
 
     virtual ~ImuCostFunction() {}
@@ -49,6 +48,47 @@ class ImuCostFunction : public ceres::SizedCostFunction<15, /* residuals */
     cfsd::Ptr<ImuPreintegrator> _pImuPreintegrator;
 };
 
+struct ImuParameterization : public ceres::LocalParameterization {
+    virtual bool Plus(const double* x, const double* delta, double* x_plus_delta) const {
+        // input: rvp
+        Eigen::Map<const EigenVector3Type> r(x);
+        Eigen::Map<const EigenVector3Type> v(x+3);
+        Eigen::Map<const EigenVector3Type> p(x+6);
+
+        Eigen::Map<const EigenVector3Type> dr(delta);
+        Eigen::Map<const EigenVector3Type> dv(delta+3);
+        Eigen::Map<const EigenVector3Type> dp(delta+6);
+
+        Eigen::Map<EigenVector3Type> rr(x_plus_delta);
+        Eigen::Map<EigenVector3Type> vv(x_plus_delta+3);
+        Eigen::Map<EigenVector3Type> pp(x_plus_delta+6);
+
+        rr = SophusSO3Type::exp(r+dr).log();
+        vv = v + dv;
+        pp = p + dp;
+
+        return true;
+    }
+
+    virtual bool ComputeJacobian (const double* x, double* jacobian) const {
+        Eigen::Map<Eigen::Matrix<double,9,9>> J(jacobian);
+        J.setIdentity();
+        
+        return true;
+    }
+
+    virtual int GlobalSize() const { return 9; }
+
+    virtual int LocalSize() const { return 9; }
+};
+
+// struct ReprojectCostFunction : public ceres::SizedCostFunction<> {
+
+
+//   private:
+// };
+
+// ############################################################
 
 Optimizer::Optimizer(const bool verbose) : _verbose(verbose) {}
 
@@ -70,6 +110,12 @@ void Optimizer::localOptimize(const cfsd::Ptr<ImuPreintegrator>& pImuPreintegrat
 
     // Build the problem.
     ceres::Problem problem;
+
+    // Add parameter block with parameterization.
+    ceres::LocalParameterization* imuParameterization = new ImuParameterization();
+    problem.AddParameterBlock(rvp_i, 9, imuParameterization);
+    problem.AddParameterBlock(rvp_j, 9, imuParameterization);
+    problem.AddParameterBlock(bg_ba, 6);
 
     // Set up cost function (a.k.a. residuals).
     ceres::CostFunction* costFunction = new ImuCostFunction(pImuPreintegrator);

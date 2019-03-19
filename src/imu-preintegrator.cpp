@@ -27,7 +27,8 @@ ImuPreintegrator::ImuPreintegrator(const cfsd::Ptr<Optimizer>& pOptimizer, const
     _deltaT = 1.0 / (precisionType)_samplingRate;
     _deltaT2 = _deltaT * _deltaT;
 
-    _iters = _samplingRate / Config::get<int>("cameraFrequency");
+    // _iters = _samplingRate / Config::get<int>("cameraFrequency");
+    _iters = 200;
     _dt = _deltaT * _iters;
     _dt2 = _dt * _dt;
 
@@ -78,7 +79,11 @@ void ImuPreintegrator::reinitialize() {
     _d_p_bg_ij.setZero();
 }
 
-void ImuPreintegrator::process() {
+void ImuPreintegrator::process(const long& timestamp) {
+    #ifdef DEBUG_IMU
+    auto start = std::chrono::steady_clock::now();
+    #endif
+
     for (int i = 0; i < _iters; i++) {
         { // Out of this local scope the locks will die.
             std::lock_guard<std::mutex> lockGyr(_gyrMutex);
@@ -124,6 +129,12 @@ void ImuPreintegrator::process() {
         jacobians(Jr, temp);
     }
 
+    #ifdef DEBUG_IMU
+    auto end = std::chrono::steady_clock::now();
+    std::cout << "Integration elapsed time: " << std::chrono::duration<double, std::milli>(end-start).count() << "ms" << std::endl;
+    start = std::chrono::steady_clock::now();
+    #endif
+
     recover();
 
     // Local optimization.
@@ -131,6 +142,11 @@ void ImuPreintegrator::process() {
     _pOptimizer->localOptimize(shared_from_this());
     
     reinitialize();
+
+    #ifdef DEBUG_IMU
+    end = std::chrono::steady_clock::now();
+    std::cout << "Optimization elapsed time: " << std::chrono::duration<double, std::milli>(end-start).count() << "ms" << std::endl;
+    #endif
 }
 
 void ImuPreintegrator::iterate(const SophusSO3Type& dR) {
@@ -432,8 +448,9 @@ void ImuPreintegrator::collectAccData(const long& timestamp, const float& accX, 
     */
 
     // why accX is negative? even when the vehicle is still?
-    // acc << -accY, -accZ, accX; // converted from last year's coordinate system
-    acc << -accY, -accZ, accX+0.37; // compensation for accX for now, need calibration later
+    // acc << -accY, -accZ, accX;
+    acc << -accY, -accZ, accX; // converted from last year's coordinate system
+    // acc << -accY, -accZ, accX+0.37; // compensation for accX for now, need calibration later
     
     _accQueue.push(acc);
 }

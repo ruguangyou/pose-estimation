@@ -37,7 +37,7 @@ class ImuPreintegrator : public std::enable_shared_from_this<ImuPreintegrator> {
     void reinitialize();
 
     // Take measurements and perform preintegration, jacobians calculation and noise propagation.
-    void process();
+    void process(const long& timestamp);
 
     // Iteratively preintegrate IMU measurements.
     void iterate(const SophusSO3Type& dR);
