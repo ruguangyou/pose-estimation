@@ -32,12 +32,15 @@ class ImuPreintegrator : public std::enable_shared_from_this<ImuPreintegrator> {
 
     // Test if the number of collected measurements reaches '_iters'.
     bool isProcessable();
+
+    // Set image timestamp for sync.
+    void setImgTimestamp(const long& imgTimestamp);
     
     // Reinitialize after finishing processing IMU measurements between two consecutive camera frames.
     void reinitialize();
 
     // Take measurements and perform preintegration, jacobians calculation and noise propagation.
-    void process(const long& timestamp);
+    void process();
 
     // Iteratively preintegrate IMU measurements.
     void iterate(const SophusSO3Type& dR);
@@ -112,20 +115,32 @@ class ImuPreintegrator : public std::enable_shared_from_this<ImuPreintegrator> {
     // Store data in a queue since acc and gry data are sent separately by od4; push if new data comes in, and pop it after preintegrating.
     // IMU raw data read from ellipse2n is float type.
     
-    // Angular velocity in IMU coordinate system.
-    std::queue<EigenVector3Type> _gyrQueue;
+    // // Angular velocity in IMU coordinate system.
+    // std::queue<EigenVector3Type> _gyrQueue;
 
-    // Acceleration in IMU coordinate system.
-    std::queue<EigenVector3Type> _accQueue;
+    // // Acceleration in IMU coordinate system.
+    // std::queue<EigenVector3Type> _accQueue;
     
-    // Timestamps.
-    std::queue<long> _timestampQueue;
+    // // IMU data timestamps.
+    // std::queue<long> _timestampQueue;
+
+    // Mutex for image timestamp.
+    std::mutex _timeMutex;
+
+    // Image timestamp.
+    long _imgTimestamp;
 
     // Mutex that protects queue, since od4 runs as an independent thread and will send messages continuously.
     std::mutex _gyrMutex, _accMutex;
 
     // Acceleration and angular velocity to be processed (from queue's front).
     EigenVector3Type _acc, _gyr;
+
+    // Timestamp of imu measurement to be processed (from queue's front)
+    long _timestamp;
+
+    bool _isNewTs;
+    bool _iterStart;
 
     // State (R, v, p) and bias (bg, ba) from time i to j
     //   camear: *                         *

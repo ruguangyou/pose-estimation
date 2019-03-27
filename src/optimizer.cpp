@@ -99,7 +99,7 @@ void Optimizer::localOptimize(const cfsd::Ptr<ImuPreintegrator>& pImuPreintegrat
     // Parameters to be optimized: rotation, velocity, position, deltaBiasGyr, deltaBiasAcc
     double rvp_i[9]; // r, v, p at time i
     double rvp_j[9]; // r, v, p at time j
-    double bg_ba[6] = {0.01, 0.01, 0.01, 0.01, 0.01, 0.01}; // delta_bg, delta_ba from i to j
+    double bg_ba[6] = {0.001,0.001,0.001,0.001,0.001,0.001}; // delta_bg, delta_ba from i to j
 
     // Read initial values from ImuPreintegrator.
     pImuPreintegrator->getParameters(rvp_i, rvp_j);

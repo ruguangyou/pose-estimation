@@ -76,19 +76,31 @@ FeatureTracker::FeatureTracker(const cfsd::Ptr<CameraModel>& pCameraModel, const
 void FeatureTracker::process(const cv::Mat& grayLeft, const cv::Mat& grayRight) {
     // Undistort image (detection mask needs to be updated)
     // (Note: there will be some blurring at the bottom-left and bottom-right corner)
+    auto start = std::chrono::steady_clock::now();
     cv::Mat imgLeft, imgRight;
     cv::undistort(grayLeft, imgLeft, _pCameraModel->_cvCamLeft, _pCameraModel->_cvDistLeft);
     cv::undistort(grayRight, imgRight, _pCameraModel->_cvCamRight, _pCameraModel->_cvDistRight);
+    auto end = std::chrono::steady_clock::now();
+    std::cout << "undistort elapsed time: " << std::chrono::duration<double, std::milli>(end-start).count() << "ms" << std::endl << std::endl;
     
     // Current camera frame's keypoints' pixel position and descriptors.
     std::vector<cvPoint2Type> curPixelsL, curPixelsR;
     cv::Mat curDescriptorsL, curDescriptorsR;
     
+    start = std::chrono::steady_clock::now();
     internalMatch(imgLeft, imgRight, curPixelsL, curPixelsR, curDescriptorsL, curDescriptorsR);
+    end = std::chrono::steady_clock::now();
+    std::cout << "internal match elapsed time: " << std::chrono::duration<double, std::milli>(end-start).count() << "ms" << std::endl << std::endl;
     
+    start = std::chrono::steady_clock::now();
     externalTrack(curPixelsL, curPixelsR, curDescriptorsL, curDescriptorsR);
+    end = std::chrono::steady_clock::now();
+    std::cout << "external match elapsed time: " << std::chrono::duration<double, std::milli>(end-start).count() << "ms" << std::endl << std::endl;
     
+    start = std::chrono::steady_clock::now();
     featurePoolUpdate();
+    end = std::chrono::steady_clock::now();
+    std::cout << "feature pool update elapsed time: " << std::chrono::duration<double, std::milli>(end-start).count() << "ms" << std::endl << std::endl;
 
     _frameCount++;
 }

@@ -6,11 +6,14 @@ ImuPreintegrator::ImuPreintegrator(const cfsd::Ptr<Optimizer>& pOptimizer, const
         _pOptimizer(pOptimizer), 
         _verbose(verbose), 
         _epsilon(1e-5),
+        _gyrMutex(),
+        _accMutex(),
+        _timeMutex(),
+        _imgTimestamp(0),
+        _iterStart(false),
         _R_i(SophusSO3Type()),
         _v_i(EigenVector3Type::Zero()),
         _p_i(EigenVector3Type::Zero()),
-        _biasGyr(EigenVector3Type::Zero()),
-        _biasAcc(EigenVector3Type::Zero()),
         _delta_R_ij(SophusSO3Type()), 
         _delta_v_ij(EigenVector3Type::Zero()), 
         _delta_p_ij(EigenVector3Type::Zero()),
@@ -28,17 +31,17 @@ ImuPreintegrator::ImuPreintegrator(const cfsd::Ptr<Optimizer>& pOptimizer, const
     _deltaT2 = _deltaT * _deltaT;
 
     // _iters = _samplingRate / Config::get<int>("cameraFrequency");
-    _iters = 200;
+    _iters = 20;
     _dt = _deltaT * _iters;
     _dt2 = _dt * _dt;
 
     precisionType g = Config::get<precisionType>("gravity");
     /*  camera coordinate system
-              / z (yaw)
+              / z
              /
-            ------ x (roll)
+            ------ x
             |
-            | y (pitch)
+            | y
     */
     _gravity << 0, g, 0;
 
@@ -52,6 +55,24 @@ ImuPreintegrator::ImuPreintegrator(const cfsd::Ptr<Optimizer>& pOptimizer, const
     // Convert unit [g] to [m/s^2]
     _accBiasD = Config::get<precisionType>("accBias") * g;
     
+    // Initialize bias.
+    /*  IMU coordinate system
+              / x
+             /
+            ------ y
+            |
+            | z
+    */
+    precisionType bx, by, bz;
+    bx = Config::get<precisionType>("initialBiasAccX");
+    by = Config::get<precisionType>("initialBiasAccY");
+    bz = Config::get<precisionType>("initialBiasAccZ");
+    _biasAcc << by, bz, bx;
+    bx = Config::get<precisionType>("initialBiasGyrX");
+    by = Config::get<precisionType>("initialBiasGyrY");
+    bz = Config::get<precisionType>("initialBiasGyrZ");
+    _biasGyr << by, bz, bx;
+    
     // Initialize covariance.
     _covMeasurement.block<3, 3>(0, 0) = (_gyrNoiseD * _gyrNoiseD) * EigenMatrix3Type::Identity();
     _covMeasurement.block<3, 3>(3, 3) = (_accNoiseD * _accNoiseD) * EigenMatrix3Type::Identity();
@@ -64,7 +85,13 @@ bool ImuPreintegrator::isProcessable() {
     std::lock_guard<std::mutex> lockGyr(_gyrMutex);
     std::lock_guard<std::mutex> lockAcc(_accMutex);
 
-    return (_gyrQueue.size() >= _iters && _accQueue.size() >= _iters);
+    return true;
+}
+
+void ImuPreintegrator::setImgTimestamp(const long& imgTimestamp) {
+    std::lock_guard<std::mutex> lockTime(_timeMutex);
+    _imgTimestamp = imgTimestamp;
+    _isNewTs = true;
 }
 
 void ImuPreintegrator::reinitialize() {
@@ -79,61 +106,50 @@ void ImuPreintegrator::reinitialize() {
     _d_p_bg_ij.setZero();
 }
 
-void ImuPreintegrator::process(const long& timestamp) {
-    #ifdef DEBUG_IMU
-    auto start = std::chrono::steady_clock::now();
-    #endif
-
-    for (int i = 0; i < _iters; i++) {
-        { // Out of this local scope the locks will die.
-            std::lock_guard<std::mutex> lockGyr(_gyrMutex);
-            std::lock_guard<std::mutex> lockAcc(_accMutex);
+void ImuPreintegrator::process() {
+    std::lock_guard<std::mutex> lockGyr(_gyrMutex);
+    std::lock_guard<std::mutex> lockAcc(_accMutex);
+    
+    { // Out of this local scope the locks will die.
+        std::lock_guard<std::mutex> lockTime(_timeMutex);
         
-            // Acc and gyr to be processed.
-            _acc = _accQueue.front();
-            _gyr = _gyrQueue.front();
-
-            // Pop out processed measurements.
-            _accQueue.pop();
-            _gyrQueue.pop();
-            _timestampQueue.pop();
+        if (_isNewTs) {
+            if (std::abs(_timestamp - _imgTimestamp) < 1000) return;
+            
+            _isNewTs = false;
         }
-
-        // #ifdef DEBUG_IMU
-        // std::cout << "(camera)\nacc:\n" << _acc << "gyr:\n" << _gyr << std::endl;
-        // #endif
         
-        // Intermediate variables that will be used later.
-        EigenVector3Type omega = (_gyr - _biasGyr) * _deltaT;
-        SophusSO3Type dR = SophusSO3Type::exp(omega);
+        _iterStart = true;
+    }   
+    
+    // Intermediate variables that will be used later.
+    EigenVector3Type omega = (_gyr - _biasGyr) * _deltaT;
+    SophusSO3Type dR = SophusSO3Type::exp(omega);
 
-        // Iteratively integrate.
-        iterate(dR);
+    // Iteratively integrate.
+    iterate(dR);
 
-        // Compute Jr (right jacobian of SO3 rotation).
-        EigenMatrix3Type Jr = rightJacobianSO3(omega);
+    // Compute Jr (right jacobian of SO3 rotation).
+    EigenMatrix3Type Jr = rightJacobianSO3(omega);
 
-        // Intermediate variable that will be used later.
-        EigenMatrix3Type temp = _delta_R_ijm1.matrix() * SophusSO3Type::hat(_acc - _biasAcc);
-        // EigenVector3Type ab = _acc - _biasAcc;
-        // EigenMatrix3Type ab_hat;
-        // ab_hat <<   0.0, -ab(2),  ab(1),
-        //           ab(2),    0.0, -ab(0),
-        //          -ab(1),  ab(0),    0.0;
-        // EigenMatrix3Type temp = _delta_R_ijm1.matrix() * ab_hat;
+    // Intermediate variable that will be used later.
+    EigenMatrix3Type temp = _delta_R_ijm1.matrix() * SophusSO3Type::hat(_acc - _biasAcc);
+    // EigenVector3Type ab = _acc - _biasAcc;
+    // EigenMatrix3Type ab_hat;
+    // ab_hat <<   0.0, -ab(2),  ab(1),
+    //           ab(2),    0.0, -ab(0),
+    //          -ab(1),  ab(0),    0.0;
+    // EigenMatrix3Type temp = _delta_R_ijm1.matrix() * ab_hat;
 
-        // Noise propagation.
-        propagate(dR, Jr, temp);
+    // Noise propagation.
+    propagate(dR, Jr, temp);
 
-        // Jacobians of bias.
-        jacobians(Jr, temp);
-    }
+    // Jacobians of bias.
+    jacobians(Jr, temp);
 
-    #ifdef DEBUG_IMU
-    auto end = std::chrono::steady_clock::now();
-    std::cout << "Integration elapsed time: " << std::chrono::duration<double, std::milli>(end-start).count() << "ms" << std::endl;
-    start = std::chrono::steady_clock::now();
-    #endif
+
+
+
 
     recover();
 
@@ -143,10 +159,10 @@ void ImuPreintegrator::process(const long& timestamp) {
     
     reinitialize();
 
-    #ifdef DEBUG_IMU
-    end = std::chrono::steady_clock::now();
-    std::cout << "Optimization elapsed time: " << std::chrono::duration<double, std::milli>(end-start).count() << "ms" << std::endl;
-    #endif
+    // #ifdef DEBUG_IMU
+    // end = std::chrono::steady_clock::now();
+    // std::cout << "Optimization elapsed time: " << std::chrono::duration<double, std::milli>(end-start).count() << "ms" << std::endl;
+    // #endif
 }
 
 void ImuPreintegrator::iterate(const SophusSO3Type& dR) {
@@ -246,7 +262,7 @@ void ImuPreintegrator::jacobians(const EigenMatrix3Type& Jr, EigenMatrix3Type& t
     // (temp = _delta_R_ijm1.matrix() * ab_hat) -> (temp = _delta_R_ijm1.matrix() * ab_hat * _d_R_bg_ijm1)
     temp = temp * _d_R_bg_ijm1;
 
-    // Update jacobians of R, v, p with respect to bias.
+    // Update jacobians of R, v, p with respect to bias_i.
     _d_R_bg_ij = -_d_R_bg_ijm1 - Jr * _deltaT;
     _d_v_ba_ij = -_d_v_ba_ijm1 - _delta_R_ijm1.matrix() * _deltaT;
     _d_v_bg_ij = -_d_v_bg_ijm1 - temp * _deltaT;
@@ -332,8 +348,8 @@ bool ImuPreintegrator::evaluate(
     // Use cholesky decomposition: inv(cov) = L * L'
     // |r|^2 = r' * L * L' * r = (L' * r)' * L' * r
     // define x = L' * r (matrix 15x1)
-    Eigen::Matrix<precisionType, 15, 15> L = Eigen::LLT<Eigen::Matrix<precisionType, 15, 15>>(_covPreintegration).matrixL();
-    residual = L.transpose() * residual;
+    Eigen::Matrix<precisionType, 15, 15> Lt = Eigen::LLT<Eigen::Matrix<precisionType, 15, 15>>(_covPreintegration).matrixL().transpose();
+    residual = Lt * residual;
 
     // Compute jacobians which are crutial for optimization algorithms like Guass-Newton.
     if (!jacobians) return true;
@@ -364,6 +380,9 @@ bool ImuPreintegrator::evaluate(
 
         // jacobian of residual(delta_p_ij) with respect to p_i
         jacobian_i.block<3, 3>(6, 6) = -EigenMatrix3Type::Identity();
+
+        // since cost function is defined as: L' * r
+        jacobian_i = Lt * jacobian_i;
     }
 
     // Jacobian(15x9) of residuals(15x1) w.r.t. ParameterBlock[1](9x1), i.e. rvp_j
@@ -380,6 +399,9 @@ bool ImuPreintegrator::evaluate(
 
         // jacobian of residual(delta_p_ij) with respect to p_j
         jacobian_j.block<3, 3>(6, 6) = R_i.matrix().transpose() * R_j.matrix();
+
+        // since cost function is defined as: L' * r
+        jacobian_j = Lt * jacobian_j;
     }
 
     // Jacobian(15x6) of residuals(15x1) w.r.t. ParameterBlock[2](6x1), i.e. bg_ba
@@ -408,6 +430,9 @@ bool ImuPreintegrator::evaluate(
 
         // jacobian of residual(delta_ba_ij) with respect to delta_ba
         jacobian_bias.block<3, 3>(12, 3) = EigenMatrix3Type::Identity();
+
+        // since cost function is defined as: L' * r
+        jacobian_bias = Lt * jacobian_bias;
     }
 
     return true;
@@ -430,10 +455,8 @@ void ImuPreintegrator::updateState(double* rvp_j, double* bg_ba) {
 void ImuPreintegrator::collectAccData(const long& timestamp, const float& accX, const float& accY, const float& accZ) {
     std::lock_guard<std::mutex> lockAcc(_accMutex);
 
-    if (_accQueue.size() == _timestampQueue.size())
-        _timestampQueue.push(timestamp);
+    _timestamp = timestamp;
     
-    EigenVector3Type acc;
     /*  IMU coordinate system => camera coordinate system
               / x (roll)                  / z (yaw)
              /                           /
@@ -446,22 +469,14 @@ void ImuPreintegrator::collectAccData(const long& timestamp, const float& accX, 
                    | /
            y _ _ _ |/
     */
-
-    // why accX is negative? even when the vehicle is still?
-    // acc << -accY, -accZ, accX;
-    acc << -accY, -accZ, accX; // converted from last year's coordinate system
-    // acc << -accY, -accZ, accX+0.37; // compensation for accX for now, need calibration later
-    
-    _accQueue.push(acc);
+    _acc << accY, accZ, accX;
 }
 
 void ImuPreintegrator::collectGyrData(const long& timestamp, const float& gyrX, const float& gyrY, const float& gyrZ) {
     std::lock_guard<std::mutex> lockGyr(_gyrMutex);
 
-    if (_gyrQueue.size() == _timestampQueue.size())
-        _timestampQueue.push(timestamp);
+    _timestamp = timestamp;
     
-    EigenVector3Type gyr;
     /*  IMU coordinate system => camera coordinate system
               / x (roll)                  / z (yaw)
              /                           /
@@ -474,9 +489,7 @@ void ImuPreintegrator::collectGyrData(const long& timestamp, const float& gyrX, 
                    | /
            y _ _ _ |/
     */
-    gyr << -gyrY, -gyrZ, gyrX; // converted from last year's coordinate system
-    
-    _gyrQueue.push(gyr);
+    _gyr << gyrY, gyrZ, gyrX;
 }
 
 } // namespace cfsd
