@@ -3,6 +3,7 @@
 
 #include "cfsd/common.hpp"
 #include "cfsd/camera-model.hpp"
+#include "cfsd/map.hpp"
 // #include "cfsd/key-frame.hpp"
 
 #include <opencv2/calib3d/calib3d.hpp>
@@ -14,18 +15,18 @@ namespace cfsd {
 struct Feature {
     Feature() {}
 
-    Feature(const int& frameCount, const cvPoint2Type& pixelL, const cvPoint2Type& pixelR, const cv::Mat& descriptorL, const cv::Mat& descriptorR)
-      : _matchedTimes(0), _pixelL(pixelL), _pixelR(pixelR), _descriptorL(descriptorL), _descriptorR(descriptorR) {
+    Feature(const int& frameCount, const cv::Point2d& pixelL, const cv::Point2d& pixelR, const cv::Mat& descriptorL, const cv::Mat& descriptorR, const int& age = 0)
+      : _age(age), _pixelL(pixelL), _pixelR(pixelR), _descriptorL(descriptorL), _descriptorR(descriptorR) {
         _seenByFrames.push_back(frameCount);    
     }
 
-    int _matchedTimes;
+    int _age;
 
     // ID of frames which can observe this feature (useful to know this when doing reprojection)
     std::vector<int> _seenByFrames;
 
-    cvPoint2Type _pixelL;
-    cvPoint2Type _pixelR;
+    cv::Point2d _pixelL;
+    cv::Point2d _pixelR;
     
     cv::Mat _descriptorL;
     cv::Mat _descriptorR;
@@ -38,7 +39,7 @@ class FeatureTracker {
         BRISK = 1
     };
   
-    FeatureTracker(const cfsd::Ptr<CameraModel>& pCameraModel, const bool verbose);
+    FeatureTracker(const cfsd::Ptr<Map>& pMap, const cfsd::Ptr<CameraModel>& pCameraModel, const bool verbose);
 
     // Feature matching and tracking, including:
     // - internal match (current frame's left and right image)
@@ -46,9 +47,9 @@ class FeatureTracker {
     // - refinement? (improve the quality of matching)
     void process(const cv::Mat& imgLeft, const cv::Mat& imgRight);
 
-    void internalMatch(const cv::Mat& imgLeft, const cv::Mat& imgRight, std::vector<cvPoint2Type>& curPixelsL, std::vector<cvPoint2Type>& curPixelsR, cv::Mat& curDescriptorsL, cv::Mat& curDescriptorsR);
+    void internalMatch(const cv::Mat& imgLeft, const cv::Mat& imgRight, std::vector<cv::Point2d>& curPixelsL, std::vector<cv::Point2d>& curPixelsR, cv::Mat& curDescriptorsL, cv::Mat& curDescriptorsR);
 
-    void externalTrack(const std::vector<cvPoint2Type>& curPixelsL, const std::vector<cvPoint2Type>& curPixelsR, const cv::Mat& curDescriptorsL, const cv::Mat& curDescriptorsR);
+    void externalTrack(const std::vector<cv::Point2d>& curPixelsL, const std::vector<cv::Point2d>& curPixelsR, const cv::Mat& curDescriptorsL, const cv::Mat& curDescriptorsR);
 
     void featurePoolUpdate();
 
@@ -60,13 +61,16 @@ class FeatureTracker {
     
     // [Update] decide not to do so for the sake of computational efficiency, instead using estimation from IMU and performing optimization.
     // Compute camera pose: shoule use RANSAC scheme for outlier rejection, and solve 3D-2D PnP problem (in particular, P3P problem).
-    // void computeCamPose(SophusSE3Type& pose);
+    // void computeCamPose(Sophus::SE3d& pose);
 
   private:
     bool _verbose;
 
     // Camera Model.
     cfsd::Ptr<CameraModel> _pCameraModel;
+
+    // Interface to Map.
+    cfsd::Ptr<Map> _pMap;
 
     // Feature ID.
     size_t _featureCount;
@@ -80,13 +84,14 @@ class FeatureTracker {
     cv::Ptr<cv::BRISK> _brisk;
 
     // Features that pass circular matching, i.e. curLeft <=> histLeft <=> histRight <=> curRight <=> curLeft
-    // store the id of the matched features, s.t. the _matchedTimes could be easily updated;
-    // also store the id of the not matches old features, s.t. they could be removed.
+    // store the id of the circularly matched features, s.t. the _age grows normally, i.e., increase 1.
+    // also store the id of the matches (either left or right side) but not circularly matched features, s.t. the _age will grow more than 1 as penalty.
+    // for those not matched features, the _age will grow much more as penalty.
     std::vector<size_t> _matchedFeatureIDs, _notMatchedFeatureIDs;
 
     
     // Features in the current frame that have no match with history features, will be added into the feature pool.
-    std::vector<cvPoint2Type> _newPixelsL, _newPixelsR; 
+    std::vector<cv::Point2d> _newPixelsL, _newPixelsR; 
     cv::Mat _newDescriptorsL, _newDescriptorsR;
 
     // Only part of the image is considered to be useful (e.g. the upper half of the image containing sky contributes little to useful features)

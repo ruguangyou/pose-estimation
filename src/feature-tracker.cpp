@@ -2,7 +2,9 @@
 
 namespace cfsd {
 
-FeatureTracker::FeatureTracker(const cfsd::Ptr<CameraModel>& pCameraModel, const bool verbose) : _pCameraModel(pCameraModel), _verbose(verbose), _featureCount(0), _frameCount(0) {
+FeatureTracker::FeatureTracker(const cfsd::Ptr<Map>& pMap, const cfsd::Ptr<CameraModel>& pCameraModel, const bool verbose) :
+        _pMap(pMap), _pCameraModel(pCameraModel), _verbose(verbose), _featureCount(0), _frameCount(0) {
+    
     std::string type = Config::get<std::string>("detectorType");
     if (type == "ORB") {
         _detectorType = ORB;
@@ -19,7 +21,7 @@ FeatureTracker::FeatureTracker(const cfsd::Ptr<CameraModel>& pCameraModel, const
 
     _minMatchDist = Config::get<float>("minMatchDist");
 
-    _maxMatchedTimes = Config::get<int>("maxMatchedTimes");
+    _maxFeatureAge = Config::get<int>("maxFeatureAge");
     
     switch(_detectorType) {
         case ORB:
@@ -74,17 +76,24 @@ FeatureTracker::FeatureTracker(const cfsd::Ptr<CameraModel>& pCameraModel, const
 }
 
 void FeatureTracker::process(const cv::Mat& grayLeft, const cv::Mat& grayRight) {
-    // Undistort image (detection mask needs to be updated)
-    // (Note: there will be some blurring at the bottom-left and bottom-right corner)
+    // Remap to undistorted and rectified image (detection mask needs to be updated)
+    // cv::remap (about 3~5 ms) takes less time than cv::undistort (about 20~30 ms) method
     auto start = std::chrono::steady_clock::now();
     cv::Mat imgLeft, imgRight;
-    cv::undistort(grayLeft, imgLeft, _pCameraModel->_cvCamLeft, _pCameraModel->_cvDistLeft);
-    cv::undistort(grayRight, imgRight, _pCameraModel->_cvCamRight, _pCameraModel->_cvDistRight);
+    cv::remap(grayLeft, imgLeft, _pCameraModel->_rmap[0][0], _pCameraModel->_rmap[0][1], cv::INTER_LINEAR);
+    cv::remap(grayRight, imgRight, _pCameraModel->_rmap[1][0], _pCameraModel->_rmap[1][1], cv::INTER_LINEAR);
     auto end = std::chrono::steady_clock::now();
-    std::cout << "undistort elapsed time: " << std::chrono::duration<double, std::milli>(end-start).count() << "ms" << std::endl << std::endl;
+    std::cout << "remap elapsed time: " << std::chrono::duration<double, std::milli>(end-start).count() << "ms" << std::endl << std::endl;
+
+    #ifdef DEBUG_IMG
+    cv::Mat rectified;
+    cv::hconcat(imgLeft, imgRight, rectified);
+    cv::imshow("rectified", rectified);
+    cv::waitKey(1);
+    #endif
     
     // Current camera frame's keypoints' pixel position and descriptors.
-    std::vector<cvPoint2Type> curPixelsL, curPixelsR;
+    std::vector<cv::Point2d> curPixelsL, curPixelsR;
     cv::Mat curDescriptorsL, curDescriptorsR;
     
     start = std::chrono::steady_clock::now();
@@ -105,7 +114,7 @@ void FeatureTracker::process(const cv::Mat& grayLeft, const cv::Mat& grayRight) 
     _frameCount++;
 }
 
-void FeatureTracker::internalMatch(const cv::Mat& imgLeft, const cv::Mat& imgRight, std::vector<cvPoint2Type>& curPixelsL, std::vector<cvPoint2Type>& curPixelsR, cv::Mat& curDescriptorsL, cv::Mat& curDescriptorsR) {
+void FeatureTracker::internalMatch(const cv::Mat& imgLeft, const cv::Mat& imgRight, std::vector<cv::Point2d>& curPixelsL, std::vector<cv::Point2d>& curPixelsR, cv::Mat& curDescriptorsL, cv::Mat& curDescriptorsR) {
     std::vector<cv::KeyPoint> keypointsL, keypointsR;
     cv::Mat descriptorsL, descriptorsR;
     _orb->detectAndCompute(imgLeft,  _maskL, keypointsL, descriptorsL);
@@ -123,45 +132,56 @@ void FeatureTracker::internalMatch(const cv::Mat& imgLeft, const cv::Mat& imgRig
         // 2) min_element returns an iterator, in this case, cv::DMatch iterator
         // 3) when using iterator to access object's data member, dereference is needed, similar usage as pointer
     
-    // Quick calculation of max and min distances between keypoints
+    // Quick calculation of max and min distances between keypoints.
     // float maxDist = 0; float minDist = 10000;
-    // for (int i = 0; i < descriptorsL.size(); ++i) {
+    // for (int i = 0; i < keypointsL.size(); ++i) {
     //     float dist = matches[i].distance;
     //     if (dist < minDist) minDist = dist;
     //     if (dist > maxDist) maxDist = dist;
     // }
 
-    #ifdef DEBUG_IMG
-    std::vector<cv::DMatch> good_matches;
-    #endif
     // Only keep good matches (i.e. whose distance is less than matchRatio * minDist,
     // or a small arbitary value (e.g. 30.0f) in case min_dist is very small.
+    std::vector<cv::Point2d> pixelsL, pixelsR;
+    std::vector<int> indexL, indexR;
     for (auto& m : matches) {
         if (m.distance < std::max(_matchRatio * minDist, _minMatchDist)) {
-            curPixelsL.push_back(keypointsL[m.queryIdx].pt);
-            curPixelsR.push_back(keypointsR[m.trainIdx].pt);
-            curDescriptorsL.push_back(descriptorsL.row(m.queryIdx));
-            curDescriptorsR.push_back(descriptorsR.row(m.trainIdx));
-            #ifdef DEBUG_IMG
-            good_matches.push_back(m);
-            #endif
+            pixelsL.push_back(keypointsL[m.queryIdx].pt);
+            pixelsR.push_back(keypointsR[m.trainIdx].pt);
+            indexL.push_back(m.queryIdx);
+            indexR.push_back(m.trainIdx);
         }
     }
 
+    // However, only removing matches of big descriptor distance is not enough.
+    // To root out outliers, use 2D-2D RANSAC.
+    auto start = std::chrono::steady_clock::now();
+    cv::Mat ransacMask;
+    cv::findFundamentalMat(pixelsL, pixelsR, ransacMask);
+    for (int i = 0; i < ransacMask.rows; i++) {
+        if (ransacMask.at<bool>(i)) {
+            // std::cout << "left pixel: " << pixels1[i] << std::endl;
+            // std::cout << "right pixel: " << pixels2[i] << std::endl;
+            curPixelsL.push_back(pixelsL[i]);
+            curPixelsR.push_back(pixelsR[i]);
+            curDescriptorsL.push_back(descriptorsL.row(indexL[i]));
+            curDescriptorsR.push_back(descriptorsR.row(indexR[i]));
+        }
+    }
+    auto end = std::chrono::steady_clock::now();
+    std::cout << "[internal] findFundamentalMat with RANSAC elapsed time: " << std::chrono::duration<double, std::milli>(end-start).count() << "ms" << std::endl << std::endl;
+
     #ifdef DEBUG_IMG
-    // Draw only good matches.
-    cv::Mat img_matches;
-    cv::drawMatches(imgLeft, keypointsL, imgRight, keypointsR, good_matches, img_matches);
-    cv::imshow("Left-Right Good Matches", img_matches);
-    cv::waitKey(0);
-    std::cout << "Left-Right matches: " << good_matches.size() << std::endl;
+    std::cout << "# Left-Right matches after distance-filter: " << pixelsL.size() << std::endl;
+    std::cout << "# Left-Right matches after RANSAC: " << curPixelsL.size() << std::endl;
     #endif
 }
 
-void FeatureTracker::externalTrack(const std::vector<cvPoint2Type>& curPixelsL, const std::vector<cvPoint2Type>& curPixelsR, const cv::Mat& curDescriptorsL, const cv::Mat& curDescriptorsR) {
+void FeatureTracker::externalTrack(const std::vector<cv::Point2d>& curPixelsL, const std::vector<cv::Point2d>& curPixelsR, const cv::Mat& curDescriptorsL, const cv::Mat& curDescriptorsR) {
     // At initializing step, there is no available features in the list yet,
     // so all features detected in the first frame will be added to the list.
     if (_features.empty()) {
+        // (std::vector copy constructor performs deep copy)
         _newPixelsL = curPixelsL;
         _newPixelsR = curPixelsR;
         _newDescriptorsL = curDescriptorsL;
@@ -170,7 +190,7 @@ void FeatureTracker::externalTrack(const std::vector<cvPoint2Type>& curPixelsL, 
     }
 
     #ifdef DEBUG_IMG
-    int r = 0;
+    int rightCount = 0;
     #endif
 
     // Perform circular matching; only keep matches that are really good.
@@ -179,9 +199,6 @@ void FeatureTracker::externalTrack(const std::vector<cvPoint2Type>& curPixelsL, 
     cv::BFMatcher matcher(cv::NORM_HAMMING);
     float minDist;
 
-    // Store the correspondence map <queryIdx, trainIdx> of 'left' matching.
-    std::map<int,int> mapCurHist;
-    
     #ifdef DEBUG_IMG
     std::cout << "# histDescriptorsL: " << _histDescriptorsL.rows << std::endl
               << "#  curDescriptorsL: " << curDescriptorsL.rows << std::endl;
@@ -189,53 +206,75 @@ void FeatureTracker::externalTrack(const std::vector<cvPoint2Type>& curPixelsL, 
     
     matcher.match(curDescriptorsL, _histDescriptorsL, matchesL);
     minDist = std::min_element(matchesL.begin(), matchesL.end(), [] (const cv::DMatch& m1, const cv::DMatch& m2) { return m1.distance < m2.distance; })->distance;
+    std::vector<cv::Point2d> pixelsL, pixelsR;
+    std::vector<int> indexL, indexR;
     for (auto& m : matchesL) {
         // Only consider those good matches.
         if (m.distance < std::max(_matchRatio * minDist, _minMatchDist)) {
-            mapCurHist[m.queryIdx] = m.trainIdx;
+            pixelsL.push_back(keypointsL[m.queryIdx].pt);
+            pixelsR.push_back(keypointsR[m.trainIdx].pt);
+            indexL.push_back(m.queryIdx);
+            indexR.push_back(m.trainIdx);
         }
     }
-    
-    // Clear old contents to store new data.
-    _newPixelsL.clear(); _newPixelsR.clear();
-    _newDescriptorsL = cv::Mat(); _newDescriptorsR = cv::Mat();
-    _matchedFeatureIDs.clear();
-    _notMatchedFeatureIDs.clear();
+
+    // Store the correspondence map <queryIdx, trainIdx> of 'left' matching.
+    std::map<int,int> mapCurHist;
+
+    // Use 2D-2D RANSAC to remove outliers.
+    auto start = std::chrono::steady_clock::now();
+    cv::Mat ransacMask;
+    cv::findFundamentalMat(pixelsL, pixelsR, ransacMask);
+    for (int i = 0; i < ransacMask.rows; i++) {
+        if (ransacMask.at<bool>(i))
+            mapCurHist[indexL[i]] = indexR[i];
+    }
+    auto end = std::chrono::steady_clock::now();
+    std::cout << "[external] findFundamentalMat with RANSAC elapsed time: " << std::chrono::duration<double, std::milli>(end-start).count() << "ms" << std::endl << std::endl;
+
+    // Record which features in current frame will be viewed as new features, if circular matching is satisfied, it will be false; otherwise, true.
+    std::vector<bool> curFeaturesMask (curDescriptorsL.rows, true);
     
     // Search the correspondence of 'right' matching with 'left' matching.
+    _matchedFeatureIDs.clear();
     matcher.match(curDescriptorsR, _histDescriptorsR, matchesR);
     minDist = std::min_element(matchesR.begin(), matchesR.end(), [] (const cv::DMatch& m1, const cv::DMatch& m2) { return m1.distance < m2.distance; })->distance;
     for (auto& m : matchesR) {
         // Only consider those good matches.
         if (m.distance < std::max(_matchRatio * minDist, _minMatchDist)) {
             #ifdef DEBUG_IMG
-            r++;
+            rightCount++;
             #endif
             
             auto search = mapCurHist.find(m.queryIdx);
             if (search != mapCurHist.end() && search->second == m.trainIdx) {
-                // Satisfy circular matching, i.e. curLeft <=> histLeft <=> histRight <=> curRight <=> curLeft
+                // Satisfy circular matching, i.e. curLeft <=> histLeft <=> histRight <=> curRight <=> curLeft, the age of history features will increase 1.
                 _matchedFeatureIDs.push_back(_histFeatureIDs[m.trainIdx]);
-            }
-            else {
-                // Not satisfy circular matching, features in current frame will be inserted, while old features will be erased.
-                _notMatchedFeatureIDs.push_back(_histFeatureIDs[m.trainIdx]);
-                _newPixelsL.push_back(curPixelsL[m.queryIdx]);
-                _newPixelsR.push_back(curPixelsR[m.queryIdx]);
-                _newDescriptorsL.push_back(curDescriptorsL.row(m.queryIdx));
-                _newDescriptorsR.push_back(curDescriptorsR.row(m.queryIdx));
+                // Will not be added as new features.
+                curFeaturesMask[m.queryIdx] = false;
             }
         }
     }
 
-    #ifdef DEBUG_IMG
-    std::cout << " Left hist-cur matches: " << mapCurHist.size() << std::endl
-              << "Right hist-cur matches: " << r << std::endl
-              << "      Circular matches: " << _matchedFeatureIDs.size() << std::endl
-              << "           New matches: " << _newPixelsL.size() << std::endl;
-    #endif
+    // The not matched features in current frame will be viewed as new features and be added into feature pool.
+    _newPixelsL.clear();
+    _newPixelsR.clear();
+    _newDescriptorsL = cv::Mat();
+    _newDescriptorsR = cv::Mat();
+    for (int i = 0; i < curFeaturesMask.size(); i++) {
+        if (!curFeaturesMask[i]) continue;
+        _newPixelsL.push_back(curPixelsL[i]);
+        _newPixelsR.push_back(curPixelsR[i]);
+        _newDescriptorsL.push_back(curDescriptorsL.row(i));
+        _newDescriptorsR.push_back(curDescriptorsR.row(i));
+    }
 
-    // Todo: feed matched features to backend?
+    #ifdef DEBUG_IMG
+    std::cout << "# left hist-cur matches (RANSAC): " << mapCurHist.size() << std::endl
+              << "# right hist-cur matches: " << rightCount << std::endl
+              << "# circular matches: " << _matchedFeatureIDs.size() << std::endl
+              << "# new features: " << _newPixelsL.size() << std::endl;
+    #endif
 }
 
 void FeatureTracker::featurePoolUpdate() {
@@ -243,31 +282,30 @@ void FeatureTracker::featurePoolUpdate() {
 
     #ifdef DEBUG_IMG
     std::cout << "Number of features in pool before updating: " << _features.size() << std::endl;
-    int e = 0;
+    int eraseCount = 0;
     #endif
 
-    // Insert new features.
+    // Insert new features, initial _age is -2, will add 2 later.
     for (int i = 0; i < _newPixelsL.size(); ++i) {
-        _features[_featureCount++] = Feature(_frameCount, _newPixelsL[i], _newPixelsR[i], _newDescriptorsL.row(i), _newDescriptorsR.row(i));
+        _features[_featureCount++] = Feature(_frameCount, _newPixelsL[i], _newPixelsR[i], _newDescriptorsL.row(i), _newDescriptorsR.row(i), -2);
     }
 
-    // Update _matchedTimes.
+    // _age minus 1, will add 2 later.
     for (int i = 0; i < _matchedFeatureIDs.size(); ++i) {
-        _features[_matchedFeatureIDs[i]]._matchedTimes++;
+        _features[_matchedFeatureIDs[i]]._age -= 1;
+        
+        // Todo: feed matched features to backend?
+        _pMap->
     }
 
-    // Erase not matched old features.
-    for (int i = 0; i < _notMatchedFeatureIDs.size(); ++i) {
-        _features.erase(_notMatchedFeatureIDs[i]);
-    }
-
-    // Erase too old features, and put the rest into _histDescriptors.
+    // _age add 2 for all features, then erase too old features, and put the rest into _histDescriptors.
     _histFeatureIDs.clear();
     _histDescriptorsL = cv::Mat(); _histDescriptorsR = cv::Mat();
     for (auto f = _features.begin(); f != _features.end(); ++f) {
-        if (f->second._matchedTimes > _maxMatchedTimes) {
+        f->second._age += 2;
+        if (f->second._age > _maxFeatureAge) {
             #ifdef DEBUG_IMG
-            e++;
+            eraseCount++;
             #endif
 
             f = _features.erase(f);
@@ -281,16 +319,16 @@ void FeatureTracker::featurePoolUpdate() {
 
     #ifdef DEBUG_IMG
     std::cout << "Number of features in pool after updaing: " << _features.size() << std::endl
-              << "(" << _newPixelsL.size() << " features inserted, " << _notMatchedFeatureIDs.size() << " not matched old features erased, " << e << " too old features erased)" << std::endl;
+              << "(" << _newPixelsL.size() << " features inserted, " << eraseCount << " too old features erased)" << std::endl;
     #endif
 }
 
-// void FeatureTracker::computeCamPose(SophusSE3Type& pose) {
+// void FeatureTracker::computeCamPose(Sophus::SE3d& pose) {
 //     // estimate camera pose by solving 3D-2D PnP problem using RANSAC scheme
-//     std::vector<cvPoint3Type> points3D;  // 3D points triangulated from reference frame
-//     std::vector<cvPoint2Type> points2D;  // 2D points in current frame
+//     std::vector<cv::Point3d> points3D;  // 3D points triangulated from reference frame
+//     std::vector<cv::Point2d> points2D;  // 2D points in current frame
 
-//     const std::vector<cvPoint3Type>& points3DRef = _keyRef->getPoints3D();
+//     const std::vector<cv::Point3d>& points3DRef = _keyRef->getPoints3D();
 //     for (cv::DMatch& m : _matches) {
 //         // matches is computed from two sets of descriptors: matcher.match(_descriptorsRef, _descriptorsCur, matches)
 //         // the queryIdx corresponds to _descriptorsRef
@@ -320,12 +358,12 @@ void FeatureTracker::featurePoolUpdate() {
 //     }
 
 //     cv::Mat cvR;
-//     EigenMatrix3Type R;
-//     EigenVector3Type t;
+//     Eigen::Matrix3d R;
+//     Eigen::Vector3d t;
 //     cv::Rodrigues(rvec, cvR);
 //     cv::cv2eigen(cvR, R);
 //     cv::cv2eigen(tvec, t);
-//     pose = SophusSE3Type(R, t);
+//     pose = Sophus::SE3d(R, t);
 // }
 
 } // namespace cfsd
