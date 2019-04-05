@@ -46,8 +46,8 @@ namespace cfsd {
 class CameraModel {
   public:
     CameraModel() {
-        _imageSize.height = Config::get<int>("imageHeight");
-        _imageSize.width = Config::get<int>("imageWidth");
+        _imageSize.height = Config::get<int>("processHeight");
+        _imageSize.width = Config::get<int>("processWidth") / 2;
         
         _K1 = Config::get<cv::Mat>("camLeft");
         _D1 = Config::get<cv::Mat>("distLeft");

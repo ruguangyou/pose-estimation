@@ -9,6 +9,10 @@
 #include <opencv2/features2d/features2d.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
 
+#ifdef DEBUG_IMG
+#include <opencv2/highgui/highgui.hpp>
+#endif
+
 namespace cfsd {
 
 class FeatureTracker {
@@ -26,9 +30,9 @@ class FeatureTracker {
     // - refinement? (improve the quality of matching)
     void process(const cv::Mat& imgLeft, const cv::Mat& imgRight);
 
-    void internalMatch(const cv::Mat& imgLeft, const cv::Mat& imgRight, std::vector<cv::Point2d>& curPixelsL, std::vector<cv::Point2d>& curPixelsR, cv::Mat& curDescriptorsL, cv::Mat& curDescriptorsR, const bool useRANSAC = true);
+    void internalMatch(const cv::Mat& imgLeft, const cv::Mat& imgRight, std::vector<cv::Point2d>& curPixelsL, std::vector<cv::Point2d>& curPixelsR, cv::Mat& curDescriptorsL, cv::Mat& curDescriptorsR, const bool useRANSAC = false);
 
-    void externalTrack(const std::vector<cv::Point2d>& curPixelsL, const std::vector<cv::Point2d>& curPixelsR, const cv::Mat& curDescriptorsL, const cv::Mat& curDescriptorsR, std::vector<bool>& curFeatureMask, const bool useRANSAC = true);
+    void externalTrack(const std::vector<cv::Point2d>& curPixelsL, const std::vector<cv::Point2d>& curPixelsR, const cv::Mat& curDescriptorsL, const cv::Mat& curDescriptorsR, std::vector<bool>& curFeatureMask, const bool useRANSAC = false);
 
     void featurePoolUpdate(const std::vector<cv::Point2d>& curPixelsL, const std::vector<cv::Point2d>& curPixelsR, const cv::Mat& curDescriptorsL, const cv::Mat& curDescriptorsR, const std::vector<bool>& curFeatureMask);
 
@@ -76,13 +80,15 @@ class FeatureTracker {
     // std::vector<cv::Point2d> _matchedCurPixelsL, _matchedCurPixelsR;
 
     // Only part of the image is considered to be useful (e.g. the upper half of the image containing sky contributes little to useful features)
-    cv::Mat _maskL, _maskR;
+    cv::Mat _mask;
 
     // Match distance should be less than max(_matchRatio*minDist, _minMatchDist)
     // Ratio for selecting good matches.
     float _matchRatio;  
     // Min match distance, based on experience, e.g. 30.0f
     float _minMatchDist;
+    // For matched pixel (ul, vl) and (ur, vr), |vl-vr| should be small enough if the image has been rectified.
+    float _maxVerticalPixelDist;
 
     int _maxFeatureAge;
 

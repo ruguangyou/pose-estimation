@@ -128,10 +128,10 @@ struct ReprojectCostFunction {
 Optimizer::Optimizer(const cfsd::Ptr<Map>& pMap, const cfsd::Ptr<ImuPreintegrator>& pImuPreintegrator, const cfsd::Ptr<CameraModel>& pCameraModel, const bool verbose)
     : _pMap(pMap), _pImuPreintegrator(pImuPreintegrator), _pCameraModel(pCameraModel), _verbose(verbose) {}
 
-Optimizer::~Optimizer() { 
-    delete _pose[WINDOWSIZE];
-    delete _v_bga[WINDOWSIZE];
-}
+// Optimizer::~Optimizer() { 
+//     delete _pose[WINDOWSIZE];
+//     delete _v_bga[WINDOWSIZE];
+// }
 
 void Optimizer::motionOnlyBA(std::unordered_map<size_t,Feature>& features, const std::vector<size_t>& matchedFeatureIDs) {
     // For the first few frames, the local window cannot fit, i.e. actualSize < WINDOWSIZE

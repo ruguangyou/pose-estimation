@@ -29,11 +29,13 @@ int main(int argc, char** argv) {
     cfsd::Config::setParameterFile(configFilePath);
 
     // Resolution of the image read from shared memory.
-    const int height = cfsd::Config::get<int>("imageHeight");
-    const int width = cfsd::Config::get<int>("imageWidth");
+    const int height = cfsd::Config::get<int>("readHeight");
+    const int width = cfsd::Config::get<int>("readWidth");
 
     // Resolution that is used in post-processing, i.e. if image from shared memory is of different size, it will be resized.
-    cv::Size imgSize(1344, 376);
+    const int resizeHeight = cfsd::Config::get<int>("processHeight");
+    const int resizeWidth = cfsd::Config::get<int>("processWidth");
+    cv::Size imgSize(resizeWidth, resizeHeight);
 
     // Interface to VI-SLAM.
     cfsd::Ptr<cfsd::VisualInertialSLAM> pVISLAM{new cfsd::VisualInertialSLAM(verbose)};

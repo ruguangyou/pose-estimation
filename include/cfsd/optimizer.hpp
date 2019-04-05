@@ -16,7 +16,7 @@ class Optimizer {
   public:
     Optimizer(const cfsd::Ptr<Map>& _pMap, const cfsd::Ptr<ImuPreintegrator>& pImuPreintegrator, const cfsd::Ptr<CameraModel>& pCameraModel, const bool verbose);
 
-    ~Optimizer();
+    // ~Optimizer();
 
     /* Only optimize motion (i.e. vehicle states), keep landmarks fixed.
        map points: (x x   x  x  x x)  <- fixed

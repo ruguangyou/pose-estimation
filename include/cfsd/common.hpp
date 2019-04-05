@@ -15,10 +15,6 @@
 #include <opencv2/core/core.hpp>
 #include <opencv2/core/eigen.hpp> // cv::eigen2cv, cv::cv2eigen
 
-#ifdef DEBUG_IMG
-#include <opencv2/highgui/highgui.hpp>
-#endif
-
 // std utilities
 #include <iostream>         // several standard stream objects
 #include <memory>           // higher level memory management utilities (std::shared_ptr, std::unique_ptr, ...)
