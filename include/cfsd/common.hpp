@@ -39,25 +39,13 @@
 #include <unordered_map>    // std::unordered_map and std::unordered_multimap unordered associative containers
 #include <set>              // std::set and std::multiset associative containers
 
-// pre-defined type (easy to change between float and double type)
-typedef double precisionType;
-typedef Eigen::Matrix3d EigenMatrix3Type;
-typedef Eigen::Vector3d EigenVector3Type;
-typedef Eigen::Vector2d EigenVector2Type;
-typedef Eigen::Matrix<double,4,1> EigenVector4Type;
-typedef Eigen::Quaterniond EigenQuaternionType;
-typedef Sophus::SE3d SophusSE3Type;
-typedef Sophus::SO3d SophusSO3Type;
-typedef cv::Point3d cvPoint3Type;
-typedef cv::Point2d cvPoint2Type;
-typedef cv::Matx33d cvMatrix3Type;
-typedef cv::Matx41d cvVector4Type;
-typedef cv::Matx34d cvMatrix34Type;
-
 // pre-defined smart pointer type
 namespace cfsd {
 template<typename T>
 using Ptr = std::shared_ptr<T>; // the same as `typedef std::shared_ptr<VisualInertialOdometry> Ptr`, however `typedef` is limited and cannot use `template`
 } // namespace
+
+// local sliding-window size
+#define WINDOWSIZE 3
 
 #endif // COMMON_HPP

@@ -2,11 +2,9 @@
 #define OPTIMIZER_HPP
 
 #include "cfsd/common.hpp"
+#include "cfsd/camera-model.hpp"
+#include "cfsd/map.hpp"
 #include "cfsd/imu-preintegrator.hpp"
-
-#ifdef USE_VIEWER
-#include "cfsd/viewer.hpp"
-#endif
 
 #include <ceres/ceres.h>
 
@@ -16,20 +14,31 @@ class ImuPreintegrator;
 
 class Optimizer {
   public:
-    Optimizer(const bool verbose);
+    Optimizer(const cfsd::Ptr<Map>& _pMap, const cfsd::Ptr<ImuPreintegrator>& pImuPreintegrator, const cfsd::Ptr<CameraModel>& pCameraModel, const bool verbose);
 
-    #ifdef USE_VIEWER
-    void setViewer(const cfsd::Ptr<Viewer>& pViewer) { _pViewer = pViewer; }
-    #endif
+    ~Optimizer();
 
-    void localOptimize(const cfsd::Ptr<ImuPreintegrator>& pImuPreintegrator);
+    /* Only optimize motion (i.e. vehicle states), keep landmarks fixed.
+       map points: (x x   x  x  x x)  <- fixed
+                   /| |\ /|\ | /| |\
+           frames: #  #  #  #  #  #  #  $    (# is keyframe, $ is latest frame)
+                   | <=fixed=> |  | <=> | <- local-window to be optimizer
+    */
+    void motionOnlyBA(std::unordered_map<size_t,Feature>& features, const std::vector<size_t>& matchedFeatureIDs);
+
+    // void localOptimize();
 
   private:
     bool _verbose;
 
-    #ifdef USE_VIEWER
-    cfsd::Ptr<Viewer> _pViewer;
-    #endif
+    cfsd::Ptr<Map> _pMap;
+
+    cfsd::Ptr<ImuPreintegrator> _pImuPreintegrator;
+
+    cfsd::Ptr<CameraModel> _pCameraModel;
+
+    double _pose[WINDOWSIZE][6];  // pose (rotation vector, translation vector / position)
+    double _v_bga[WINDOWSIZE][9]; // velocity, bias of gyroscope, bias of accelerometer
 };
 
 } // namespace cfsd

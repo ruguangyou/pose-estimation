@@ -31,12 +31,14 @@ class VisualInertialSLAM {
     VisualInertialSLAM(const bool verbose);
 
     #ifdef USE_VIEWER
-    void setViewer(const cfsd::Ptr<Viewer>& pViewer) { _pOptimizer->setViewer(pViewer); }
+    void setViewer(const cfsd::Ptr<Viewer>& pViewer) { _pMap->_pViewer = pViewer; }
     #endif
 
-    void processImage(const long& timestamp, const cv::Mat& img);
+    void processImage(const cv::Mat& grayL, const cv::Mat& grayR);
 
-    void processImu();
+    void processImu(const long& timestamp, const double& gyrX, const double& gyrY, const double& gyrZ, const double& accX, const double& accY, const double& accZ);
+
+    // void optimize();
 
     void setImgTimestamp(const long& timestamp);
 
@@ -48,13 +50,17 @@ class VisualInertialSLAM {
 
     cfsd::Ptr<CameraModel> _pCameraModel;
 
+    cfsd::Ptr<Map> _pMap;
+
     cfsd::Ptr<FeatureTracker> _pFeatureTracker;
 
     cfsd::Ptr<Optimizer> _pOptimizer;
 
     cfsd::Ptr<ImuPreintegrator> _pImuPreintegrator;
 
-    // cfsd::Ptr<Map> _pMap;
+    double _gyrX, _gyrY, _gyrZ;
+    double _accX, _accY, _accZ;
+    bool _gyrGot{false}, _accGot{false};
     
 };
 

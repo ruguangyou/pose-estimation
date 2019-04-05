@@ -10,6 +10,13 @@ Viewer::Viewer() : readyToDraw(false), readyToDrawRaw(false) {
     viewpointY = Config::get<float>("viewpointY");
     viewpointZ = Config::get<float>("viewpointZ");
     viewpointF = Config::get<float>("viewpointF");
+
+    xs.push_back(0);
+    ys.push_back(0);
+    zs.push_back(0);
+    xsRaw.push_back(0);
+    ysRaw.push_back(0);
+    zsRaw.push_back(0);
 }
 
 void Viewer::run() {
@@ -42,7 +49,7 @@ void Viewer::run() {
     // Define Camera Render Object (for view / sceno browsing)
     pangolin::OpenGlRenderState s_cam(
         pangolin::ProjectionMatrix(1024,768, viewpointF,viewpointF, 512,389, 0.1,1000),
-        pangolin::ModelViewLookAt(viewpointX,viewpointY,viewpointZ, 0,0,0, pangolin::AxisNegY)
+        pangolin::ModelViewLookAt(viewpointX,viewpointY,viewpointZ, 0,0,0, pangolin::AxisNegZ)
     );
     /*  our camera coordinate system (where AxisNegY is the up direction)
               / z (yaw)
@@ -95,32 +102,16 @@ void Viewer::run() {
     }
 }
 
-void Viewer::setParameters(double* rvp_i, double* rvp_j) {
+void Viewer::pushParameters(double** pose, int size) {
     // rvp: [rx,ry,rz, vx,vy,vz, px,py,pz]
     std::lock_guard<std::mutex> lockData(dataMutex);
 
-    if (xs.empty()) {
-        xs.push_back(static_cast<float>(rvp_i[6] * viewScale));
-        ys.push_back(static_cast<float>(rvp_i[7] * viewScale));
-        zs.push_back(static_cast<float>(rvp_i[8] * viewScale));
+    for (int i = 0; i < size; i++) {
+        int idx = xs.size() - size + i;
+        xs[idx] = static_cast<float>(pose[i][3] * viewScale);
+        ys[idx] = static_cast<float>(pose[i][4] * viewScale);
+        zs[idx] = static_cast<float>(pose[i][5] * viewScale);
     }
-    else {
-        xs.back() = static_cast<float>(rvp_i[6] * viewScale);
-        ys.back() = static_cast<float>(rvp_i[7] * viewScale);
-        zs.back() = static_cast<float>(rvp_i[8] * viewScale);
-    }
-
-    #ifdef DEBUG_IMU
-    std::cout << "scaled optimized position i (scale=" << viewScale << "): " << xs.back() << ", " << ys.back() << ", " << zs.back() << std::endl;
-    #endif
-
-    xs.push_back(static_cast<float>(rvp_j[6] * viewScale));
-    ys.push_back(static_cast<float>(rvp_j[7] * viewScale));
-    zs.push_back(static_cast<float>(rvp_j[8] * viewScale));
-
-    #ifdef DEBUG_IMU
-    std::cout << "scaled optimized position j (scale=" << viewScale << "): " << xs.back() << ", " << ys.back() << ", " << zs.back() << std::endl;
-    #endif
 
     readyToDraw = true;
 }
@@ -145,32 +136,13 @@ void Viewer::drawPosition() {
     // glEnd();
 }
 
-void Viewer::setRawParameters(double* rvp_i, double* rvp_j) {
+void Viewer::pushRawParameters(double* pose_i) {
     // rvp: [rx,ry,rz, vx,vy,vz, px,py,pz]
     std::lock_guard<std::mutex> lockRawData(rawDataMutex);
 
-    if (xs.empty()) {
-        xsRaw.push_back(static_cast<float>(rvp_i[6] * viewScale));
-        ysRaw.push_back(static_cast<float>(rvp_i[7] * viewScale));
-        zsRaw.push_back(static_cast<float>(rvp_i[8] * viewScale));
-    }
-    else {
-        xsRaw.back() = static_cast<float>(rvp_i[6] * viewScale);
-        ysRaw.back() = static_cast<float>(rvp_i[7] * viewScale);
-        zsRaw.back() = static_cast<float>(rvp_i[8] * viewScale);
-    }
-
-    #ifdef DEBUG_IMU
-    std::cout << "scaled raw position i (scale=" << viewScale << "): " << xsRaw.back() << ", " << ysRaw.back() << ", " << zsRaw.back() << std::endl;
-    #endif
-
-    xsRaw.push_back(static_cast<float>(rvp_j[6] * viewScale));
-    ysRaw.push_back(static_cast<float>(rvp_j[7] * viewScale));
-    zsRaw.push_back(static_cast<float>(rvp_j[8] * viewScale));
-
-    #ifdef DEBUG_IMU
-    std::cout << "scaled raw position j (scale=" << viewScale << "): " << xsRaw.back() << ", " << ysRaw.back() << ", " << zsRaw.back() << std::endl;
-    #endif
+    xsRaw.push_back(static_cast<float>(pose_i[3] * viewScale));
+    ysRaw.push_back(static_cast<float>(pose_i[4] * viewScale));
+    zsRaw.push_back(static_cast<float>(pose_i[5] * viewScale));
 
     readyToDrawRaw = true;
 }

@@ -53,8 +53,6 @@ int main(int argc, char** argv) {
                 float accY = accData.accelerationY();
                 float accZ = accData.accelerationZ();
                 pVISLAM->collectImuData(cfsd::SensorType::ACCELEROMETER, timestamp, accX, accY, accZ);
-                // pVISLAM->processImu();
-
                 // std::cout << "acc timestamp: " << timestamp << std::endl;
             }
         }
@@ -73,8 +71,6 @@ int main(int argc, char** argv) {
                 float gyrY = gyrData.angularVelocityY();
                 float gyrZ = gyrData.angularVelocityZ();
                 pVISLAM->collectImuData(cfsd::SensorType::GYROSCOPE, timestamp, gyrX, gyrY, gyrZ);
-                // pVISLAM->processImu();
-
                 // std::cout << "gyr timestamp: " << timestamp << std::endl;
             }
         }
@@ -87,29 +83,35 @@ int main(int argc, char** argv) {
             cluon::data::TimeStamp ts = envelope.sampleTimeStamp();
             long timestamp = cluon::time::toMicroseconds(ts);
             pVISLAM->setImgTimestamp(timestamp);
-
-            std::cout << "img timestamp: " << timestamp << std::endl;
+            // std::cout << "img timestamp: " << timestamp << std::endl;
         }
     };
 
-    // Set a delegate to be called data-triggered on arrival of a new Envelope for a given message identifier.
-    od4.dataTrigger(opendlv::proxy::AccelerationReading::ID(), accRecived);
-    od4.dataTrigger(opendlv::proxy::AngularVelocityReading::ID(), gyrRecived);
-    od4.dataTrigger(opendlv::proxy::ImageReading::ID(), imgRecived);
+    #ifdef USE_VIEWER
+    // A thread for visulizing.
+    cfsd::Ptr<cfsd::Viewer> pViewer{new cfsd::Viewer()};
+    pVISLAM->setViewer(pViewer);
+    std::thread viewerThread(&cfsd::Viewer::run, pViewer); // no need to detach, since there is a while loop in Viewer::run()
+    #endif
+
+    // Sleep for .. seconds, wait for sensor initialization (e.g. camera adjusts its optical parameters).
+    using namespace std::chrono_literals;
+    auto start = std::chrono::steady_clock::now();
+    std::this_thread::sleep_for(2s);
+    auto end = std::chrono::steady_clock::now();
+    std::cout << "Waited " << std::chrono::duration<double, std::milli>(end-start).count() << " ms" << std::endl;
 
     // Attach to shared memory.
     const std::string sharedMemoryName{commandlineArguments["name"]};
     std::unique_ptr<cluon::SharedMemory> pSharedMemory(new cluon::SharedMemory{sharedMemoryName});
     if (pSharedMemory && pSharedMemory->valid()) {
     // if (1) {
-        std::clog << argv[0] << "attached to shared memory: '" << pSharedMemory->name() << " (" << pSharedMemory->size() << " bytes)." << std::endl;
+        std::clog << argv[0] << "attached to shared memory: '" << pSharedMemory->name() << " (" << pSharedMemory->size() << " bytes)." << std::endl << std::endl;
 
-        #ifdef USE_VIEWER
-        // A thread for visulizing.
-        cfsd::Ptr<cfsd::Viewer> pViewer{new cfsd::Viewer()};
-        pVISLAM->setViewer(pViewer);
-        std::thread viewerThread(&cfsd::Viewer::run, pViewer); // no need to detach, since there is a while loop in Viewer::run()
-        #endif
+        // Set a delegate to be called data-triggered on arrival of a new Envelope for a given message identifier.
+        od4.dataTrigger(opendlv::proxy::ImageReading::ID(), imgRecived);
+        od4.dataTrigger(opendlv::proxy::AngularVelocityReading::ID(), gyrRecived);
+        od4.dataTrigger(opendlv::proxy::AccelerationReading::ID(), accRecived);
 
         // Endless loop; end the program by pressing Ctrl-C.
         while (od4.isRunning()) {
@@ -127,18 +129,20 @@ int main(int argc, char** argv) {
                 // If image from shared memory has different size with the pre-defined one, resize it.
                 cv::resize(wrapped, img, imgSize);
 
-                std::cout << "shared memory timestamp: " << cluon::time::toMicroseconds(pSharedMemory->getTimeStamp().second) << std::endl;
+                // std::cout << "shared memory timestamp: " << cluon::time::toMicroseconds(pSharedMemory->getTimeStamp().second) << std::endl;
             }
             pSharedMemory->unlock();
 
             cv::Mat gray;
             cv::cvtColor(img, gray, CV_BGR2GRAY);
 
-            // pVISLAM->processImage(imgTimestamp, gray);
+            // Split image into left and right.
+            cv::Mat grayL = gray(cv::Rect(0, 0, gray.cols/2, gray.rows));
+            cv::Mat grayR = gray(cv::Rect(gray.cols/2, 0, gray.cols/2, gray.rows));
 
-            #ifdef USE_VIEWER
-            // ...
-            #endif
+            std::cout << "---------------------------------" << std::endl;
+
+            pVISLAM->processImage(grayL, grayR);
         }
     }
     else {

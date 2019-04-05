@@ -34,7 +34,7 @@ void KeyFrame::matchAndTriangulate() {
     float min_dist = std::min_element(matches.begin(), matches.end(), [](const cv::DMatch& m1, const cv::DMatch& m2){ return m1.distance < m2.distance; })->distance;
 
     // drop bad matches whose distance is too large
-    std::vector<cvPoint2Type> goodPointsL, goodPointsR;
+    std::vector<cv::Point2d> goodPointsL, goodPointsR;
     for (cv::DMatch& m : matches) {
         if (m.distance < std::max(_matchRatio * min_dist, _minMatchDist)) {
             _camKeypoints.push_back(keypointsL[m.queryIdx]);
@@ -55,7 +55,7 @@ void KeyFrame::matchAndTriangulate() {
     }
 
     cv::Mat projL, projR;
-    Eigen::Matrix<precisionType,3,4> proj;
+    Eigen::Matrix<double,3,4> proj;
     proj = _camFrame->getCamLeft() * _SE3CamLeft.matrix3x4();
     cv::eigen2cv(proj, projL);
     proj = _camFrame->getCamRight() * _SE3CamRight.matrix3x4();
@@ -67,13 +67,13 @@ void KeyFrame::matchAndTriangulate() {
     for (int i = 0; i < homogeneous4D.cols; ++i) {
         float sign = (homogeneous4D.at<float>(2,i) / homogeneous4D.at<float>(3,i)) > 0 ? 1.0 : -1.0;
         _points3D.push_back(
-            sign * cvPoint3Type(homogeneous4D.at<precisionType>(0,i) / homogeneous4D.at<precisionType>(3,i),
-                                homogeneous4D.at<precisionType>(1,i) / homogeneous4D.at<precisionType>(3,i),
-                                homogeneous4D.at<precisionType>(2,i) / homogeneous4D.at<precisionType>(3,i)));
+            sign * cv::Point3d(homogeneous4D.at<double>(0,i) / homogeneous4D.at<double>(3,i),
+                                homogeneous4D.at<double>(1,i) / homogeneous4D.at<double>(3,i),
+                                homogeneous4D.at<double>(2,i) / homogeneous4D.at<double>(3,i)));
     }
 }
 
-void KeyFrame::setCamPose(SophusSE3Type camPose) { 
+void KeyFrame::setCamPose(Sophus::SE3d camPose) { 
     _SE3CamLeft = camPose;
     _SE3CamRight = _camFrame->getLeftToRight() * _SE3CamLeft;
 }

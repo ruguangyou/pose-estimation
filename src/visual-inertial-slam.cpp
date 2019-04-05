@@ -1,3 +1,4 @@
+#include "cfsd/config.hpp"
 #include "cfsd/visual-inertial-slam.hpp"
 
 namespace cfsd {
@@ -5,30 +6,21 @@ namespace cfsd {
 VisualInertialSLAM::VisualInertialSLAM(const bool verbose) : _state(OK), _verbose(verbose) {
     
     _pCameraModel = std::make_shared<CameraModel>();
-    
-    _pFeatureTracker = std::make_shared<FeatureTracker>(_pCameraModel, verbose);
-    
-    _pOptimizer = std::make_shared<Optimizer>(verbose);
 
-    _pImuPreintegrator = std::make_shared<ImuPreintegrator>(_pOptimizer, verbose);
+    _pMap = std::make_shared<Map>(verbose);
     
-    // _map = Map::create(_verbose, _debug);
+    _pImuPreintegrator = std::make_shared<ImuPreintegrator>(_pMap, verbose);
+
+    _pOptimizer = std::make_shared<Optimizer>(_pMap, _pImuPreintegrator, _pCameraModel, verbose);
+
+    _pFeatureTracker = std::make_shared<FeatureTracker>(_pMap, _pOptimizer, _pImuPreintegrator, _pCameraModel, verbose);
+
 }
 
-void VisualInertialSLAM::processImage(const long& timestamp, const cv::Mat& gray) {
+void VisualInertialSLAM::processImage(const cv::Mat& grayL, const cv::Mat& grayR) {
     switch (_state) {
         case OK:
-        {
-            // Split image into left and right.
-            cv::Mat grayL = gray(cv::Rect(0, 0, gray.cols/2, gray.rows));
-            cv::Mat grayR = gray(cv::Rect(gray.cols/2, 0, gray.cols/2, gray.rows));
-            
-            #ifdef DEBUG_IMG
-            cv::imshow("grayL", grayL);
-            cv::imshow("grayR", grayR);
-            cv::waitKey(1);
-            #endif
-            
+        { 
             auto start = std::chrono::steady_clock::now();
             _pFeatureTracker->process(grayL, grayR);
             auto end = std::chrono::steady_clock::now();
@@ -45,21 +37,57 @@ void VisualInertialSLAM::processImage(const long& timestamp, const cv::Mat& gray
     }
 }
 
+void VisualInertialSLAM::processImu(const long& timestamp,
+                                    const double& gyrX, const double& gyrY, const double& gyrZ,
+                                    const double& accX, const double& accY, const double& accZ) {
+    /*  IMU coordinate system => camera coordinate system
+              / x (roll)                  / z
+             /                           /
+            ------ y (pitch)            ------ x
+            |                           |
+            | z (yaw)                   | y
+        
+        last year's proxy-ellipse2n (this is what will be received if using replay data collected in 2018-12-05)
+                 z |  / x
+                   | /
+           y _ _ _ |/
+    */
+    Eigen::Vector3d gyr, acc;
+    gyr << gyrY, gyrZ, gyrX;
+    acc << accY, accZ, accX;
+
+    // auto start = std::chrono::steady_clock::now();
+    _pImuPreintegrator->process(timestamp, gyr, acc);
+    // auto end = std::chrono::steady_clock::now();
+    // std::cout << "One preintegration elapsed time: " << std::chrono::duration<double, std::milli>(end-start).count() << "ms" << std::endl << std::endl;
+}
+
 void VisualInertialSLAM::collectImuData(const cfsd::SensorType& st, const long& timestamp, const float& x, const float& y, const float& z) {
-    if (st == ACCELEROMETER)
-        _pImuPreintegrator->collectAccData(timestamp, x, y, z);
-    else
-        _pImuPreintegrator->collectGyrData(timestamp, x, y, z);
+    switch (st) {
+        case ACCELEROMETER:
+            _accX = x; _accY = y; _accZ = z;
+            _accGot = true;
+            break;
+        case GYROSCOPE:
+            _gyrX = x; _gyrY = y; _gyrZ = z;
+            _gyrGot = true;
+    }
+    if (_accGot && _gyrGot) {
+        processImu(timestamp, _gyrX, _gyrY, _gyrZ, _accX, _accY, _accZ);
+        _gyrGot = false;
+        _accGot = false;
+    }
 }
 
-void VisualInertialSLAM::processImu() {
-    if (!_pImuPreintegrator->isProcessable()) return;
-
-    auto start = std::chrono::steady_clock::now();
-    _pImuPreintegrator->process();
-    auto end = std::chrono::steady_clock::now();
-    std::cout << "One preintegration elapsed time: " << std::chrono::duration<double, std::milli>(end-start).count() << "ms" << std::endl << std::endl;
-}
+// void VisualInertialSLAM::optimize() {
+//     if (_pImuPreintegrator->isLocalOptimizable()) {
+//         // Local optimization.
+//         auto start = std::chrono::steady_clock::now();
+//         _pOptimizer->localOptimize();
+//         auto end = std::chrono::steady_clock::now();
+//         std::cout << "Local optimization elapsed time: " << std::chrono::duration<double, std::milli>(end-start).count() << "ms" << std::endl;
+//     }
+// }
 
 void VisualInertialSLAM::setImgTimestamp(const long& timestamp) {
     _pImuPreintegrator->setImgTimestamp(timestamp);

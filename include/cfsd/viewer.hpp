@@ -9,6 +9,8 @@
 #include <thread>
 #include <pangolin/pangolin.h>
 
+#define WINDOWSIZE 3
+
 namespace cfsd {
 
 class Viewer {
@@ -18,12 +20,11 @@ class Viewer {
     // Execute in an independent thread for rendering.
     void run();
 
-    // API for Optimizer.
-    void setParameters(double* rvp_i, double* rvp_j);
+    void pushParameters(double** pose, int size);
 
     void drawPosition();
 
-    void setRawParameters(double* rvp_i, double* rvp_j);
+    void pushRawParameters(double* pose_i);
 
     void drawRawPosition();
 
@@ -36,7 +37,7 @@ class Viewer {
     float pointSize;
     float viewpointX, viewpointY, viewpointZ, viewpointF;
 
-    // States.
+    // States (position).
     std::vector<float> xs, ys, zs;
     std::vector<float> xsRaw, ysRaw, zsRaw;
 
