@@ -7,7 +7,7 @@ struct ImuCostFunction : public ceres::SizedCostFunction<15, /* residuals */
                                                           9, /* velocity, bias of gyr and acc at time i */
                                                           6, /* pose (r, p) at time j */
                                                           9  /* velocity, bias of gyr and acc at time j */> {
-    ImuCostFunction(const cfsd::Ptr<ImuPreintegrator>& pImuPreintegrator, const ImuConstraint& ic) : _pImuPreintegrator(pImuPreintegrator), _ic(ic) {}
+    ImuCostFunction(const cfsd::Ptr<ImuPreintegrator>& pImuPreintegrator, const cfsd::Ptr<ImuConstraint>& ic) : _pImuPreintegrator(pImuPreintegrator), _ic(ic) {}
 
     virtual ~ImuCostFunction() {}
 
@@ -49,7 +49,7 @@ struct ImuCostFunction : public ceres::SizedCostFunction<15, /* residuals */
 
   private:
     cfsd::Ptr<ImuPreintegrator> _pImuPreintegrator;
-    ImuConstraint _ic;
+    cfsd::Ptr<ImuConstraint> _ic;
 };
 
 struct PoseParameterization : public ceres::LocalParameterization {
@@ -125,17 +125,17 @@ struct ReprojectCostFunction {
 
 // ############################################################
 
-Optimizer::Optimizer(const cfsd::Ptr<Map>& pMap, const cfsd::Ptr<ImuPreintegrator>& pImuPreintegrator, const cfsd::Ptr<CameraModel>& pCameraModel, const bool verbose)
-    : _pMap(pMap), _pImuPreintegrator(pImuPreintegrator), _pCameraModel(pCameraModel), _verbose(verbose) {}
+Optimizer::Optimizer(const cfsd::Ptr<Map>& pMap, const cfsd::Ptr<FeatureTracker>& pFeatureTracker, const cfsd::Ptr<ImuPreintegrator>& pImuPreintegrator, const cfsd::Ptr<CameraModel>& pCameraModel, const bool verbose)
+    : _pMap(pMap), _pFeatureTracker(pFeatureTracker), _pImuPreintegrator(pImuPreintegrator), _pCameraModel(pCameraModel), _verbose(verbose) {}
 
 // Optimizer::~Optimizer() { 
 //     delete _pose[WINDOWSIZE];
 //     delete _v_bga[WINDOWSIZE];
 // }
 
-void Optimizer::motionOnlyBA(std::unordered_map<size_t,Feature>& features, const std::vector<size_t>& matchedFeatureIDs) {
+void Optimizer::motionOnlyBA() {
     // For the first few frames, the local window cannot fit, i.e. actualSize < WINDOWSIZE
-    int actualSize = _pMap->getStates((double**)_pose, (double**)_v_bga);
+    int actualSize = _pMap->getStates(_pose, _v_bga);
 
     // Build the problem.
     ceres::Problem problem;
@@ -148,25 +148,25 @@ void Optimizer::motionOnlyBA(std::unordered_map<size_t,Feature>& features, const
     }
 
     // Current frame ID.
-    int curFrameID = features[matchedFeatureIDs[0]].seenByFrames.back(); 
+    int curFrameID =  _pFeatureTracker->_features[_pFeatureTracker->_matchedFeatureIDs[0]]->seenByFrames.back(); 
 
     // Set up reprojection cost function (a.k.a. residuals).
-    for (int i = 0; i < matchedFeatureIDs.size(); i++) {
-        Feature& f = features[matchedFeatureIDs[i]];
-        for (int j = 0; j < f.seenByFrames.size(); j++) {
-            // Check if the frame is within the local window.
-            int idx = f.seenByFrames[j] - curFrameID + actualSize - 1;
-            if (idx >= 0) {
-                // Reproject to left image.
-                ceres::CostFunction* reprojectCost = new ceres::AutoDiffCostFunction<ReprojectCostFunction, 2, 6>(new ReprojectCostFunction(1, f.position, f.pixelsL[j], _pCameraModel));
-                problem.AddResidualBlock(reprojectCost, nullptr, _pose[idx]);
+    // for (int i = 0; i < _pFeatureTracker->_matchedFeatureIDs.size(); i++) {
+    //     cfsd::Ptr<Feature> f = _pFeatureTracker->_features[_pFeatureTracker->_matchedFeatureIDs[i]];
+    //     for (int j = 0; j < f->seenByFrames.size(); j++) {
+    //         // Check if the frame is within the local window.
+    //         int idx = f->seenByFrames[j] - curFrameID + actualSize - 1;
+    //         if (idx >= 0) {
+    //             // Reproject to left image.
+    //             ceres::CostFunction* reprojectCost = new ceres::AutoDiffCostFunction<ReprojectCostFunction, 2, 6>(new ReprojectCostFunction(1, f->position, f->pixelsL[j], _pCameraModel));
+    //             problem.AddResidualBlock(reprojectCost, nullptr, _pose[idx]);
 
-                // // Reproject to right image.
-                // ceres::CostFunction* reprojectCost = new ceres::AutoDiffCostFunction<ReprojectCostFunction, 2, 6>(new ReprojectCostFunction(0, f.position, f.pixelsR[j], _pCameraModel));
-                // problem.AddResidualBlock(reprojectCost, nullptr, _pose[idx]);
-            }
-        }
-    }
+    //             // // Reproject to right image.
+    //             // ceres::CostFunction* reprojectCost = new ceres::AutoDiffCostFunction<ReprojectCostFunction, 2, 6>(new ReprojectCostFunction(0, f->position, f->pixelsR[j], _pCameraModel));
+    //             // problem.AddResidualBlock(reprojectCost, nullptr, _pose[idx]);
+    //         }
+    //     }
+    // }
 
     // Set up imu cost function.
     int numImuConstraint = _pMap->_imuConstraint.size();
@@ -187,11 +187,12 @@ void Optimizer::motionOnlyBA(std::unordered_map<size_t,Feature>& features, const
     
     // if (_verbose) {
         // Show the report.
-        std::cout << summary.BriefReport() << std::endl;
+        std::cout << summary.FullReport() << std::endl;
     // }
 
     _pMap->checkKeyframe();
-    _pMap->updateStates((double**)_pose, (double**)_v_bga);
+    _pMap->updateStates(_pose, _v_bga);
+    _pImuPreintegrator->updateBias();
 }
 
 

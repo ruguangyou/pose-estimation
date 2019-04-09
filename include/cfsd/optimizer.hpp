@@ -4,17 +4,16 @@
 #include "cfsd/common.hpp"
 #include "cfsd/camera-model.hpp"
 #include "cfsd/map.hpp"
+#include "cfsd/feature-tracker.hpp"
 #include "cfsd/imu-preintegrator.hpp"
 
 #include <ceres/ceres.h>
 
 namespace cfsd {
 
-class ImuPreintegrator;
-
 class Optimizer {
   public:
-    Optimizer(const cfsd::Ptr<Map>& _pMap, const cfsd::Ptr<ImuPreintegrator>& pImuPreintegrator, const cfsd::Ptr<CameraModel>& pCameraModel, const bool verbose);
+    Optimizer(const cfsd::Ptr<Map>& _pMap, const cfsd::Ptr<FeatureTracker>& pFeatureTracker, const cfsd::Ptr<ImuPreintegrator>& pImuPreintegrator, const cfsd::Ptr<CameraModel>& pCameraModel, const bool verbose);
 
     // ~Optimizer();
 
@@ -24,7 +23,7 @@ class Optimizer {
            frames: #  #  #  #  #  #  #  $    (# is keyframe, $ is latest frame)
                    | <=fixed=> |  | <=> | <- local-window to be optimizer
     */
-    void motionOnlyBA(std::unordered_map<size_t,Feature>& features, const std::vector<size_t>& matchedFeatureIDs);
+    void motionOnlyBA();
 
     // void localOptimize();
 
@@ -32,6 +31,8 @@ class Optimizer {
     bool _verbose;
 
     cfsd::Ptr<Map> _pMap;
+
+    cfsd::Ptr<FeatureTracker> _pFeatureTracker;
 
     cfsd::Ptr<ImuPreintegrator> _pImuPreintegrator;
 

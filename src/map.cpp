@@ -16,8 +16,8 @@ Map::Map(const bool verbose) : _verbose(verbose) {
 void Map::checkKeyframe() {
     int n = _r.size();
 
-    Sophus::SE3d T_WB_i = Sophus::SE3d(Sophus::SO3d::exp(_r[n-1]), _p[n-1]);
-    Sophus::SE3d T_WB_j = Sophus::SE3d(Sophus::SO3d::exp(_r[n-2]), _p[n-2]);
+    Sophus::SE3d T_WB_i = Sophus::SE3d(Sophus::SO3d::exp(_r[n-2]), _p[n-2]);
+    Sophus::SE3d T_WB_j = Sophus::SE3d(Sophus::SO3d::exp(_r[n-1]), _p[n-1]);
     Sophus::SE3d T_ji = T_WB_j * T_WB_i.inverse();
 
     Eigen::Vector3d dr = T_ji.so3().log();
@@ -31,37 +31,36 @@ void Map::checkKeyframe() {
         std::cout << "  this frame is NOT a keyframe" << std::endl;
 }
 
-void Map::pushImuConstraint(const Preintegration& pre, const Eigen::Vector3d& gravity, const double& deltaT) {
+void Map::pushImuConstraint(cfsd::Ptr<ImuConstraint>& ic, const Eigen::Vector3d& bg_j, const Eigen::Vector3d& ba_j, const Eigen::Vector3d& gravity) {
     // Roughly estimate the state at time j without bias_i updated.
     // This is provided as initial value for ceres optimization.
-    double dt = deltaT * pre.numFrames;
-    double dt2 = dt * dt;
     Sophus::SO3d R_i = Sophus::SO3d::exp(_r.back());
-    Eigen::Vector3d r_j = (R_i * pre.delta_R_ij).log();
-    Eigen::Vector3d v_j = _v.back() + gravity * dt + R_i * pre.delta_v_ij;
-    Eigen::Vector3d p_j = _p.back() + _v.back() * dt + gravity * dt2 / 2 + R_i * pre.delta_p_ij;
+    Eigen::Vector3d r_j = (R_i * ic->delta_R_ij).log();
+    Eigen::Vector3d v_j = _v.back() + gravity * ic->dt + R_i * ic->delta_v_ij;
+    Eigen::Vector3d p_j = _p.back() + _v.back() * ic->dt + gravity * ic->dt2 / 2 + R_i * ic->delta_p_ij;
     
-    if (_isKeyframe) {
+    if (_notPushed || _isKeyframe) {
         _r.push_back(r_j);
         _v.push_back(v_j);
         _p.push_back(p_j);
-        _imuConstraint.push_back(ImuConstraint(pre, dt, dt2));
-        _bg.push_back(pre.bg_i);
-        _ba.push_back(pre.ba_i);
+        _bg.push_back(bg_j);
+        _ba.push_back(ba_j);
+        _imuConstraint.push_back(ic);
+        _notPushed = false;
     }
     else {
         _r.back() = r_j;
         _v.back() = v_j;
         _p.back() = p_j;
-        _imuConstraint.back() = ImuConstraint(pre, dt, dt2);
-        _bg.back() = pre.bg_i;
-        _ba.back() = pre.ba_i;
+        _bg.back() = bg_j;
+        _ba.back() = ba_j;
+        _imuConstraint.back() = ic;
     }
 }
 
 // void Map::pushFrame(const std::map<size_t,Feature>& features, const std::vector<size_t>& matchedFeatureIDs) {}
 
-int Map::getStates(double** pose, double** v_bga) {
+int Map::getStates(double pose[WINDOWSIZE][6], double v_bga[WINDOWSIZE][9]) {
     int n = _r.size() - WINDOWSIZE;
     if (n < 0) n = 0;
     int i;
@@ -91,7 +90,7 @@ int Map::getStates(double** pose, double** v_bga) {
     return i;
 }
 
-void Map::updateStates(double** pose, double** v_bga) {
+void Map::updateStates(double pose[WINDOWSIZE][6], double v_bga[WINDOWSIZE][9]) {
     int n = _r.size() - WINDOWSIZE;
     if (n < 0) n = 0;
     int i;
@@ -119,9 +118,11 @@ void Map::updateStates(double** pose, double** v_bga) {
     #endif
 }
 
-void Map::updateImuBias(Preintegration& pre) {
-    pre.bg_i = _bg.back();
-    pre.ba_i = _ba.back();
+void Map::updateImuBias(Eigen::Vector3d& bg_i, Eigen::Vector3d& ba_i) {
+    if (_isKeyframe) {
+        bg_i = _bg.back();
+        ba_i = _ba.back();
+    }
 }
 
 Sophus::SE3d Map::getBodyPose() {

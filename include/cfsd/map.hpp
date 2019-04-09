@@ -16,20 +16,18 @@ class Map {
   public: 
     Map(const bool verbose);
 
-    void pushImuConstraint(const Preintegration& pre, const Eigen::Vector3d& gravity, const double& deltaT);
-
-    void pushMapPoint(const Feature& f);
+    void pushImuConstraint(cfsd::Ptr<ImuConstraint>& ic, const Eigen::Vector3d& bg_j, const Eigen::Vector3d& ba_j, const Eigen::Vector3d& gravity);
 
     // void pushFrame(const std::map<size_t,Feature>& features, const std::vector<size_t>& matchedFeatureIDs);
 
     void checkKeyframe();
 
     // Feed estimated states to ceres parameters as initial values for optimization.
-    int getStates(double** pose, double** v_bga);
+    int getStates(double pose[WINDOWSIZE][6], double v_bga[WINDOWSIZE][9]);
 
-    void updateStates(double** pose, double** v_bga);
+    void updateStates(double pose[WINDOWSIZE][6], double v_bga[WINDOWSIZE][9]);
 
-    void updateImuBias(Preintegration& pre);
+    void updateImuBias(Eigen::Vector3d& bg_i, Eigen::Vector3d& ba_i);
 
     // TODO................
     Sophus::SE3d getBodyPose();
@@ -58,18 +56,19 @@ class Map {
 
     // Minimum rotation and translation for selecting a keyframe.
     double _minRotation, _minTranslation;
-    
-  public:
-    std::vector<ImuConstraint> _imuConstraint;
 
-    std::vector<MapPoint> _mapPoints;
-
-    bool _isKeyframe;
+    bool _notPushed{true};
 
     #ifdef USE_VIEWER
     cfsd::Ptr<Viewer> _pViewer;
     #endif
-  
+    
+  public:
+    std::vector<cfsd::Ptr<ImuConstraint>> _imuConstraint;
+
+    std::vector<cfsd::Ptr<MapPoint>> _mapPoints;
+
+    bool _isKeyframe{false};
 };
 
 } // namespace cfsd

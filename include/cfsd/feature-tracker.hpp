@@ -4,7 +4,7 @@
 #include "cfsd/common.hpp"
 #include "cfsd/camera-model.hpp"
 #include "cfsd/structs.hpp"
-#include "cfsd/optimizer.hpp"
+#include "cfsd/map.hpp"
 
 #include <opencv2/features2d/features2d.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
@@ -22,25 +22,20 @@ class FeatureTracker {
         BRISK = 1
     };
   
-    FeatureTracker(const cfsd::Ptr<Map>& pMap, const cfsd::Ptr<Optimizer>& pOptimizer, const cfsd::Ptr<ImuPreintegrator> pImuPreintegrator, const cfsd::Ptr<CameraModel>& pCameraModel, const bool verbose);
+    FeatureTracker(const cfsd::Ptr<Map>& pMap, const cfsd::Ptr<CameraModel>& pCameraModel, const bool verbose);
 
     // Feature matching and tracking, including:
     // - internal match (current frame's left and right image)
     // - external track (current features and past features)
     // - refinement? (improve the quality of matching)
-    void process(const cv::Mat& imgLeft, const cv::Mat& imgRight);
+    bool processImage(const cv::Mat& imgLeft, const cv::Mat& imgRight);
 
-    void internalMatch(const cv::Mat& imgLeft, const cv::Mat& imgRight, std::vector<cv::Point2d>& curPixelsL, std::vector<cv::Point2d>& curPixelsR, cv::Mat& curDescriptorsL, cv::Mat& curDescriptorsR, const bool useRANSAC = false);
+    void internalMatch(const cv::Mat& imgLeft, const cv::Mat& imgRight, const bool useRANSAC = false);
 
-    void externalTrack(const std::vector<cv::Point2d>& curPixelsL, const std::vector<cv::Point2d>& curPixelsR, const cv::Mat& curDescriptorsL, const cv::Mat& curDescriptorsR, std::vector<bool>& curFeatureMask, const bool useRANSAC = false);
+    void externalTrack(const bool useRANSAC = false);
 
-    void featurePoolUpdate(const std::vector<cv::Point2d>& curPixelsL, const std::vector<cv::Point2d>& curPixelsR, const cv::Mat& curDescriptorsL, const cv::Mat& curDescriptorsR, const std::vector<bool>& curFeatureMask);
+    void featurePoolUpdate();
 
-    // TODO:
-    // RANSAC remove outliers?
-    // undistort image (mask needs to be updated)
-    // triangulation (don't change the sign of homogeneous coordinates)
-    // far and near points (based on the depth)
     
     // [Update] decide not to do so for the sake of computational efficiency, instead using estimation from IMU and performing optimization.
     // Compute camera pose: shoule use RANSAC scheme for outlier rejection, and solve 3D-2D PnP problem (in particular, P3P problem).
@@ -51,10 +46,6 @@ class FeatureTracker {
 
     // Pinhole camera Model.
     cfsd::Ptr<CameraModel> _pCameraModel;
-
-    cfsd::Ptr<Optimizer> _pOptimizer;
-
-    cfsd::Ptr<ImuPreintegrator> _pImuPreintegrator;
 
     cfsd::Ptr<Map> _pMap;
 
@@ -69,18 +60,15 @@ class FeatureTracker {
     cv::Ptr<cv::ORB> _orb;
     cv::Ptr<cv::BRISK> _brisk;
 
-    // Features that pass circular matching, i.e. curLeft <=> histLeft <=> histRight <=> curRight <=> curLeft
-    // store the id of the circularly matched features, s.t. the _age grows normally, i.e., increase 1.
-    // also store the id of the matches (either left or right side) but not circularly matched features, s.t. the _age will grow more than 1 as penalty.
-    // for those not matched features, the _age will grow much more as penalty.
-    std::vector<size_t> _matchedFeatureIDs;
-
     // Current features matched with history features.
     // std::vector<cv::Point2d> _matchedHistPixelsL, _matchedHistPixelsR;
     // std::vector<cv::Point2d> _matchedCurPixelsL, _matchedCurPixelsR;
 
     // Only part of the image is considered to be useful (e.g. the upper half of the image containing sky contributes little to useful features)
     cv::Mat _mask;
+    // If the image is cropped, the pixel coordinate of keypoints would be different with the uncropped ones,
+    // it would cause dismatching between 3D points and 2D pixels when doing projection.
+    // int _cropOffset;
 
     // Match distance should be less than max(_matchRatio*minDist, _minMatchDist)
     // Ratio for selecting good matches.
@@ -92,20 +80,30 @@ class FeatureTracker {
 
     int _maxFeatureAge;
 
+    // Current frame's keypoints' pixel position and descriptors.
+    std::vector<cv::Point2d> _curPixelsL, _curPixelsR;
+    cv::Mat _curDescriptorsL, _curDescriptorsR;
+
+    // Record which features in current frame will possibly be viewed as new features, if circular matching is satisfied, it will be false; otherwise, true.
+    std::vector<bool> _curFeatureMask;
+
     // History features' id and descriptors
     std::vector<size_t> _histFeatureIDs;
     cv::Mat _histDescriptorsL, _histDescriptorsR;
+
+  public:
+    // Features that pass circular matching, i.e. curLeft <=> histLeft <=> histRight <=> curRight <=> curLeft
+    // store the id of the circularly matched features, s.t. the _age grows normally, i.e., increase 1.
+    // also store the id of the matches (either left or right side) but not circularly matched features, s.t. the _age will grow more than 1 as penalty.
+    // for those not matched features, the _age will grow much more as penalty.
+    std::vector<size_t> _matchedFeatureIDs;
 
     // Available features from history frames.
     // - new features would be added
     // - matched features' _age will be updated
     // - old features that are not useful anymore would be removed
     // so std::map container is choosed due to the efficient access, insert and erase operation.
-    std::unordered_map<size_t, Feature> _features;
-
-    // If the image is cropped, the pixel coordinate of keypoints would be different with the uncropped ones,
-    // it would cause dismatching between 3D points and 2D pixels when doing projection.
-    // int _cropOffset;
+    std::unordered_map<size_t, cfsd::Ptr<Feature>> _features;
 
 };
 

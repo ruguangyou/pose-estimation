@@ -1,0 +1,35 @@
+%YAML:1.0
+camLeft: !!opencv-matrix
+    rows: 3
+    cols: 3
+    dt: d
+    data: [ 349.891, 0, 334.352,
+            0, 349.891, 187.937,
+            0, 0, 1 ]
+distLeft: !!opencv-matrix
+    rows: 5
+    cols: 1
+    dt: d
+    data: [ -0.173042, 0.0258831, 0, 0, 0 ]
+camRight: !!opencv-matrix
+    rows: 3
+    cols: 3
+    dt: d
+    data: [ 350.112, 0, 345.88,
+            0, 350.112, 189.891,
+            0, 0, 1 ]
+distRight: !!opencv-matrix
+    rows: 5
+    cols: 1
+    dt: d
+    data: [ -0.174209, 0.026726, 0, 0, 0 ]
+rotationLeftToRight: !!opencv-matrix
+    rows: 3
+    cols: 1
+    dt: d
+    data: [ -0.0132397, 0.021005, -0.00121284 ]
+translationLeftToRight: !!opencv-matrix
+    rows: 3
+    cols: 1
+    dt: d
+    data: [ -0.12, 0, 0 ]

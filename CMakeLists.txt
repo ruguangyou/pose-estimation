@@ -16,6 +16,7 @@
 cmake_minimum_required(VERSION 3.2)
 
 project(cfsd-state-estimation)
+# project(kitti-state-estimation)
 # Compiler setting
 # set(CMAKE_CXX_COMPILER "g++")
 # set(CMAKE_BUILD_TYPE "Debug")
@@ -39,7 +40,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 # Build a static binary.
 set(CMAKE_EXE_LINKER_FLAGS "-static-libgcc -static-libstdc++")
 set(CMAKE_CXX_FLAGS "-O0 -g")
-# # Add further warning levels.
+# Add further warning levels.
 # set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} \
 #     -D_XOPEN_SOURCE=700 \
 #     -D_FORTIFY_SOURCE=2 \
@@ -60,12 +61,12 @@ find_package(Threads REQUIRED)
 
 ################################################################################
 # Set debug flag
-option(WITH_DEBUG_IMG "Debug mode for feature-tracker" OFF)
+option(WITH_DEBUG_IMG "Debug mode for feature-tracker" ON)
 if(WITH_DEBUG_IMG)
     add_definitions(-DDEBUG_IMG)
 endif()
 
-option(WITH_DEBUG_IMU "Debug mode for imu-preintegrator" ON)
+option(WITH_DEBUG_IMU "Debug mode for imu-preintegrator" OFF)
 if(WITH_DEBUG_IMU)
     add_definitions(-DDEBUG_IMU)
 endif()
@@ -131,7 +132,7 @@ include_directories(${CERES_INCLUDE_DIRS})
 set(LIBRARIES ${LIBRARIES} ${CERES_LIBRARIES})
 
 # Pangolin
-option(WITH_VIEWER "Enable visulization" ON)
+option(WITH_VIEWER "Enable visulization" OFF)
 if (WITH_VIEWER)
     add_definitions(-DUSE_VIEWER)
     find_package(Pangolin 0.4 REQUIRED)
@@ -148,7 +149,7 @@ add_library(${PROJECT_NAME}-core STATIC
     ${CMAKE_SOURCE_DIR}/src/optimizer.cpp
     ${CMAKE_SOURCE_DIR}/src/imu-preintegrator.cpp
     ${CMAKE_SOURCE_DIR}/src/feature-tracker.cpp
-    # ${CMAKE_SOURCE_DIR}/src/map.cpp
+    ${CMAKE_SOURCE_DIR}/src/map.cpp
     ${CMAKE_SOURCE_DIR}/src/viewer.cpp
     ${CMAKE_SOURCE_DIR}/src/visual-inertial-slam.cpp)
 

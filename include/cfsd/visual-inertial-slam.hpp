@@ -22,7 +22,7 @@ class VisualInertialSLAM {
   public:
     // visual inertial odometry state
     enum VIOstate {
-        // INITIALIZING,
+        INITIALIZING,
         OK,
         LOST
     };
@@ -34,13 +34,7 @@ class VisualInertialSLAM {
     void setViewer(const cfsd::Ptr<Viewer>& pViewer) { _pMap->_pViewer = pViewer; }
     #endif
 
-    void processImage(const cv::Mat& grayL, const cv::Mat& grayR);
-
-    void processImu(const long& timestamp, const double& gyrX, const double& gyrY, const double& gyrZ, const double& accX, const double& accY, const double& accZ);
-
-    // void optimize();
-
-    void setImgTimestamp(const long& timestamp);
+    void process(const cv::Mat& grayL, const cv::Mat& grayR, const long& imgTimestamp);
 
     void collectImuData(const cfsd::SensorType& st, const long& timestamp, const float& x, const float& y, const float& z);
 
@@ -58,8 +52,7 @@ class VisualInertialSLAM {
 
     cfsd::Ptr<ImuPreintegrator> _pImuPreintegrator;
 
-    double _gyrX, _gyrY, _gyrZ;
-    double _accX, _accY, _accZ;
+    Eigen::Vector3d _gyr, _acc;
     bool _gyrGot{false}, _accGot{false};
     
 };
