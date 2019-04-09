@@ -1,111 +1,133 @@
 %YAML:1.0
 # Camera image resolution, 2560x720(30Hz), 1344x376(60Hz)
-imageWidth: 1344
-imageHeight: 376
-cameraFrequency: 60
 
+# Read from shared memory
+#readWidth: 1344
+#readHeight: 376
+#readFrequency: 60
+readWidth: 2560
+readHeight: 720
+readFrequency: 30
+
+# Resolution and frequency used in processing
+processWidth: 1344
+processHeight: 376
+processFrequency: 10
+
+# The following camera parameters is based on 1344x376 resolution (i.e. 672x376 each side)
 # Left camera intrinsics
 camLeft: !!opencv-matrix
     rows: 3
     cols: 3
     dt: d
-    data: [ 342.791722406, 0.000000000, 334.706838415, 0.000000000, 344.124356670, 196.550957810, 0.000000000, 0.000000000, 1.000000000]
-radDistLeft: !!opencv-matrix
-    rows: 2
+    data: [ 349.891, 0, 334.352,
+            0, 349.891, 187.937,
+            0, 0, 1 ]
+distLeft: !!opencv-matrix
+    rows: 5
     cols: 1
     dt: d
-    data: [ -0.161924070, -0.015440781]
-tanDistLeft: !!opencv-matrix
-    rows: 2
-    cols: 1
-    dt: d
-    data: [ 0.000000000, 0.000000000]
+    data: [ -0.173042, 0.0258831, 0, 0, 0 ]
 
 # Right camera intrinsics
 camRight: !!opencv-matrix
     rows: 3
     cols: 3
     dt: d
-    data: [ 341.251535539, 0.000000000, 349.920842696, 0.000000000, 342.367160436, 198.743062491, 0.000000000, 0.000000000, 1.000000000]
-radDistRight: !!opencv-matrix
-    rows: 2
+    data: [ 350.112, 0, 345.88,
+            0, 350.112, 189.891,
+            0, 0, 1 ]
+distRight: !!opencv-matrix
+    rows: 5
     cols: 1
     dt: d
-    data: [ -0.158054176, -0.057099581]
-tanDistRight: !!opencv-matrix
-    rows: 2
-    cols: 1
-    dt: d
-    data: [ 0.000000000, 0.000000000]
+    data: [ -0.174209, 0.026726, 0, 0, 0 ]
 
 # Camera extrinsics
 rotationLeftToRight: !!opencv-matrix
     rows: 3
-    cols: 3
+    cols: 1
     dt: d
-    data: [ 0.999979587, 0.000561197, -0.006364804, -0.000626206, 0.999947614, -0.010216470, 0.006358737, 0.010220247, 0.999927554]
+    data: [ -0.0132397, 0.021005, -0.00121284 ]
 translationLeftToRight: !!opencv-matrix
     rows: 3
     cols: 1
     dt: d
-    data: [ -0.113323042, 0.000474592, -0.003483791]
+    data: [ -0.12, 0, 0 ]
 
 # Feature detector parameters
 detectorType: "ORB"  # available (ORB, BRISK...)
 # ORB
-numberOfFeatures: 500
+numberOfFeatures: 100
 scaleFactor: 1.2
 levelPyramid: 8
 
 # Image mask (we don't want to detect keypoints in the sky and vehicle body)
 #     #########################
 #     |-----------------------|
-# hf1 |-----------------------| (sky)
+#  h1 |-----------------------|
 #     |                       |
+#     |                       | (region of interest)
 #     |                       |
-# hf2 |       ---------       | (vehicle body)
-#     |      -----------      |
+#  h2 |-----------------------|
+#     |-----------------------|
 #     #########################
-#         wf1 wf2   wf3 wf4
-## these numbers are obtained after undistorting for 1344x376 resolution
-## pixel representation:
-h1: 160
-h2: 290
-w1L: 105
-w2L: 305
-w3L: 385
-w4L: 595
-w1R: 90
-w2R: 290
-w3R: 370
-w4R: 580
+## these numbers are obtained after undistorted and rectified for 1344x376 resolution
+h1: 210
+h2: 300
 
 # Feature matching parameters
 matchRatio: 1.5    # the distance of a good match should be smaller than minDist*matchRatio
 minMatchDist: 30.0 # another number for selecting good matches, from experience
-maxMatchedTimes: 3 # Max times a feature coule be matched
+maxVerticalPixelDist: 0.1 # selecting good matching by the vertical coordinates since image have been rectified
+maxFeatureAge: 4   # Max age of a feature
 
 #max_num_lost: 10
 #min_inliers: 10
-#keyframe_rotation: 0.1
-#keyframe_translation: 0.1
+
+# Keyframe selection
+keyframe_rotation: 0.1
+keyframe_translation: 0.1
 
 # OpenDLV OD4 communication
 ellipseID: 112 # sender stamp of proxy-ellipse2n
 # ID: # sender stamp of this microservice
 
-# IMU paramteres
-samplingRate: 250 # [Hz] adjustable in sbgCenter; however, the sampling frequency 250Hz in opendlv-proxy-ellipse2n timeTrigger function
 gravity: 9.81734 # [m/s^2] gravitational acceleration (might need slightly modification in case of different location)
+
+# IMU paramteres
+samplingRate: 200 # [Hz]
+## IMU coordinate system    camera coordinate system
+##            / x                     / z
+##           /                       /
+##          ------ y                ------ x
+##          |                       |
+##          | z                     | y
+# The following parameters are in IMU coordinate system
+initialBiasAccX: 0.680889
+initialBiasAccY: -0.283933
+initialBiasAccZ: -0.046435
+initialBiasGyrX: -0.000754774
+initialBiasGyrY: -0.0023706
+initialBiasGyrZ: -8.68224e-05
+
+# IMU noise and bias factor
 accNoise: 0.000057 # [g*sqrt(s)] accelerometer measurement noise density, 57 micro-g/sqrt(Hz) from "Ellipse_Series_Leaflet.pdf"
 gyrNoise: 4.3633e-5 # [rad/sqrt(s)] gyroscope measurement noise density, 0.15 degree/sqrt(hr)
 accBias: 0.000014 # [g] accelerometer bias random walk noise, 14 micro-g
 gyrBias: 3.3937e-5 # [rad/s] gyroscope bias random walk noise, 7 degree/h
 
 # Viewer settings
-viewScale: 2
+## world frame
+##     / x
+##    /
+##   ------ y
+##   |
+##   | z
+# set the up direction as AxisNegZ
+viewScale: 1
 pointSize: 2
-viewpointX: 0
-viewpointY: -10
-viewpointZ: -0.1
+viewpointX: -0.1
+viewpointY: 0
+viewpointZ: -10
 viewpointF: 2000
