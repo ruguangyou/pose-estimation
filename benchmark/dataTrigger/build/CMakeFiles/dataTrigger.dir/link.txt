@@ -1,1 +1,0 @@
-/usr/bin/c++  -O0 -g  -static-libgcc -static-libstdc++ -rdynamic CMakeFiles/dataTrigger.dir/dataTrigger.cpp.o  -o dataTrigger -Wl,-Bstatic -lrt -Wl,-Bdynamic -pthread 

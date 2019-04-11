@@ -52,7 +52,7 @@ include_directories(SYSTEM ${CMAKE_BINARY_DIR})
 ################################################################################
 # Gather all object code first to avoid double compilation.
 # Eigen
-include_directories("/usr/include/eigen3")
+include_directories("/usr/local/include/eigen3")
 set(LIBRARIES ${LIBRARIES} ${Eigen3_LIBS})
 
 # Sophus
