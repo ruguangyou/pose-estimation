@@ -34,7 +34,7 @@ class ImuPreintegrator {
     void reset();
 
     // Take measurements and perform preintegration, jacobians calculation and noise propagation.
-    void processImu(const long& imgTimestamp);
+    bool processImu(const long& imgTimestamp);
 
     // Iteratively preintegrate IMU measurements.
     void iterate( const Sophus::SO3d& dR, const Eigen::Vector3d& ub_acc_jm1);

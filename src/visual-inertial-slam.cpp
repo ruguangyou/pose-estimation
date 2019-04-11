@@ -3,7 +3,7 @@
 
 namespace cfsd {
 
-VisualInertialSLAM::VisualInertialSLAM(const bool verbose) : _state(OK), _verbose(verbose) {
+VisualInertialSLAM::VisualInertialSLAM(const bool verbose) : _state(INITIALIZING), _verbose(verbose) {
     
     _pCameraModel = std::make_shared<CameraModel>();
 
@@ -17,7 +17,7 @@ VisualInertialSLAM::VisualInertialSLAM(const bool verbose) : _state(OK), _verbos
 
 }
 
-void VisualInertialSLAM::process(const cv::Mat& grayL, const cv::Mat& grayR, const long& imgTimestamp) {
+bool VisualInertialSLAM::process(const cv::Mat& grayL, const cv::Mat& grayR, const long& imgTimestamp) {
     auto start = std::chrono::steady_clock::now();
     auto end = std::chrono::steady_clock::now();
     
@@ -26,7 +26,10 @@ void VisualInertialSLAM::process(const cv::Mat& grayL, const cv::Mat& grayR, con
         {
             // Do imu preintegration.
             start = std::chrono::steady_clock::now();
-            _pImuPreintegrator->processImu(imgTimestamp);
+            if(!_pImuPreintegrator->processImu(imgTimestamp)) {
+                std::cerr << "Error occurs in imu-preintegration!" << std::endl;
+                return false;
+            }
             end = std::chrono::steady_clock::now();
             std::cout << "Imu-preintegration elapsed time: " << std::chrono::duration<double, std::milli>(end-start).count() << "ms" << std::endl << std::endl;
 
@@ -57,6 +60,10 @@ void VisualInertialSLAM::process(const cv::Mat& grayL, const cv::Mat& grayR, con
         }
         case INITIALIZING:
         {
+            if (_pImuPreintegrator->processImu(imgTimestamp)) {
+                // TODO.....initial internal matching..
+                _state = OK;
+            }
             break;
         }
         case LOST:
@@ -66,6 +73,7 @@ void VisualInertialSLAM::process(const cv::Mat& grayL, const cv::Mat& grayR, con
             break;
         }
     }
+    return true;
 }
 
 void VisualInertialSLAM::collectImuData(const cfsd::SensorType& st, const long& timestamp, const float& x, const float& y, const float& z) {
@@ -76,7 +84,6 @@ void VisualInertialSLAM::collectImuData(const cfsd::SensorType& st, const long& 
             break;
         case GYROSCOPE:
             _gyr << (double)x, (double)y, (double)z;
-            if (_gyr.norm() > 1000) std::cout << x << ", " << y << ", " << z << std::endl;
             _gyrGot = true;
     }
     if (_accGot && _gyrGot) {

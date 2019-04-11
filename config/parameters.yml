@@ -77,7 +77,7 @@ h1: 210
 h2: 300
 
 # Feature matching parameters
-matchRatio: 1.5    # the distance of a good match should be smaller than minDist*matchRatio
+matchRatio: 2    # the distance of a good match should be smaller than minDist*matchRatio
 minMatchDist: 30.0 # another number for selecting good matches, from experience
 maxVerticalPixelDist: 0.1 # selecting good matching by the vertical coordinates since image have been rectified
 maxFeatureAge: 4   # Max age of a feature

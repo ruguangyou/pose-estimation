@@ -93,31 +93,36 @@ void ImuPreintegrator::updateBias() {
     if (_pMap->_isKeyframe) reset();
 }
 
-void ImuPreintegrator::processImu(const long& imgTimestamp) {
+bool ImuPreintegrator::processImu(const long& imgTimestamp) {
+    std::lock_guard<std::mutex> dataLock(_dataMutex);
     if (!_isInitialized) {
-        std::lock_guard<std::mutex> dataLock(_dataMutex);
-
-        if (!_timestampQueue.size()) return;
-
         // Remove imu data that is collected before initialization.
         while (std::abs(imgTimestamp - _timestampQueue.front()) > _deltaTus/2) {
+            if (!_timestampQueue.size()) {
+                std::cerr << "not initialized: image timestamp is ahead of imu timestamp, wait..." << std::endl;
+                return false;
+            }
             _timestampQueue.pop();
-            _dataQueue.pop();
+            _dataQueue.pop();  
         }
-        std::cout << "< imu preintegrator initialized! >" << std::endl;
+        std::cout << "< imu preintegrator initialized! >" << std::endl << std::endl;
         _isInitialized = true;
-        return;
+        return _isInitialized;
     }
     
+    int count = 0;
     while (std::abs(imgTimestamp - _timestampQueue.front()) > _deltaTus/2) {
-        Eigen::Vector3d gyr_jm1, acc_jm1;
-        {
-            std::lock_guard<std::mutex> dataLock(_dataMutex);
-            gyr_jm1 = _dataQueue.front().first;
-            acc_jm1 = _dataQueue.front().second;
-            _dataQueue.pop();
-            _timestampQueue.pop();
+        // Queue might be empty, and error occurs then!
+        if (!_timestampQueue.size()) {
+            std::cerr << "Error: image timestamp is ahead of imu timestamp!" << std::endl;
+            return false;
         }
+        Eigen::Vector3d gyr_jm1, acc_jm1;
+        gyr_jm1 = _dataQueue.front().first;
+        acc_jm1 = _dataQueue.front().second;
+        _dataQueue.pop();
+        _timestampQueue.pop();
+        count++;
 
         // Intermediate variables that will be used later.
         Eigen::Vector3d ub_gyr_jm1 = gyr_jm1 - _bg_i; // unbiased gyr at time j-1
@@ -147,6 +152,9 @@ void ImuPreintegrator::processImu(const long& imgTimestamp) {
     // Push the constriant into map.
     cfsd::Ptr<ImuConstraint> ic = std::make_shared<ImuConstraint>(_covPreintegration_ij, _bg_i, _ba_i, _delta_R_ij, _delta_v_ij, _delta_p_ij, _d_R_bg_ij, _d_v_bg_ij, _d_v_ba_ij, _d_p_bg_ij, _d_p_ba_ij, _dt);
     _pMap->pushImuConstraint(ic, _bg_i, _ba_i, _gravity);
+
+    std::cout << "number of imu measurements preintegrated: " << count << std::endl;
+    return true;
 }
 
 void ImuPreintegrator::iterate(const Sophus::SO3d& dR, const Eigen::Vector3d& ub_acc_jm1) {

@@ -101,11 +101,9 @@ bool FeatureTracker::processImage(const cv::Mat& grayLeft, const cv::Mat& grayRi
     end = std::chrono::steady_clock::now();
     std::cout << "external match elapsed time: " << std::chrono::duration<double, std::milli>(end-start).count() << "ms" << std::endl << std::endl;
     
-    return _matchedFeatureIDs.empty();
-
-    
-
     _frameCount++;
+
+    return _matchedFeatureIDs.empty();
 }
 
 void FeatureTracker::internalMatch(const cv::Mat& imgLeft, const cv::Mat& imgRight, const bool useRANSAC) {
@@ -116,8 +114,6 @@ void FeatureTracker::internalMatch(const cv::Mat& imgLeft, const cv::Mat& imgRig
     _orb->detectAndCompute(imgRight, _mask, keypointsR, descriptorsR);
     auto end = std::chrono::steady_clock::now();
     std::cout << "orb detection elapsed time: " << std::chrono::duration<double, std::milli>(end-start).count() << "ms" << std::endl;
-    
-    std::cout << descriptorsL.size() << std::endl;
 
     cv::BFMatcher matcher(cv::NORM_HAMMING); // Brute Force Mathcer
     std::vector<cv::DMatch> matches;
@@ -287,22 +283,23 @@ void FeatureTracker::featurePoolUpdate() {
     // age add 2 for all features, then erase too old features, and put the rest into _histDescriptors.
     _histFeatureIDs.clear();
 
-    // TODO............... decriptor length might differ!!!
     _histDescriptorsL = cv::Mat();
     _histDescriptorsR = cv::Mat();
-    for (auto f = _features.begin(); f != _features.end(); ++f) {
+    auto f = _features.begin();
+    while (f != _features.end()) {
         f->second->age += 2;
         if (f->second->age > _maxFeatureAge) {
             // Save the erased map points.
             _pMap->_mapPoints.push_back(std::make_shared<MapPoint>(f->second));
-
-            _features.erase(f);
+            f = _features.erase(f);
             eraseCount++;
         }
         else {
             _histFeatureIDs.push_back(f->first);
             _histDescriptorsL.push_back(f->second->descriptorL);
             _histDescriptorsR.push_back(f->second->descriptorR);
+            // DON'T increment after erasing.
+            f++;
         }
     }
 

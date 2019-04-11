@@ -148,7 +148,7 @@ void Optimizer::motionOnlyBA() {
     }
 
     // Current frame ID.
-    int curFrameID =  _pFeatureTracker->_features[_pFeatureTracker->_matchedFeatureIDs[0]]->seenByFrames.back(); 
+    // int curFrameID =  _pFeatureTracker->_features[_pFeatureTracker->_matchedFeatureIDs[0]]->seenByFrames.back(); 
 
     // Set up reprojection cost function (a.k.a. residuals).
     // for (int i = 0; i < _pFeatureTracker->_matchedFeatureIDs.size(); i++) {

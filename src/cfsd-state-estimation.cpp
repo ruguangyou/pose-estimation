@@ -84,11 +84,15 @@ int main(int argc, char** argv) {
     #endif
 
     // Sleep for .. seconds, wait for sensor initialization (e.g. camera adjusts its optical parameters).
-    using namespace std::chrono_literals;
-    auto start = std::chrono::steady_clock::now();
-    std::this_thread::sleep_for(2s);
-    auto end = std::chrono::steady_clock::now();
-    std::cout << "Wait " << std::chrono::duration<double, std::milli>(end-start).count() << " ms" << std::endl;
+    // using namespace std::chrono_literals;
+    // auto start = std::chrono::steady_clock::now();
+    // std::this_thread::sleep_for(2s);
+    // auto end = std::chrono::steady_clock::now();
+    // std::cout << "Wait " << std::chrono::duration<double, std::milli>(end-start).count() << " ms" << std::endl;
+
+    // Set a delegate to be called data-triggered on arrival of a new Envelope for a given message identifier.
+    od4.dataTrigger(opendlv::proxy::AngularVelocityReading::ID(), gyrRecived);
+    od4.dataTrigger(opendlv::proxy::AccelerationReading::ID(), accRecived);
 
     // Attach to shared memory.
     const std::string sharedMemoryName{commandlineArguments["name"]};
@@ -96,15 +100,8 @@ int main(int argc, char** argv) {
     if (pSharedMemory && pSharedMemory->valid()) {
         std::clog << argv[0] << " attached to shared memory: '" << pSharedMemory->name() << " (" << pSharedMemory->size() << " bytes)." << std::endl << std::endl;
 
-        // Set a delegate to be called data-triggered on arrival of a new Envelope for a given message identifier.
-        // od4.dataTrigger(opendlv::proxy::ImageReading::ID(), imgRecived);
-        od4.dataTrigger(opendlv::proxy::AngularVelocityReading::ID(), gyrRecived);
-        od4.dataTrigger(opendlv::proxy::AccelerationReading::ID(), accRecived);
-
         // Endless loop; end the program by pressing Ctrl-C.
         long imgTimestamp = 0;
-        // long prevImgTimestamp = 0;
-        bool toProcess = false;
         while (od4.isRunning()) {
             cv::Mat img;
 
@@ -114,33 +111,25 @@ int main(int argc, char** argv) {
             pSharedMemory->lock();
             {
                 imgTimestamp = cluon::time::toMicroseconds(pSharedMemory->getTimeStamp().second);
-                // if (prevImgTimestamp == 0) prevImgTimestamp = imgTimestamp;
-                // std::cout << "timestamp diff: " << imgTimestamp - prevImgTimestamp - imgDeltaTus << std::endl;
-                
-                // if (imgTimestamp - prevImgTimestamp - imgDeltaTus == 0) {
-                //     std::cout << "---------read image from shared memory-----------" << std::endl;
-                //     prevImgTimestamp = imgTimestamp;
-                //     toProcess = true;
 
-                    // Copy image into cvMat structure. Be aware of that any code between lock/unlock is blocking the camera to 
-                    // provide the next frame. Thus, any computationally heavy algorithms should be placed outside lock/unlock.
-                    cv::Mat wrapped(height, width, CV_8UC4, pSharedMemory->data());
-                    // If image from shared memory has different size with the pre-defined one, resize it.
-                    cv::resize(wrapped, img, imgSize);
-                // }
+                // Copy image into cvMat structure. Be aware of that any code between lock/unlock is blocking the camera to 
+                // provide the next frame. Thus, any computationally heavy algorithms should be placed outside lock/unlock.
+                cv::Mat wrapped(height, width, CV_8UC4, pSharedMemory->data());
+                // If image from shared memory has different size with the pre-defined one, resize it.
+                cv::resize(wrapped, img, imgSize);
             }
             pSharedMemory->unlock();
 
-            // if (toProcess) {
-                cv::Mat gray;
-                cv::cvtColor(img, gray, CV_BGR2GRAY);
-                // Split image into left and right.
-                cv::Mat grayL = gray(cv::Rect(0, 0, gray.cols/2, gray.rows));
-                cv::Mat grayR = gray(cv::Rect(gray.cols/2, 0, gray.cols/2, gray.rows));
-                
-                pVISLAM->process(grayL, grayR, imgTimestamp);
-                // toProcess = false;
-            // }
+            cv::Mat gray;
+            cv::cvtColor(img, gray, CV_BGR2GRAY);
+            // Split image into left and right.
+            cv::Mat grayL = gray(cv::Rect(0, 0, gray.cols/2, gray.rows));
+            cv::Mat grayR = gray(cv::Rect(gray.cols/2, 0, gray.cols/2, gray.rows));
+            
+            if (!pVISLAM->process(grayL, grayR, imgTimestamp)) {
+                std::cerr << "Error occurs in processing!" << std::endl;
+                return 1;
+            }
         }
     }
     else {
