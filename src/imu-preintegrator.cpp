@@ -14,7 +14,7 @@ ImuPreintegrator::ImuPreintegrator(const cfsd::Ptr<Map> pMap, const bool verbose
         _d_v_ba_ij(Eigen::Matrix3d::Zero()), _d_v_ba_ijm1(Eigen::Matrix3d::Zero()),
         _d_p_bg_ij(Eigen::Matrix3d::Zero()), _d_p_bg_ijm1(Eigen::Matrix3d::Zero()),
         _d_p_ba_ij(Eigen::Matrix3d::Zero()), _d_p_ba_ijm1(Eigen::Matrix3d::Zero()),
-        _dataMutex(), _dataQueue(), _timestampQueue() {
+        _dataMutex(), _dataQueue(), _timestampQueue(), _initialR(Sophus::SO3d()) {
     
     _samplingRate = Config::get<int>("samplingRate");
     _deltaT = 1.0 / (double)_samplingRate;
@@ -23,38 +23,60 @@ ImuPreintegrator::ImuPreintegrator(const cfsd::Ptr<Map> pMap, const bool verbose
     _deltaTus = (long)1000000 / _samplingRate;
 
     double g = Config::get<double>("gravity");
-    /*  imu coordinate system
+    /*  cfsd imu coordinate system
               / x
              /
             ------ y
             |
             | z
+    
+        kitti imu coordinate system
+              z |  / x
+                | /
+          y -----
+
+        euroc imu coordinate system
+              x |  / z
+                | /
+                ------ y
     */
-    _gravity << 0, 0, g;
+    // _gravity << 0, 0, g; // for cfsd
+    // _gravity << 0, 0, -g; // for kitti
+    _gravity << -g, 0, 0; // for euroc
 
     double sqrtDeltaT = std::sqrt(_deltaT);
-    // Noise density of accelerometer and gyroscope measurements.
-    //   Continuous-time model: sigma_g, unit: [rad/(s*sqrt(Hz))] or [rad/sqrt(s)]
-    //                          sigma_a, unit: [m/(s^2*sqrt(Hz))] or [m/(s*sqrt(s))]
-    //   Discrete-time model: sigma_gd = sigma_g/sqrt(delta_t), unit: [rad/s]
-    //                        sigma_ad = sigma_a/sqrt(delta_t), unit: [m/s^2]
-    double accNoiseD, gyrNoiseD;
-    // Convert unit [rad/sqrt(s)] to [rad/s]
-    gyrNoiseD = Config::get<double>("gyrNoise") / sqrtDeltaT;
-    // Convert unit [g*sqrt(s)] to [m/s^2].
-    accNoiseD = Config::get<double>("accNoise") * g / sqrtDeltaT;
 
-    // Bias random walk noise density of accelerometer and gyroscope.
-    //   Continuous-time model: sigma_bg, unit: [rad/(s^2*sqrt(Hz))] or [rad/(s*sqrt(s))]
-    //                          sigma_ba, unit: [m/(s^3*sqrt(Hz))] or [m/(s^2*sqrt(s))]
-    //   Discrete-time model: sigma_bgd = sigma_bg*sqrt(delta_t), unit: [rad/s]
-    //                        sigma_bad = sigma_ba*sqrt(delta_t), unit: [m/s^2]
-    // (Bias are modelled with a "Brownian motion" process, also termed a "Wiener process", or "random walk" in discrete-time)
+    // For cfsd and kitti.
+    // // Noise density of accelerometer and gyroscope measurements.
+    // //   Continuous-time model: sigma_g, unit: [rad/(s*sqrt(Hz))] or [rad/sqrt(s)]
+    // //                          sigma_a, unit: [m/(s^2*sqrt(Hz))] or [m/(s*sqrt(s))]
+    // //   Discrete-time model: sigma_gd = sigma_g/sqrt(delta_t), unit: [rad/s]
+    // //                        sigma_ad = sigma_a/sqrt(delta_t), unit: [m/s^2]
+    // double accNoiseD, gyrNoiseD;
+    // // Convert unit [rad/sqrt(s)] to [rad/s]
+    // gyrNoiseD = Config::get<double>("gyrNoise") / sqrtDeltaT;
+    // // Convert unit [g*sqrt(s)] to [m/s^2].
+    // accNoiseD = Config::get<double>("accNoise") * g / sqrtDeltaT;
+
+    // // Bias random walk noise density of accelerometer and gyroscope.
+    // //   Continuous-time model: sigma_bg, unit: [rad/(s^2*sqrt(Hz))] or [rad/(s*sqrt(s))]
+    // //                          sigma_ba, unit: [m/(s^3*sqrt(Hz))] or [m/(s^2*sqrt(s))]
+    // //   Discrete-time model: sigma_bgd = sigma_bg*sqrt(delta_t), unit: [rad/s]
+    // //                        sigma_bad = sigma_ba*sqrt(delta_t), unit: [m/s^2]
+    // // (Bias are modelled with a "Brownian motion" process, also termed a "Wiener process", or "random walk" in discrete-time)
+    // double accBiasD, gyrBiasD;
+    // // Unit [rad/s]
+    // gyrBiasD = Config::get<double>("gyrBias");
+    // // Convert unit [g] to [m/s^2]
+    // accBiasD = Config::get<double>("accBias") * g;
+
+    // For euroc.
+    double accNoiseD, gyrNoiseD;
+    gyrNoiseD = Config::get<double>("gyroscope_noise_density") / sqrtDeltaT;
+    accNoiseD = Config::get<double>("accelerometer_noise_density") / sqrtDeltaT;
     double accBiasD, gyrBiasD;
-    // Unit [rad/s]
-    gyrBiasD = Config::get<double>("gyrBias");
-    // Convert unit [g] to [m/s^2]
-    accBiasD = Config::get<double>("accBias") * g;
+    gyrBiasD = Config::get<double>("gyrBias") * sqrtDeltaT;
+    accBiasD = Config::get<double>("accBias") * sqrtDeltaT;
     
     // Covariance matrix of discrete-time noise [n_gd, n_ad]
     _covNoise.block<3, 3>(0, 0) = (gyrNoiseD * gyrNoiseD) * Eigen::Matrix3d::Identity();
@@ -87,6 +109,13 @@ void ImuPreintegrator::reset() {
     _dt = 0;
 }
 
+void ImuPreintegrator::setInitialStates(double bg[3], double r[3]) {
+    _bg_i(0) = bg[0];
+    _bg_i(1) = bg[1];
+    _bg_i(2) = bg[2];
+    _initialR = Sophus::SO3d::exp(Eigen::Vector3d(r[0], r[1], r[2]));
+}
+
 void ImuPreintegrator::updateBias() {
     _pMap->updateImuBias(_bg_i, _ba_i);
 
@@ -96,10 +125,16 @@ void ImuPreintegrator::updateBias() {
 bool ImuPreintegrator::processImu(const long& imgTimestamp) {
     std::lock_guard<std::mutex> dataLock(_dataMutex);
     if (!_isInitialized) {
+        // For kitti.
+        if (imgTimestamp < _timestampQueue.front()) {
+            std::cout << "not initialized: image timestamp is ahead of imu timestamp, wait..." << std::endl;
+            return false;
+        }
+
         // Remove imu data that is collected before initialization.
         while (std::abs(imgTimestamp - _timestampQueue.front()) > _deltaTus/2) {
             if (!_timestampQueue.size()) {
-                std::cerr << "not initialized: image timestamp is ahead of imu timestamp, wait..." << std::endl;
+                std::cout << "not initialized: image timestamp is ahead of imu timestamp, wait..." << std::endl;
                 return false;
             }
             _timestampQueue.pop();
@@ -119,7 +154,8 @@ bool ImuPreintegrator::processImu(const long& imgTimestamp) {
         }
         Eigen::Vector3d gyr_jm1, acc_jm1;
         gyr_jm1 = _dataQueue.front().first;
-        acc_jm1 = _dataQueue.front().second;
+        // Rotate acc measurements to align with ...(earth frame?)
+        acc_jm1 = _initialR * _dataQueue.front().second;
         _dataQueue.pop();
         _timestampQueue.pop();
         count++;
@@ -153,7 +189,7 @@ bool ImuPreintegrator::processImu(const long& imgTimestamp) {
     cfsd::Ptr<ImuConstraint> ic = std::make_shared<ImuConstraint>(_covPreintegration_ij, _bg_i, _ba_i, _delta_R_ij, _delta_v_ij, _delta_p_ij, _d_R_bg_ij, _d_v_bg_ij, _d_v_ba_ij, _d_p_bg_ij, _d_p_ba_ij, _dt);
     _pMap->pushImuConstraint(ic, _bg_i, _ba_i, _gravity);
 
-    std::cout << "number of imu measurements preintegrated: " << count << std::endl;
+    if (_verbose) std::cout << "number of imu measurements preintegrated: " << count << std::endl;
     return true;
 }
 

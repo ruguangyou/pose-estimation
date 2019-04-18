@@ -45,9 +45,9 @@ bool VisualInertialSLAM::process(const cv::Mat& grayL, const cv::Mat& grayR, con
             // Perform motion-only BA.
             if (!emptyMatch) {
                 start = std::chrono::steady_clock::now();
-                _pOptimizer->motionOnlyBA();
+                _pOptimizer->motionOnlyBA(grayL);
                 end = std::chrono::steady_clock::now();
-                std::cout << "motion-only BA elapsed time: " << std::chrono::duration<double, std::milli>(end-start).count() << "ms" << std::endl;
+                std::cout << "motion-only BA elapsed time: " << std::chrono::duration<double, std::milli>(end-start).count() << "ms" << std::endl << std::endl;
             }
 
             // This step should be after the motion-only BA, s.t. we can know if current frame is keyframe and also the current camera pose.
@@ -60,8 +60,20 @@ bool VisualInertialSLAM::process(const cv::Mat& grayL, const cv::Mat& grayR, con
         }
         case INITIALIZING:
         {
-            if (_pImuPreintegrator->processImu(imgTimestamp)) {
-                // TODO.....initial internal matching..
+            if (_readyToAlign && _pImuPreintegrator->processImu(imgTimestamp)) {
+                // Initialize IMU pose and bias.
+                std::cout << "Initializing IMU pose and bias..." << std::endl;
+                _pOptimizer->initialAlignment();
+                std::cout << "IMU initialization Done!" << std::endl << std::endl;
+
+                // Initial stereo pair matching.
+                std::cout << "Initializing stereo pair matching..." << std::endl;
+                _pFeatureTracker->processImage(grayL, grayR);
+                std::cout << "Initial matching Done!" << std::endl << std::endl;
+                
+                // Add the initial frame as keyframe.
+                _pFeatureTracker->featurePoolUpdate();
+                
                 _state = OK;
             }
             break;
@@ -87,7 +99,16 @@ void VisualInertialSLAM::collectImuData(const cfsd::SensorType& st, const long& 
             _gyrGot = true;
     }
     if (_accGot && _gyrGot) {
-        _pImuPreintegrator->pushImuData(timestamp, _gyr, _acc);
+        // Collect measurement in the first 2 seconds (if imu is 200Hz) to perform initial optimization.
+        // Note: this assumes that imu is still in the first 2 seconds.
+        if (!_readyToAlign) {
+            _pOptimizer->_gyrs.push_back(_gyr);
+            _pOptimizer->_accs.push_back(_acc);
+            _readyToAlign = (++_imuCount > 399); // 2s ???
+        }
+        else {
+            _pImuPreintegrator->pushImuData(timestamp, _gyr, _acc);
+        }
         _gyrGot = false;
         _accGot = false;
     }

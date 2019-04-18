@@ -6,6 +6,9 @@
 #include "cfsd/structs.hpp"
 #include "cfsd/frame.hpp"
 
+// local sliding-window size
+#define WINDOWSIZE 6
+
 #ifdef USE_VIEWER
 #include "cfsd/viewer.hpp"
 #endif
@@ -15,6 +18,7 @@ namespace cfsd {
 class Map {
   public: 
     Map(const bool verbose);
+
 
     void pushImuConstraint(cfsd::Ptr<ImuConstraint>& ic, const Eigen::Vector3d& bg_j, const Eigen::Vector3d& ba_j, const Eigen::Vector3d& gravity);
 
@@ -58,10 +62,6 @@ class Map {
     double _minRotation, _minTranslation;
 
     bool _notPushed{true};
-
-    #ifdef USE_VIEWER
-    cfsd::Ptr<Viewer> _pViewer;
-    #endif
     
   public:
     std::vector<cfsd::Ptr<ImuConstraint>> _imuConstraint;
@@ -69,6 +69,10 @@ class Map {
     std::vector<cfsd::Ptr<MapPoint>> _mapPoints;
 
     bool _isKeyframe{false};
+
+    #ifdef USE_VIEWER
+    cfsd::Ptr<Viewer> _pViewer;
+    #endif
 };
 
 } // namespace cfsd

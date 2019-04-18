@@ -34,7 +34,7 @@ int main(int argc, char** argv) {
 
     // Resolution that is used in post-processing, i.e. if image from shared memory is of different size, it will be resized.
     const int resizeHeight = cfsd::Config::get<int>("processHeight");
-    const int resizeWidth = cfsd::Config::get<int>("processWidth");
+    const int resizeWidth = cfsd::Config::get<int>("processWidth") * 2;
     cv::Size imgSize(resizeWidth, resizeHeight);
 
     // Time interval in microseconds between two image frames.

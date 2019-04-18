@@ -32,6 +32,7 @@ class VisualInertialSLAM {
 
     #ifdef USE_VIEWER
     void setViewer(const cfsd::Ptr<Viewer>& pViewer) { _pMap->_pViewer = pViewer; }
+    void stopViewer() { _pMap->_pViewer->setStop(); }
     #endif
 
     bool process(const cv::Mat& grayL, const cv::Mat& grayR, const long& imgTimestamp);
@@ -40,6 +41,7 @@ class VisualInertialSLAM {
 
   private:
     bool _verbose;
+    
     VIOstate _state;
 
     cfsd::Ptr<CameraModel> _pCameraModel;
@@ -54,6 +56,10 @@ class VisualInertialSLAM {
 
     Eigen::Vector3d _gyr, _acc;
     bool _gyrGot{false}, _accGot{false};
+
+    bool _readyToAlign{false};
+
+    size_t _imuCount{0};
     
 };
 

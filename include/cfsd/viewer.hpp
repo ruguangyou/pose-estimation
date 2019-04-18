@@ -9,7 +9,8 @@
 #include <thread>
 #include <pangolin/pangolin.h>
 
-#define WINDOWSIZE 3
+// local sliding-window size
+#define WINDOWSIZE 6
 
 namespace cfsd {
 
@@ -20,7 +21,10 @@ class Viewer {
     // Execute in an independent thread for rendering.
     void run();
 
-    void pushParameters(double** pose, int size);
+    void drawCoordinate();
+
+    // Push and draw.
+    void pushParameters(double pose[WINDOWSIZE][6], int size);
 
     void drawPosition();
 
@@ -28,10 +32,13 @@ class Viewer {
 
     void drawRawPosition();
 
-  private:
-    // Set true if Optimizer pass parameters to this Viewer.
-    bool readyToDraw, readyToDrawRaw;
+    void pushLandmark(const double& x, const double& y, const double& z);
 
+    void drawLandmark();
+
+    void setStop();
+
+  private:
     // Viewer settings (refer to ORB-SLAM2).
     int viewScale;
     float pointSize;
@@ -40,9 +47,12 @@ class Viewer {
     // States (position).
     std::vector<float> xs, ys, zs;
     std::vector<float> xsRaw, ysRaw, zsRaw;
+    std::vector<float> pointsX, pointsY, pointsZ;
 
-    std::mutex dataMutex, rawDataMutex;
+    // Set true if Optimizer pass parameters to this Viewer.
+    bool readyToDraw, readyToDrawRaw, readyToDrawLandmark;
 
+    std::mutex dataMutex, rawDataMutex, landmarkMutex;
 };
 
 } // namespace cfsd

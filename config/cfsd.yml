@@ -10,7 +10,7 @@ readHeight: 720
 readFrequency: 30
 
 # Resolution and frequency used in processing
-processWidth: 1344
+processWidth: 672
 processHeight: 376
 processFrequency: 10
 

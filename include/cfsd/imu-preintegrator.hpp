@@ -11,7 +11,8 @@ namespace cfsd {
 // Exponential map: v (rotation vector) -> v_hat (skew symmetric matrix) -> exp(v_hat) (rotation matrix)
 // Logarithmic map: R (rotation matrix) -> log(R) (skew symmetrix matrix) -> log(R)_vee (rotation vector)
 
-/* default IMU coordinate system => convert to camera coordinate system
+/* for cfsd
+   default IMU coordinate system => convert to camera coordinate system
             / x (roll)                          / z (yaw)
            /                                   /
           ------ y (pitch)                    ------ x (roll)
@@ -25,6 +26,9 @@ namespace cfsd {
 class ImuPreintegrator {
   public:
     ImuPreintegrator(const cfsd::Ptr<Map> pMap, const bool verbose);
+
+    // Set initial IMU rotation w.r.t world frame and gyr bias.
+    void setInitialStates(double bg[3], double r[3]);
 
     // Update bias after motion-only optimization is done.
     void updateBias();
@@ -120,6 +124,8 @@ class ImuPreintegrator {
     std::mutex _dataMutex;
     std::queue<std::pair<Eigen::Vector3d,Eigen::Vector3d>> _dataQueue;
     std::queue<long> _timestampQueue;
+
+    Sophus::SO3d _initialR;
 };
 
 } // namespace cfsd

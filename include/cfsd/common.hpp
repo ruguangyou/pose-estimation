@@ -41,7 +41,4 @@ template<typename T>
 using Ptr = std::shared_ptr<T>; // the same as `typedef std::shared_ptr<VisualInertialOdometry> Ptr`, however `typedef` is limited and cannot use `template`
 } // namespace
 
-// local sliding-window size
-#define WINDOWSIZE 3
-
 #endif // COMMON_HPP

@@ -9,9 +9,9 @@
 #include <opencv2/features2d/features2d.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
 
-#ifdef DEBUG_IMG
+// #ifdef DEBUG_IMG
 #include <opencv2/highgui/highgui.hpp>
-#endif
+// #endif
 
 namespace cfsd {
 

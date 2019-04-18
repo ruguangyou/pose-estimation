@@ -2,7 +2,7 @@
 
 namespace cfsd {
 
-Config::Config() {}
+Config::Config() : _file() {}
 
 Config::~Config() {
     // close file when deconstructing

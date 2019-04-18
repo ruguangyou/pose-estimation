@@ -42,23 +42,23 @@ FeatureTracker::FeatureTracker(const cfsd::Ptr<Map>& pMap, const cfsd::Ptr<Camer
         }
     }
 
-    int height = Config::get<int>("processHeight");
-    int width = Config::get<int>("processWidth") / 2;
-    _mask = cv::Mat::zeros(height, width, CV_8U);
-    // Pixel representation.
-    int h1  = Config::get<int>("h1");
-    int h2  = Config::get<int>("h2");
-    for (int i = h1; i < h2; ++i)
-        for (int j = 0; j < width; ++j)
-            _mask.at<char>(i,j) = 255;
+    // int height = Config::get<int>("processHeight");
+    // int width = Config::get<int>("processWidth");
+    // _mask = cv::Mat::zeros(height, width, CV_8U);
+    // // Pixel representation.
+    // int h1  = Config::get<int>("h1");
+    // int h2  = Config::get<int>("h2");
+    // for (int i = h1; i < h2; ++i)
+    //     for (int j = 0; j < width; ++j)
+    //         _mask.at<char>(i,j) = 255;
 
-    // Initialize orb detection (it is found that the first orb detection is very slow).
-    auto start = std::chrono::steady_clock::now();
-    std::vector<cv::KeyPoint> keypoints;
-    cv::Mat descriptors;
-    _orb->detectAndCompute(_mask, _mask, keypoints, descriptors);
-    auto end = std::chrono::steady_clock::now();
-    std::cout << "initial orb detection elapsed time: " << std::chrono::duration<double, std::milli>(end-start).count() << "ms" << std::endl << std::endl;
+    // // Initialize orb detection (it is found that the first orb detection is very slow).
+    // auto start = std::chrono::steady_clock::now();
+    // std::vector<cv::KeyPoint> keypoints;
+    // cv::Mat descriptors;
+    // _orb->detectAndCompute(_mask, _mask, keypoints, descriptors);
+    // auto end = std::chrono::steady_clock::now();
+    // std::cout << "initial orb detection elapsed time: " << std::chrono::duration<double, std::milli>(end-start).count() << "ms" << std::endl << std::endl;
 }
 
 bool FeatureTracker::processImage(const cv::Mat& grayLeft, const cv::Mat& grayRight) {
@@ -69,7 +69,7 @@ bool FeatureTracker::processImage(const cv::Mat& grayLeft, const cv::Mat& grayRi
     cv::remap(grayLeft, imgLeft, _pCameraModel->_rmap[0][0], _pCameraModel->_rmap[0][1], cv::INTER_LINEAR);
     cv::remap(grayRight, imgRight, _pCameraModel->_rmap[1][0], _pCameraModel->_rmap[1][1], cv::INTER_LINEAR);
     auto end = std::chrono::steady_clock::now();
-    std::cout << "remap elapsed time: " << std::chrono::duration<double, std::milli>(end-start).count() << "ms" << std::endl << std::endl;
+    if (_verbose) std::cout << "remap elapsed time: " << std::chrono::duration<double, std::milli>(end-start).count() << "ms" << std::endl << std::endl;
 
     // std::cout << _mask.size() << std::endl;
     // std::cout << imgLeft.size() << ", " << imgRight.size() << std::endl;
@@ -90,7 +90,7 @@ bool FeatureTracker::processImage(const cv::Mat& grayLeft, const cv::Mat& grayRi
     start = std::chrono::steady_clock::now();
     internalMatch(imgLeft, imgRight);
     end = std::chrono::steady_clock::now();
-    std::cout << "internal match elapsed time: " << std::chrono::duration<double, std::milli>(end-start).count() << "ms" << std::endl << std::endl;
+    if (_verbose) std::cout << "internal match elapsed time: " << std::chrono::duration<double, std::milli>(end-start).count() << "ms" << std::endl << std::endl;
     
     // Record which features in current frame will possibly be viewed as new features, if circular matching is satisfied, it will be false; otherwise, true.
     _curFeatureMask.clear();
@@ -99,7 +99,7 @@ bool FeatureTracker::processImage(const cv::Mat& grayLeft, const cv::Mat& grayRi
     start = std::chrono::steady_clock::now();
     externalTrack(true);
     end = std::chrono::steady_clock::now();
-    std::cout << "external match elapsed time: " << std::chrono::duration<double, std::milli>(end-start).count() << "ms" << std::endl << std::endl;
+    if (_verbose) std::cout << "external match elapsed time: " << std::chrono::duration<double, std::milli>(end-start).count() << "ms" << std::endl << std::endl;
     
     _frameCount++;
 
@@ -110,10 +110,12 @@ void FeatureTracker::internalMatch(const cv::Mat& imgLeft, const cv::Mat& imgRig
     auto start = std::chrono::steady_clock::now();
     std::vector<cv::KeyPoint> keypointsL, keypointsR;
     cv::Mat descriptorsL, descriptorsR;
-    _orb->detectAndCompute(imgLeft,  _mask, keypointsL, descriptorsL);
-    _orb->detectAndCompute(imgRight, _mask, keypointsR, descriptorsR);
+    // _orb->detectAndCompute(imgLeft,  _mask, keypointsL, descriptorsL);
+    // _orb->detectAndCompute(imgRight, _mask, keypointsR, descriptorsR);
+    _orb->detectAndCompute(imgLeft,  cv::noArray(), keypointsL, descriptorsL);
+    _orb->detectAndCompute(imgRight, cv::noArray(), keypointsR, descriptorsR);
     auto end = std::chrono::steady_clock::now();
-    std::cout << "orb detection elapsed time: " << std::chrono::duration<double, std::milli>(end-start).count() << "ms" << std::endl;
+    if (_verbose) std::cout << "orb detection elapsed time: " << std::chrono::duration<double, std::milli>(end-start).count() << "ms" << std::endl;
 
     cv::BFMatcher matcher(cv::NORM_HAMMING); // Brute Force Mathcer
     std::vector<cv::DMatch> matches;
@@ -155,22 +157,33 @@ void FeatureTracker::internalMatch(const cv::Mat& imgLeft, const cv::Mat& imgRig
             }
         }
         end = std::chrono::steady_clock::now();
-        std::cout << "internal findFundamentalMat with RANSAC elapsed time: " << std::chrono::duration<double, std::milli>(end-start).count() << "ms" << std::endl;
-        std::cout << "# cur left-right matches: " << matches.size() << std::endl;
-        std::cout << "# cur left-right matches after vertical coordinate matching: " << pixelsL.size() << std::endl;
-        std::cout << "# cur left-right matches after RANSAC: " << _curPixelsL.size() << std::endl;
+        if (_verbose) {
+            std::cout << "internal findFundamentalMat with RANSAC elapsed time: " << std::chrono::duration<double, std::milli>(end-start).count() << "ms" << std::endl;
+            std::cout << "# cur left-right matches: " << matches.size() << std::endl;
+            std::cout << "# cur left-right matches after vertical coordinate matching: " << pixelsL.size() << std::endl;
+            std::cout << "# cur left-right matches after RANSAC: " << _curPixelsL.size() << std::endl;
+        }
     }
     else {
+        // std::vector<cv::DMatch> good_matches;
         for (auto& m : matches) {
-            if (std::abs(keypointsL[m.queryIdx].pt.y - keypointsR[m.trainIdx].pt.y) < _maxVerticalPixelDist) {
+            if (m.distance < std::max(_matchRatio * minDist, _minMatchDist) && std::abs(keypointsL[m.queryIdx].pt.y - keypointsR[m.trainIdx].pt.y) < _maxVerticalPixelDist) {
                 _curPixelsL.push_back(keypointsL[m.queryIdx].pt);
                 _curPixelsR.push_back(keypointsR[m.trainIdx].pt);
                 _curDescriptorsL.push_back(descriptorsL.row(m.queryIdx));
                 _curDescriptorsR.push_back(descriptorsR.row(m.trainIdx));
+                // good_matches.push_back(m);
             }
         }
-        std::cout << "# cur left-right matches: " << matches.size() << std::endl;
-        std::cout << "# cur left-right matches after vertical coordinate matching: " << _curPixelsL.size() << std::endl;
+        // cv::Mat img_good_matches;
+        // cv::drawMatches(imgLeft, keypointsL, imgRight, keypointsR, good_matches, img_good_matches);
+        // cv::imshow("matches", img_good_matches);
+        // cv::waitKey(0);
+
+        if (_verbose) {
+            std::cout << "# cur left-right matches: " << matches.size() << std::endl;
+            std::cout << "# cur left-right matches after vertical coordinate matching: " << _curPixelsL.size() << std::endl;
+        }
     }
 }
 
@@ -190,8 +203,10 @@ void FeatureTracker::externalTrack(const bool useRANSAC) {
     // cv::FlannBasedMatcher matcher(new cv::flann::LshIndexParams(5,10,2)); // Fast Approximate Nearest Neighbor Search Library
     float minDist;
 
-    std::cout << "# histDescriptorsL: " << _histDescriptorsL.rows << std::endl
-              << "#  curDescriptorsL: " << _curDescriptorsL.rows << std::endl;
+    if (_verbose) {
+        std::cout << "# histDescriptorsL: " << _histDescriptorsL.rows << std::endl
+                  << "#  curDescriptorsL: " << _curDescriptorsL.rows << std::endl;
+    }
 
     // Store the correspondence map <queryIdx, trainIdx> of 'left' matching.
     std::map<int,int> mapCurHist;
@@ -226,17 +241,19 @@ void FeatureTracker::externalTrack(const bool useRANSAC) {
             }
         }
         end = std::chrono::steady_clock::now();
-        std::cout << "external findFundamentalMat with RANSAC elapsed time: " << std::chrono::duration<double, std::milli>(end-start).count() << "ms" << std::endl;
-        std::cout << "# left cur-hist matches: " << matchesL.size() << std::endl;
-        std::cout << "# left cur-hist matches after hamming distance selection: " << pixelsCur.size() << std::endl;
-        std::cout << "# left cur-hist matches after RANSAC: " << mapCurHist.size() << std::endl;
+        if (_verbose) {
+            std::cout << "external findFundamentalMat with RANSAC elapsed time: " << std::chrono::duration<double, std::milli>(end-start).count() << "ms" << std::endl;
+            std::cout << "# left cur-hist matches: " << matchesL.size() << std::endl;
+            std::cout << "# left cur-hist matches after hamming distance selection: " << pixelsCur.size() << std::endl;
+            std::cout << "# left cur-hist matches after RANSAC: " << mapCurHist.size() << std::endl;
+        }
     }
     else {
         for (auto& m : matchesL)
             // Only consider those good matches.
             if (m.distance < std::max(_matchRatio * minDist, _minMatchDist))
                 mapCurHist[m.queryIdx] = m.trainIdx;
-        std::cout << "# left cur-hist matches after hamming distance selection: " << mapCurHist.size() << std::endl;
+        if (_verbose) std::cout << "# left cur-hist matches after hamming distance selection: " << mapCurHist.size() << std::endl;
     }
     
     // Search the correspondence of 'right' matching with 'left' matching.
@@ -263,15 +280,17 @@ void FeatureTracker::externalTrack(const bool useRANSAC) {
         }
     }
 
-    std::cout << "# right cur-hist matches: " << matchesR.size() << std::endl;
-    std::cout << "# right cur-hist matches after hamming distance selection: " << rightCount << std::endl;
-    std::cout << "# circular matches: " << _matchedFeatureIDs.size() << std::endl;
+    if (_verbose) {
+        std::cout << "# right cur-hist matches: " << matchesR.size() << std::endl;
+        std::cout << "# right cur-hist matches after hamming distance selection: " << rightCount << std::endl;
+        std::cout << "# circular matches: " << _matchedFeatureIDs.size() << std::endl;
+    }
 }
 
 void FeatureTracker::featurePoolUpdate() {
     // The number of new and old features in the pool should be well balanced.
 
-    std::cout << "# features in pool before updating: " << _features.size() << std::endl;
+    if (_verbose) std::cout << "# features in pool before updating: " << _features.size() << std::endl;
     int eraseCount = 0;
     int insertCount = 0;
 
@@ -327,15 +346,17 @@ void FeatureTracker::featurePoolUpdate() {
                                                             points4D.at<double>(2,i) / points4D.at<double>(3,i));
             // _pMap->getBodyPose() gives the transformation from current body frame to world frame, T_WB.
             // _pCameraModel->_T_BC gives the pre-calibrated transformation from camera to body/imu frame.
-            Eigen::Vector3d position = _pMap->getBodyPose() * _pCameraModel->_T_BC * point_wrt_cam;                                                           
+            Eigen::Vector3d position = _pMap->getBodyPose() * _pCameraModel->_T_BC * point_wrt_cam;
+            _pMap->_pViewer->pushLandmark(position(0), position(1), position(2));
 
             // Insert new features.
             _features[_featureCount++] = std::make_shared<Feature>(_frameCount, _curPixelsL[i], _curPixelsR[i], _curDescriptorsL.row(i), _curDescriptorsR.row(i), position, 0);
-            insertCount++;      
+            insertCount++;
         }
+        if (_verbose) std::cout << "# 3D points within 20 meters: " << insertCount++ << std::endl;
     }
 
-    std::cout << "# features in pool after updaing: " << _features.size() << " (" << insertCount << " features inserted, " << eraseCount << " too old features erased)" << std::endl;
+    if (_verbose) std::cout << "# features in pool after updaing: " << _features.size() << " (" << insertCount << " features inserted, " << eraseCount << " too old features erased)" << std::endl;
 }
 
 } // namespace cfsd

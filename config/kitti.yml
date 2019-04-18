@@ -1,5 +1,8 @@
 %YAML:1.0
-# Camera image resolution, 2560x720(30Hz), 1344x376(60Hz)
+# dataset: /home/ruguang/docker-CFSD/cfsd/2019/kitti/2011_09_26/2011_09_26_drive_0002_extract/
+dataset: /home/ruguang/docker-CFSD/cfsd/2019/kitti/2011_09_26/2011_09_26_drive_0005_extract/
+
+# Camera
 imageWidth: 1392
 imageHeight: 512
 cameraFrequency: 10
@@ -43,16 +46,30 @@ translationLeftToRight: !!opencv-matrix
     dt: d
     data: [ -0.0595781, 1.5018e-05, -0.00230501 ]
 
+# Camera (left) and imu extrinsics
+rotationImuToCamera: !!opencv-matrix
+    rows: 3
+    cols: 3
+    dt: d
+    data: [ 0.0036985, -0.999805, 0.0193992, 0.00940763, -0.0193637, -0.999768, 0.999949, 0.00388015, 0.00933418 ]
+
+translationImuToCamera: !!opencv-matrix
+    rows: 3
+    cols: 1
+    dt: d
+    data: [ -0.268429, 0.713849, -1.08628 ]
+
 # Feature detector parameters
 detectorType: "ORB"  # available (ORB, BRISK...)
 # ORB
-numberOfFeatures: 100
+numberOfFeatures: 200
 scaleFactor: 1.2
 levelPyramid: 8
 
 # Feature matching parameters
-matchRatio: 1.5    # the distance of a good match should be smaller than minDist*matchRatio
+matchRatio: 3    # the distance of a good match should be smaller than minDist*matchRatio
 minMatchDist: 30.0 # another number for selecting good matches, from experience
+maxVerticalPixelDist: 0.1 # selecting good matching by the vertical coordinates since image have been rectified
 maxFeatureAge: 5   # Max age of a feature
 
 #max_num_lost: 10
@@ -71,28 +88,28 @@ gravity: 9.81734 # [m/s^2] gravitational acceleration (might need slightly modif
 # IMU paramteres
 samplingRate: 100 # [Hz]
 ## IMU coordinate system
-##             / x
-##            /
-##           ------ y
-##           | z
-# The following parameters are in IMU coordinate system
-# initialBiasAccX: 0.680889
-# initialBiasAccY: -0.283933
-# initialBiasAccZ: -0.046435
-# initialBiasGyrX: -0.000754774
-# initialBiasGyrY: -0.0023706
-# initialBiasGyrZ: -8.68224e-05
-
-# IMU noise and bias factor
+##         z |  / x
+##           | /
+##    y ------
+# (cfsd) IMU noise and bias factor
 accNoise: 0.000057 # [g*sqrt(s)] accelerometer measurement noise density, 57 micro-g/sqrt(Hz) from "Ellipse_Series_Leaflet.pdf"
 gyrNoise: 4.3633e-5 # [rad/sqrt(s)] gyroscope measurement noise density, 0.15 degree/sqrt(hr)
-accBias: 0.000014 # [g] accelerometer bias random walk noise, 14 micro-g
-gyrBias: 3.3937e-5 # [rad/s] gyroscope bias random walk noise, 7 degree/h
+# accBias: 0.000014 # [g] accelerometer bias random walk noise, 14 micro-g
+# gyrBias: 3.3937e-5 # [rad/s] gyroscope bias random walk noise, 7 degree/h
+
+# (kitti) otxs RT3003 (https://support.oxts.com/hc/en-us/articles/115001155865-RT3000-Online-manual, rt_manual.pdf, p.23)
+accBias: 0.000005 # [g] accelerometer bias random walk noise, 5 micro-g
+gyrBias: 0.0001745 # [rad/s] gyroscope bias random walk noise, 0.01 degree/s
 
 # Viewer settings
+## world frame
+##       z |  / x
+##         | /
+##  y ------
+# set the up direction as AxisZ
 viewScale: 1
 pointSize: 2
-viewpointX: 0
-viewpointY: -10
-viewpointZ: -0.1
+viewpointX: -0.1
+viewpointY: 0
+viewpointZ: 400
 viewpointF: 2000

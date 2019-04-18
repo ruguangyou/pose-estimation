@@ -1,0 +1,117 @@
+%YAML:1.0
+dataset: /home/ruguang/docker-CFSD/cfsd/2019/euroc/V1_01_easy/mav0/
+
+# Camera
+imageWidth: 752
+imageHeight: 480
+cameraFrequency: 20
+
+# The following camera parameters is based on 1344x376 resolution (i.e. 672x376 each side)
+# Left camera intrinsics
+camLeft: !!opencv-matrix
+    rows: 3
+    cols: 3
+    dt: d
+    data: [ 458.654, 0, 367.215,
+            0, 457.296, 248.375,
+            0, 0, 1 ]
+distLeft: !!opencv-matrix
+    rows: 5
+    cols: 1
+    dt: d
+    data: [ -0.28340811, 0.07395907, 0.00019359, 1.76187114e-05, 0 ]
+
+# Right camera intrinsics
+camRight: !!opencv-matrix
+    rows: 3
+    cols: 3
+    dt: d
+    data: [ 457.587, 0, 379.999,
+            0, 456.134, 255.238,
+            0, 0, 1 ]
+distRight: !!opencv-matrix
+    rows: 5
+    cols: 1
+    dt: d
+    data: [ -0.28368365,  0.07451284, -0.00010473, -3.55590700e-05, 0 ]
+
+# Camera extrinsics
+rotationLeftToRight: !!opencv-matrix
+    rows: 3
+    cols: 1
+    dt: d
+    data: [ -0.0140907, 0.000359713, -0.00231468 ]
+translationLeftToRight: !!opencv-matrix
+    rows: 3
+    cols: 1
+    dt: d
+    data: [ -0.110074, 0.000399122, -0.000853703 ]
+
+# Camera (left) and imu extrinsics
+rotationImuToCamera: !!opencv-matrix
+    rows: 3
+    cols: 3
+    dt: d
+    data: [ 0.0148655, 0.999557, -0.0257744, -0.999881, 0.0149672, 0.00375619, 0.0041403, 0.0257155, 0.999661 ]
+
+translationImuToCamera: !!opencv-matrix
+    rows: 3
+    cols: 1
+    dt: d
+    data: [ 0.0652229, -0.0207064, -0.0080546 ]
+
+# Feature detector parameters
+detectorType: "ORB"  # available (ORB, BRISK...)
+# ORB
+numberOfFeatures: 200
+scaleFactor: 1.2
+levelPyramid: 8
+
+# Feature matching parameters
+matchRatio: 2    # the distance of a good match should be smaller than minDist*matchRatio
+minMatchDist: 30.0 # another number for selecting good matches, from experience
+maxVerticalPixelDist: 0.1 # selecting good matching by the vertical coordinates since image have been rectified
+maxFeatureAge: 5   # Max age of a feature
+
+#max_num_lost: 10
+#min_inliers: 10
+
+# Keyframe selection
+keyframe_rotation: 0.1
+keyframe_translation: 0.1
+
+gravity: 9.81734 # [m/s^2] gravitational acceleration (might need slightly modification in case of different location)
+
+# IMU paramteres
+samplingRate: 200 # [Hz]
+## IMU coordinate system    camera coordinate system
+##        x |  / z                    / z
+##          | /                      /
+##           ------ y               ------ x
+##                                  |
+##                                  | y
+
+# (cfsd) IMU noise and bias factor
+# accNoise: 0.000057 # [g*sqrt(s)] accelerometer measurement noise density, 57 micro-g/sqrt(Hz) from "Ellipse_Series_Leaflet.pdf"
+# gyrNoise: 4.3633e-5 # [rad/sqrt(s)] gyroscope measurement noise density, 0.15 degree/sqrt(hr)
+# accBias: 0.000014 # [g] accelerometer bias random walk noise, 14 micro-g
+# gyrBias: 3.3937e-5 # [rad/s] gyroscope bias random walk noise, 7 degree/h
+
+# (euroc) inertial sensor noise model parameters (static)
+gyroscope_noise_density: 1.6968e-04     # [ rad / s / sqrt(Hz) ]   ( gyro "white noise" )
+gyroscope_random_walk: 1.9393e-05       # [ rad / s^2 / sqrt(Hz) ] ( gyro bias diffusion )
+accelerometer_noise_density: 2.0000e-3  # [ m / s^2 / sqrt(Hz) ]   ( accel "white noise" )
+accelerometer_random_walk: 3.0000e-3    # [ m / s^3 / sqrt(Hz) ].  ( accel bias diffusion )
+
+# Viewer settings
+## world frame
+##    x |  / z
+##      | /
+##       ------ y
+# set the up direction as AxisX
+viewScale: 1
+pointSize: 2
+viewpointX: 10
+viewpointY: 0
+viewpointZ: -0.1
+viewpointF: 2000

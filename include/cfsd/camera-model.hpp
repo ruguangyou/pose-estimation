@@ -9,9 +9,9 @@
 
 namespace cfsd {
 
-/* Coordinate system convension:
+/* CFSD coordinate system convension:
     
-    world frame (the initial body frame)
+    world frame (the z direction should be parallel with gravitational direction)
        / x
       /
      ------ y
@@ -20,6 +20,7 @@ namespace cfsd {
 
     T_WB = [R_WB, W_P]
     transformation from body frame to world frame, consisits of rotation from B to W, and position of B w.r.t W.
+    Note: if IMU is tilted at beginning, there should be a initial rotation from B to W.
 
     body/imu frame
        / x (roll)
@@ -46,8 +47,13 @@ namespace cfsd {
 class CameraModel {
   public:
     CameraModel() {
-        _imageSize.height = Config::get<int>("processHeight");
-        _imageSize.width = Config::get<int>("processWidth") / 2;
+        // for cfsd
+        // _imageSize.height = Config::get<int>("processHeight");
+        // _imageSize.width = Config::get<int>("processWidth");
+        
+        // for kitti or euroc
+        _imageSize.height = Config::get<int>("imageHeight");
+        _imageSize.width = Config::get<int>("imageWidth");
         
         _K1 = Config::get<cv::Mat>("camLeft");
         _D1 = Config::get<cv::Mat>("distLeft");
@@ -70,14 +76,22 @@ class CameraModel {
         // Computes the undistortion and rectification transformation map.
         cv::initUndistortRectifyMap(_K1, _D1, _R1, _P1, _imageSize, CV_16SC2, _rmap[0][0], _rmap[0][1]);
         cv::initUndistortRectifyMap(_K2, _D2, _R2, _P2, _imageSize, CV_16SC2, _rmap[1][0], _rmap[1][1]);
+        std::cout << "Camera init undistort-rectify-map done!" << std::endl;
 
         cv::cv2eigen(_P1, _P_L);
         cv::cv2eigen(_P2, _P_R);
 
         // Transformation between body/imu and camera.
         // TODO...................
-
-        std::cout << "Camera init undistort-rectify-map done!" << std::endl;
+        // Body frame to camera frame.
+        cv::Mat cv_R_CB = Config::get<cv::Mat>("rotationImuToCamera");
+        cv::Mat cv_t_CB = Config::get<cv::Mat>("translationImuToCamera");
+        Eigen::Matrix3d eigen_R_CB;
+        Eigen::Vector3d eigen_t_CB;
+        cv::cv2eigen(cv_R_CB, eigen_R_CB);
+        cv::cv2eigen(cv_t_CB, eigen_t_CB);
+        _T_CB = Sophus::SE3d(Eigen::Quaterniond(eigen_R_CB), eigen_t_CB);
+        _T_BC = _T_CB.inverse();
     }
 
     // Convention: first camera is left, second camera is right.
