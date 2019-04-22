@@ -76,7 +76,7 @@ class CameraModel {
         // Computes the undistortion and rectification transformation map.
         cv::initUndistortRectifyMap(_K1, _D1, _R1, _P1, _imageSize, CV_16SC2, _rmap[0][0], _rmap[0][1]);
         cv::initUndistortRectifyMap(_K2, _D2, _R2, _P2, _imageSize, CV_16SC2, _rmap[1][0], _rmap[1][1]);
-        std::cout << "Camera init undistort-rectify-map done!" << std::endl;
+        std::cout << "Camera init undistort-rectify-map done!" << std::endl << std::endl;
 
         cv::cv2eigen(_P1, _P_L);
         cv::cv2eigen(_P2, _P_R);

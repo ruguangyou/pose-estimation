@@ -3,20 +3,13 @@
 
 namespace cfsd {
 
-Viewer::Viewer() : readyToDraw(false), readyToDrawRaw(false), readyToDrawLandmark(false) {
+Viewer::Viewer() {
     viewScale = Config::get<int>("viewScale");
     pointSize = Config::get<float>("pointSize");
     viewpointX = Config::get<float>("viewpointX");
     viewpointY = Config::get<float>("viewpointY");
     viewpointZ = Config::get<float>("viewpointZ");
     viewpointF = Config::get<float>("viewpointF");
-
-    xs.push_back(0);
-    ys.push_back(0);
-    zs.push_back(0);
-    xsRaw.push_back(0);
-    ysRaw.push_back(0);
-    zsRaw.push_back(0);
 }
 
 void Viewer::run() {
@@ -30,7 +23,7 @@ void Viewer::run() {
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-    const int PANEL_WIDTH = 175;
+    const int PANEL_WIDTH = 220;
 
     // Add named Panel and bind to variables beginning 'menu'
     // A Panel is just a View with a default layout and input handling
@@ -40,8 +33,9 @@ void Viewer::run() {
     // Specialisations mean no conversions take place for exact types and conversions between scalar types are cheap
     pangolin::Var<bool> menuSaveWindow("menu.Save Window", false, false);
     pangolin::Var<bool> menuSaveObject("menu.Save Object", false, false);
+    pangolin::Var<bool> menuShowCoordinate("menu.Show Coordinate", true, true);
     pangolin::Var<bool> menuShowRawPosition("menu.Show Raw Position", true, true);
-    pangolin::Var<bool> menuShowPosition("menu.Show Position", true, true);
+    pangolin::Var<bool> menuShowOptimizedPosition("menu.Show Optimized Position", true, true);
     pangolin::Var<bool> menuShowLandmark("menu.Show Landmark", true, true);
     // ...
     pangolin::Var<bool> menuReset("menu.Reset", false, false);
@@ -77,19 +71,20 @@ void Viewer::run() {
         // Activate efficiently by object
         d_cam.Activate(s_cam);
 
-        drawCoordinate();
-
         if (pangolin::Pushed(menuSaveWindow))
             pangolin::SaveWindowOnRender("window");
 
         if (pangolin::Pushed(menuSaveObject))
             d_cam.SaveOnRender("object");
 
+        if (menuShowCoordinate)
+            drawCoordinate();
+
         if (menuShowRawPosition)
             drawRawPosition();
 
-        if (menuShowPosition)
-            drawPosition();
+        if (menuShowOptimizedPosition)
+            drawOptimizedPosition();
 
         if (menuShowLandmark)
             drawLandmark();
@@ -97,10 +92,10 @@ void Viewer::run() {
         if (pangolin::Pushed(menuReset)) {
             std::lock_guard<std::mutex> lockData(dataMutex);
             std::lock_guard<std::mutex> lockRawData(rawDataMutex);
-            xs.clear(); ys.clear(); zs.clear();
+            xsOptimized.clear(); ysOptimized.clear(); zsOptimized.clear();
             xsRaw.clear(); ysRaw.clear(); zsRaw.clear();
             pointsX.clear(); pointsY.clear(); pointsZ.clear();
-            readyToDraw = false; readyToDrawRaw = false;
+            readyToDrawOptimized = false; readyToDrawRaw = false;
         }
 
         // Swap frames and Precess Events
@@ -128,51 +123,21 @@ void Viewer::drawCoordinate() {
     glEnd();
 }
 
-void Viewer::pushParameters(double pose[WINDOWSIZE][6], int size) {
-    // rvp: [rx,ry,rz, vx,vy,vz, px,py,pz]
-    std::lock_guard<std::mutex> lockData(dataMutex);
-
-    for (int i = 0; i < size-1; i++) {
-        int idx = xs.size() - size + i;
-        if (idx < 0) idx = 0;
-        xs[idx] = static_cast<float>(pose[i][3] * viewScale);
-        ys[idx] = static_cast<float>(pose[i][4] * viewScale);
-        zs[idx] = static_cast<float>(pose[i][5] * viewScale);
-    }
-    xs.push_back(static_cast<float>(pose[size-1][3] * viewScale));
-    ys.push_back(static_cast<float>(pose[size-1][4] * viewScale));
-    zs.push_back(static_cast<float>(pose[size-1][5] * viewScale));
-
-    readyToDraw = true;
-}
-
-void Viewer::drawPosition() {
-    std::lock_guard<std::mutex> lockData(dataMutex);
-
-    if (!readyToDraw) return;
-
-    glPointSize(pointSize);
-    glBegin(GL_POINTS);
-    glColor3f(1.0f, 0.0f, 0.0f);
-    for (int i = 0; i < xs.size(); i++)
-        glVertex3f(xs[i], ys[i], zs[i]);
-    glEnd();
-
-    // glLineWidth(2);
-    // glColor4f(0.5f, 0.5f, 0.5f, 1.0f);
-    // glBegin(GL_LINES);
-    // for (int i = 0; i < xs.size(); i++)
-    //     glVertex3f(xs[i], ys[i], zs[i]);
-    // glEnd();
-}
-
-void Viewer::pushRawParameters(double* pose_i) {
-    // rvp: [rx,ry,rz, vx,vy,vz, px,py,pz]
+void Viewer::pushRawPosition(const Eigen::Vector3d& p, const int& offset) {
     std::lock_guard<std::mutex> lockRawData(rawDataMutex);
 
-    xsRaw.push_back(static_cast<float>(pose_i[3] * viewScale));
-    ysRaw.push_back(static_cast<float>(pose_i[4] * viewScale));
-    zsRaw.push_back(static_cast<float>(pose_i[5] * viewScale));
+    int i = idx + offset;
+    if (xsRaw.size() <= i) {
+        xsRaw.push_back(static_cast<float>(p(0) * viewScale));
+        ysRaw.push_back(static_cast<float>(p(1) * viewScale));
+        zsRaw.push_back(static_cast<float>(p(2) * viewScale));
+    }
+    else {
+        xsRaw[i] = static_cast<float>(p(0) * viewScale);
+        ysRaw[i] = static_cast<float>(p(1) * viewScale);
+        zsRaw[i] = static_cast<float>(p(2) * viewScale);
+    }
+    // if (xsRaw.size() >= WINDOWSIZE && offset == WINDOWSIZE - 1) idx++;
 
     readyToDrawRaw = true;
 }
@@ -188,6 +153,46 @@ void Viewer::drawRawPosition() {
     for (int i = 0; i < xsRaw.size(); i++)
         glVertex3f(xsRaw[i], ysRaw[i], zsRaw[i]);
     glEnd();
+}
+
+void Viewer::pushOptimizedPosition(const Eigen::Vector3d& p, const int& offset) {
+    // rvp: [rx,ry,rz, vx,vy,vz, px,py,pz]
+    std::lock_guard<std::mutex> lockData(dataMutex);
+
+    int i = idx + offset;
+    if (xsOptimized.size() <= i) {
+        xsOptimized.push_back(static_cast<float>(p(0) * viewScale));
+        ysOptimized.push_back(static_cast<float>(p(1) * viewScale));
+        zsOptimized.push_back(static_cast<float>(p(2) * viewScale));
+    }
+    else {
+        xsOptimized[i] = static_cast<float>(p(0) * viewScale);
+        ysOptimized[i] = static_cast<float>(p(1) * viewScale);
+        zsOptimized[i] = static_cast<float>(p(2) * viewScale);
+    }
+    if (xsOptimized.size() >= WINDOWSIZE && offset == WINDOWSIZE - 1) idx++;
+
+    readyToDrawOptimized = true;
+}
+
+void Viewer::drawOptimizedPosition() {
+    std::lock_guard<std::mutex> lockData(dataMutex);
+
+    if (!readyToDrawOptimized) return;
+
+    glPointSize(pointSize);
+    glBegin(GL_POINTS);
+    glColor3f(1.0f, 0.0f, 0.0f);
+    for (int i = 0; i < xsOptimized.size(); i++)
+        glVertex3f(xsOptimized[i], ysOptimized[i], zsOptimized[i]);
+    glEnd();
+
+    // glLineWidth(2);
+    // glColor4f(0.5f, 0.5f, 0.5f, 1.0f);
+    // glBegin(GL_LINES);
+    // for (int i = 0; i < xs.size(); i++)
+    //     glVertex3f(xs[i], ys[i], zs[i]);
+    // glEnd();
 }
 
 void Viewer::pushLandmark(const double& x, const double& y, const double& z) {

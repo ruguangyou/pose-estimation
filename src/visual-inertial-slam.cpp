@@ -3,7 +3,7 @@
 
 namespace cfsd {
 
-VisualInertialSLAM::VisualInertialSLAM(const bool verbose) : _state(INITIALIZING), _verbose(verbose) {
+VisualInertialSLAM::VisualInertialSLAM(const bool verbose) : _state(SYNCHRONIZING), _verbose(verbose) {
     
     _pCameraModel = std::make_shared<CameraModel>();
 
@@ -30,6 +30,7 @@ bool VisualInertialSLAM::process(const cv::Mat& grayL, const cv::Mat& grayR, con
                 std::cerr << "Error occurs in imu-preintegration!" << std::endl;
                 return false;
             }
+            _pMap->pushImuConstraint(_pImuPreintegrator->_ic);
             end = std::chrono::steady_clock::now();
             std::cout << "Imu-preintegration elapsed time: " << std::chrono::duration<double, std::milli>(end-start).count() << "ms" << std::endl << std::endl;
 
@@ -60,12 +61,31 @@ bool VisualInertialSLAM::process(const cv::Mat& grayL, const cv::Mat& grayR, con
         }
         case INITIALIZING:
         {
-            if (_readyToAlign && _pImuPreintegrator->processImu(imgTimestamp)) {
-                // Initialize IMU pose and bias.
-                std::cout << "Initializing IMU pose and bias..." << std::endl;
-                _pOptimizer->initialAlignment();
-                std::cout << "IMU initialization Done!" << std::endl << std::endl;
-
+            if (!_gyrInitialized) {
+                std::cout << "Initializing gyroscope bias..." << std::endl;
+                _pImuPreintegrator->processImu(imgTimestamp);
+                _pOptimizer->initialGyrBias();
+                _pImuPreintegrator->reset();
+                std::cout << "Gyr bias initialization Done!" << std::endl << std::endl;
+                _gyrInitialized = true;
+            }
+            else if (!_poseInitialized) {
+                std::cout << "Initializing body pose..." << std::endl;
+                _pImuPreintegrator->processImu(imgTimestamp);
+                _pOptimizer->initialAlignment(true);
+                _pImuPreintegrator->reset();
+                std::cout << "Body pose initialization Done!" << std::endl << std::endl;
+                _poseInitialized = true;
+            }
+            else if (!_accInitialized) {
+                std::cout << "Initializing accelerometer bias..." << std::endl;
+                _pImuPreintegrator->processImu(imgTimestamp);
+                _pOptimizer->initialAlignment(false);
+                _pImuPreintegrator->reset();
+                std::cout << "Acc bias initialization Done!" << std::endl << std::endl;
+                _accInitialized = true;
+            }
+            else {    
                 // Initial stereo pair matching.
                 std::cout << "Initializing stereo pair matching..." << std::endl;
                 _pFeatureTracker->processImage(grayL, grayR);
@@ -76,6 +96,12 @@ bool VisualInertialSLAM::process(const cv::Mat& grayL, const cv::Mat& grayR, con
                 
                 _state = OK;
             }
+            break;
+        }
+        case SYNCHRONIZING:
+        {
+            if (_pImuPreintegrator->processImu(imgTimestamp))
+                _state = INITIALIZING;
             break;
         }
         case LOST:
@@ -93,22 +119,14 @@ void VisualInertialSLAM::collectImuData(const cfsd::SensorType& st, const long& 
         case ACCELEROMETER:
             _acc << (double)x, (double)y, (double)z;
             _accGot = true;
+            std::cout << "rotated acc:\n" << _pMap->_R[0] * _acc + _pMap->_gravity << std::endl;
             break;
         case GYROSCOPE:
             _gyr << (double)x, (double)y, (double)z;
             _gyrGot = true;
     }
     if (_accGot && _gyrGot) {
-        // Collect measurement in the first 2 seconds (if imu is 200Hz) to perform initial optimization.
-        // Note: this assumes that imu is still in the first 2 seconds.
-        if (!_readyToAlign) {
-            _pOptimizer->_gyrs.push_back(_gyr);
-            _pOptimizer->_accs.push_back(_acc);
-            _readyToAlign = (++_imuCount > 399); // 2s ???
-        }
-        else {
-            _pImuPreintegrator->pushImuData(timestamp, _gyr, _acc);
-        }
+        _pImuPreintegrator->pushImuData(timestamp, _gyr, _acc);
         _gyrGot = false;
         _accGot = false;
     }

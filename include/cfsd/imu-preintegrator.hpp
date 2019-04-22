@@ -11,6 +11,10 @@ namespace cfsd {
 // Exponential map: v (rotation vector) -> v_hat (skew symmetric matrix) -> exp(v_hat) (rotation matrix)
 // Logarithmic map: R (rotation matrix) -> log(R) (skew symmetrix matrix) -> log(R)_vee (rotation vector)
 
+// Calculate right jacobian and the inverse of SO3.
+Eigen::Matrix3d rightJacobianSO3(const Eigen::Vector3d& omega);
+Eigen::Matrix3d rightJacobianInverseSO3(const Eigen::Vector3d& omega);
+
 /* for cfsd
    default IMU coordinate system => convert to camera coordinate system
             / x (roll)                          / z (yaw)
@@ -27,8 +31,9 @@ class ImuPreintegrator {
   public:
     ImuPreintegrator(const cfsd::Ptr<Map> pMap, const bool verbose);
 
-    // Set initial IMU rotation w.r.t world frame and gyr bias.
-    void setInitialStates(double bg[3], double r[3]);
+    // Set initial IMU bias.
+    void setInitialGyrBias(const Eigen::Vector3d& delta_bg);
+    void setInitialAccBias(const Eigen::Vector3d& delta_ba);
 
     // Update bias after motion-only optimization is done.
     void updateBias();
@@ -41,32 +46,21 @@ class ImuPreintegrator {
     bool processImu(const long& imgTimestamp);
 
     // Iteratively preintegrate IMU measurements.
-    void iterate( const Sophus::SO3d& dR, const Eigen::Vector3d& ub_acc_jm1);
-
-    // Calculate right jacobian and the inverse of SO3.
-    Eigen::Matrix3d rightJacobianSO3(const Eigen::Vector3d& omega);
-    Eigen::Matrix3d rightJacobianInverseSO3(const Eigen::Vector3d& omega);
+    void integrate( const Sophus::SO3d& dR, const Eigen::Vector3d& ub_acc_jm1);
 
     // Propagate preintegration noise.
-    void propagate(const Sophus::SO3d& dR, const Eigen::Matrix3d& Jr, const Eigen::Matrix3d& temp);
+    void propagateNoise(const Sophus::SO3d& dR, const Eigen::Matrix3d& Jr, const Eigen::Matrix3d& temp);
 
     // Calculate jacobians of R, v, p with respect to bias.
-    void jacobians(const Eigen::Matrix3d& Jr, Eigen::Matrix3d& temp);
-
-    bool evaluate(const cfsd::Ptr<ImuConstraint>& ic,
-        const Eigen::Vector3d& r_i, const Eigen::Vector3d& v_i, const Eigen::Vector3d& p_i,
-        const Eigen::Vector3d& bg_i, const Eigen::Vector3d& ba_i,
-        const Eigen::Vector3d& r_j, const Eigen::Vector3d& v_j, const Eigen::Vector3d& p_j,
-        const Eigen::Vector3d& bg_j, const Eigen::Vector3d& ba_j,
-        double* residuals, double** jacobians);
+    void biasJacobians(const Sophus::SO3d& dR, const Eigen::Matrix3d& Jr, Eigen::Matrix3d& temp);
 
   private:
     bool _verbose;
 
     cfsd::Ptr<Map> _pMap;
 
-    // A very small number that helps determine if a rotation is close to zero.
-    double _epsilon{1e-5};
+    // // A very small number that helps determine if a rotation is close to zero.
+    // double _epsilon{1e-5};
 
     // IMU parameters:
     // Sampling frequency.
@@ -75,14 +69,11 @@ class ImuPreintegrator {
     // Sampling time (1 / _samplingRate); _deltaT2 = _deltaT * _deltaT
     double _deltaT{0}, _deltaT2{0};
     long _deltaTus{0}; // _deltaT in microseconds.
-    
-    // Gravity vector.
-    Eigen::Vector3d _gravity;
 
     // Covariance matrix of measurement discrete-time noise [n_gd, n_ad]
-    Eigen::Matrix<double,6,6> _covNoise;
+    Eigen::Matrix<double,6,6> _covNoiseD;
 
-    // Covariance matrix of discrete-time bias [b_gd, b_ad]
+    // Covariance matrix of continuous-time bias [b_g, b_a]
     Eigen::Matrix<double,6,6> _covBias;
 
      /* keyframe: o                        o
@@ -125,7 +116,9 @@ class ImuPreintegrator {
     std::queue<std::pair<Eigen::Vector3d,Eigen::Vector3d>> _dataQueue;
     std::queue<long> _timestampQueue;
 
-    Sophus::SO3d _initialR;
+  public:
+    cfsd::Ptr<ImuConstraint> _ic;
+
 };
 
 } // namespace cfsd

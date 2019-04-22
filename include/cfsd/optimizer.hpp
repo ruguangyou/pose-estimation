@@ -1,14 +1,7 @@
 #ifndef OPTIMIZER_HPP
 #define OPTIMIZER_HPP
 
-#include "cfsd/common.hpp"
-#include "cfsd/config.hpp"
-#include "cfsd/camera-model.hpp"
-#include "cfsd/map.hpp"
-#include "cfsd/feature-tracker.hpp"
-#include "cfsd/imu-preintegrator.hpp"
-
-#include <ceres/ceres.h>
+#include "cfsd/cost-functions.hpp"
 
 #include <opencv2/imgproc/imgproc.hpp>
 #include <opencv2/highgui/highgui.hpp>
@@ -30,7 +23,9 @@ class Optimizer {
     void motionOnlyBA(const cv::Mat& img);
 
     // Estimate initial IMU bias, align initial IMU acceleration to gravity.
-    void initialAlignment();
+    void initialAlignment(bool isBiasConstant);
+
+    void initialGyrBias();
 
     // void localOptimize();
 
@@ -45,12 +40,16 @@ class Optimizer {
 
     cfsd::Ptr<CameraModel> _pCameraModel;
 
+    // Initial states (to be optimized).
+    Eigen::Vector3d _delta_bg;
+    Eigen::Vector3d _delta_ba;
+
     double _pose[WINDOWSIZE][6];  // pose (rotation vector, translation vector / position)
     double _v_bga[WINDOWSIZE][9]; // velocity, bias of gyroscope, bias of accelerometer
 
-  public:
-    std::vector<Eigen::Vector3d> _accs;
-    std::vector<Eigen::Vector3d> _gyrs;
+  // public:
+  //   std::vector<Eigen::Vector3d> _accs;
+  //   std::vector<Eigen::Vector3d> _gyrs;
 };
 
 } // namespace cfsd

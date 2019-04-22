@@ -22,6 +22,7 @@ class VisualInertialSLAM {
   public:
     // visual inertial odometry state
     enum VIOstate {
+        SYNCHRONIZING,
         INITIALIZING,
         OK,
         LOST
@@ -57,9 +58,13 @@ class VisualInertialSLAM {
     Eigen::Vector3d _gyr, _acc;
     bool _gyrGot{false}, _accGot{false};
 
-    bool _readyToAlign{false};
+    // bool _readyToAlign{false};
 
-    size_t _imuCount{0};
+    bool _gyrInitialized{false};
+    bool _poseInitialized{false};
+    bool _accInitialized{false};
+
+    // size_t _imuCount{0};
     
 };
 

@@ -4,9 +4,9 @@
 #ifndef VIEWER_HPP
 #define VIEWER_HPP
 
+#include "cfsd/common.hpp"
 #include "cfsd/config.hpp"
-#include <vector>
-#include <thread>
+
 #include <pangolin/pangolin.h>
 
 // local sliding-window size
@@ -24,16 +24,13 @@ class Viewer {
     void drawCoordinate();
 
     // Push and draw.
-    void pushParameters(double pose[WINDOWSIZE][6], int size);
-
-    void drawPosition();
-
-    void pushRawParameters(double* pose_i);
-
+    void pushRawPosition(const Eigen::Vector3d& p, const int& offset);
     void drawRawPosition();
 
-    void pushLandmark(const double& x, const double& y, const double& z);
+    void pushOptimizedPosition(const Eigen::Vector3d& p, const int& offset);
+    void drawOptimizedPosition();
 
+    void pushLandmark(const double& x, const double& y, const double& z);
     void drawLandmark();
 
     void setStop();
@@ -45,14 +42,18 @@ class Viewer {
     float viewpointX, viewpointY, viewpointZ, viewpointF;
 
     // States (position).
-    std::vector<float> xs, ys, zs;
+    std::vector<float> xsOptimized, ysOptimized, zsOptimized;
     std::vector<float> xsRaw, ysRaw, zsRaw;
     std::vector<float> pointsX, pointsY, pointsZ;
 
     // Set true if Optimizer pass parameters to this Viewer.
-    bool readyToDraw, readyToDrawRaw, readyToDrawLandmark;
+    bool readyToDrawOptimized{false};
+    bool readyToDrawRaw{false};
+    bool readyToDrawLandmark{false};
 
     std::mutex dataMutex, rawDataMutex, landmarkMutex;
+
+    int idx{0};
 };
 
 } // namespace cfsd
