@@ -22,10 +22,11 @@ class VisualInertialSLAM {
   public:
     // visual inertial odometry state
     enum VIOstate {
-        SYNCHRONIZING,
-        INITIALIZING,
-        OK,
-        LOST
+        SYNCHRONIZING, // matching imu and camera timestamp
+        SFM, // struct from motion
+        INITIALIZING, // initialize imu
+        OK, // process
+        LOST // caused by lose track or corrupted bias, need re-initialization
     };
 
   public:
@@ -60,11 +61,11 @@ class VisualInertialSLAM {
 
     // bool _readyToAlign{false};
 
-    bool _gyrInitialized{false};
-    bool _poseInitialized{false};
-    bool _accInitialized{false};
+    // bool _gyrInitialized{false};
+    // bool _poseInitialized{false};
+    // bool _accInitialized{false};
 
-    // size_t _imuCount{0};
+    int _sfmCount{0};
     
 };
 

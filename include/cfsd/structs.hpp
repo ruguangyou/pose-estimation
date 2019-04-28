@@ -7,21 +7,13 @@ namespace cfsd {
 
 struct Feature {
     Feature() {}
-    Feature(const int& frameCount, const cv::Point2d& pixelL, const cv::Point2d& pixelR, const cv::Mat& descriptorL, const cv::Mat& descriptorR, Eigen::Vector3d& position, const int& age)
-      : descriptorL(descriptorL), descriptorR(descriptorR), position(position), age(age) {
-        seenByFrames.push_back(frameCount);
-        pixelsL.push_back(pixelL);
-        pixelsR.push_back(pixelR);
-    }
-
-    // ID of Frames which can see this feature.
-    std::vector<int> seenByFrames;
+    Feature(const cv::Point2d& pixelL, const cv::Mat& descriptorL, const cv::Mat& descriptorR, Eigen::Vector3d& position, const int& age)
+      : pixelL(pixelL), descriptorL(descriptorL), descriptorR(descriptorR), position(position), age(age) {}
 
     // Pixel coordinate of this feature in each frame.
-    std::vector<cv::Point2d> pixelsL;
-    std::vector<cv::Point2d> pixelsR;
+    cv::Point2d pixelL;
     
-    // Feature descriptor, comes from the earliest frame, i.e. _seenByFrames[0].
+    // Feature descriptor, comes from the earliest frame.
     cv::Mat descriptorL;
     cv::Mat descriptorR;
 
@@ -29,22 +21,6 @@ struct Feature {
     Eigen::Vector3d position;
 
     int age;
-};
-
-struct MapPoint {
-    MapPoint() {}
-    MapPoint(const cfsd::Ptr<Feature>& f) 
-        : seenByFrames(f->seenByFrames), pixelsL(f->pixelsL), pixelsR(f->pixelsR), position(f->position) {}
-
-    // ID of Frames which can see this feature.
-    std::vector<int> seenByFrames;
-
-    // Pixel coordinate of this feature in each frame.
-    std::vector<cv::Point2d> pixelsL;
-    std::vector<cv::Point2d> pixelsR;
-
-    // 3D landmark position w.r.t world frame.
-    Eigen::Vector3d position;
 };
 
 struct ImuConstraint {

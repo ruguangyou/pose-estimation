@@ -6,6 +6,10 @@ imageWidth: 752
 imageHeight: 480
 cameraFrequency: 20
 
+# Standard deviation of pixel-level measurement
+stdX: 0.5
+stdY: 0.5
+
 # The following camera parameters is based on 1344x376 resolution (i.e. 672x376 each side)
 # Left camera intrinsics
 camLeft: !!opencv-matrix
@@ -60,25 +64,39 @@ translationImuToCamera: !!opencv-matrix
     dt: d
     data: [ 0.0652229, -0.0207064, -0.0080546 ]
 
-# Feature detector parameters
-detectorType: "ORB"  # available (ORB, BRISK...)
-# ORB
-numberOfFeatures: 200
+# ORB feature detector parameters
+numberOfFeatures: 500
 scaleFactor: 1.2
 levelPyramid: 8
+edgeThreshold: 31
+scoreType: 1 # 0 is ORB::HARRIS_SCORE, 1 is ORB::FAST_SCORE
+patchSize: 31
+fastThreshold: 20
 
 # Feature matching parameters
 matchRatio: 2    # the distance of a good match should be smaller than minDist*matchRatio
 minMatchDist: 30.0 # another number for selecting good matches, from experience
 maxVerticalPixelDist: 0.1 # selecting good matching by the vertical coordinates since image have been rectified
-maxFeatureAge: 5   # Max age of a feature
+maxFeatureAge: 5  # Max age of a feature
+maxDepth: 10 # Max depth or distance w.r.t camera
 
 #max_num_lost: 10
 #min_inliers: 10
 
+
 # Keyframe selection
-keyframe_rotation: 0.1
-keyframe_translation: 0.1
+keyframeRotation: 0.1
+keyframeTranslation: 0.1
+# nearPointThres:
+# maxImuTimeInterval:
+
+# Reinitialization if bias is corrupted
+maxGyrBias: 0.1
+maxAccBias: 0.6
+
+# SfM frame selection
+sfmRotation: 0
+sfmTranslation: 0
 
 gravity: 9.81734 # [m/s^2] gravitational acceleration (might need slightly modification in case of different location)
 
@@ -103,6 +121,12 @@ gyroscope_random_walk: 1.9393e-05       # [ rad / s^2 / sqrt(Hz) ] ( gyro bias d
 accelerometer_noise_density: 2.0000e-3  # [ m / s^2 / sqrt(Hz) ]   ( accel "white noise" )
 accelerometer_random_walk: 3.0000e-3    # [ m / s^3 / sqrt(Hz) ].  ( accel bias diffusion )
 
+# Optimization settings
+max_num_iterations: 20 # default: 50
+max_solver_time_in_seconds: 10 # default: 1e6
+num_threads: 4 # default: 1
+check_gradients: 0
+
 # Viewer settings
 ## world frame
 ##    x |  / z
@@ -110,8 +134,12 @@ accelerometer_random_walk: 3.0000e-3    # [ m / s^3 / sqrt(Hz) ].  ( accel bias 
 ##       ------ y
 # set the up direction as AxisX
 viewScale: 1
-pointSize: 2
+pointSize: 4
+landmarkSize: 2
+lineWidth: 2
 viewpointX: 10
-viewpointY: 0
-viewpointZ: -0.1
+viewpointY: 10
+viewpointZ: -30
 viewpointF: 2000
+background: 0 # 0 is black, 1 is white
+# viewDirection: ... 

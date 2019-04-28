@@ -37,9 +37,10 @@ class Viewer {
 
   private:
     // Viewer settings (refer to ORB-SLAM2).
-    int viewScale;
-    float pointSize;
-    float viewpointX, viewpointY, viewpointZ, viewpointF;
+    int viewScale{0};
+    float pointSize{0}, landmarkSize{0}, lineWidth{0};
+    float viewpointX{0}, viewpointY{0}, viewpointZ{0}, viewpointF{0};
+    int background{0};
 
     // States (position).
     std::vector<float> xsOptimized, ysOptimized, zsOptimized;

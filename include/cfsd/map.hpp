@@ -4,7 +4,7 @@
 #include "cfsd/common.hpp"
 #include "cfsd/config.hpp"
 #include "cfsd/structs.hpp"
-#include "cfsd/frame.hpp"
+#include "cfsd/camera-model.hpp"
 
 // local sliding-window size
 #define WINDOWSIZE 6
@@ -17,12 +17,21 @@ namespace cfsd {
 
 class Map {
   public: 
-    Map(const bool verbose);
+    Map(const cfsd::Ptr<CameraModel>& pCameraModel, const bool verbose);
 
+    void pushSfm(const Eigen::Vector3d& r, const Eigen::Vector3d& p, const cfsd::Ptr<ImuConstraint>& ic);
 
-    void pushImuConstraint(cfsd::Ptr<ImuConstraint>& ic);
+    void repropagate(const int& start, const Eigen::Vector3d& delta_bg, const Eigen::Vector3d& delta_ba);
 
-    // void pushFrame(const std::map<size_t,Feature>& features, const std::vector<size_t>& matchedFeatureIDs);
+    void setInitialGravity(const Eigen::Vector3d& g);
+
+    void updateInitialVelocity(const int& start, double delta_v[WINDOWSIZE][3]);
+
+    void updateInitialRotation(const int& start, const Eigen::Vector3d& delta_r);
+
+    void reset(const int& start);
+    
+    void pushImuConstraint(const cfsd::Ptr<ImuConstraint>& ic);
 
     void checkKeyframe();
 
@@ -32,20 +41,27 @@ class Map {
 
     // TODO................
     Sophus::SE3d getBodyPose();
-
-    void setInitialRotation(const Eigen::Vector3d& delta_r);
   
   private:
     bool _verbose;
 
+    cfsd::Ptr<CameraModel> _pCameraModel;
+
     // Minimum rotation and translation for selecting a keyframe.
-    double _minRotation, _minTranslation;
+    double _minRotation{0};
+    double _minTranslation{0};
+
+    // Maximum allowable bias norm. Need reinitialization if exceeded.
+    double _maxGyrBias{0};
+    double _maxAccBias{0};
 
     bool _notPushed{true};
     
   public:
     // Gravity vector.
     Eigen::Vector3d _gravity;
+
+    Eigen::Vector3d _init_gravity;
 
     // State (R, v, p) and bias (bg, ba) from time i to j
     // keyframe: *                         *
@@ -60,9 +76,11 @@ class Map {
 
     std::vector<cfsd::Ptr<ImuConstraint>> _imuConstraint;
 
-    std::vector<cfsd::Ptr<MapPoint>> _mapPoints;
+    std::vector< std::vector< std::pair<cv::Point2d, Eigen::Vector3d> > > _frames;
 
     bool _isKeyframe{false};
+
+    bool _needReinitialize{false};
 
     #ifdef USE_VIEWER
     cfsd::Ptr<Viewer> _pViewer;

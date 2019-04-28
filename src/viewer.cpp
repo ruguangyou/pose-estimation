@@ -6,10 +6,13 @@ namespace cfsd {
 Viewer::Viewer() {
     viewScale = Config::get<int>("viewScale");
     pointSize = Config::get<float>("pointSize");
+    landmarkSize = Config::get<float>("landmarkSize");
+    lineWidth = Config::get<float>("lineWidth");
     viewpointX = Config::get<float>("viewpointX");
     viewpointY = Config::get<float>("viewpointY");
     viewpointZ = Config::get<float>("viewpointZ");
     viewpointF = Config::get<float>("viewpointF");
+    background = Config::get<float>("background");
 }
 
 void Viewer::run() {
@@ -34,7 +37,7 @@ void Viewer::run() {
     pangolin::Var<bool> menuSaveWindow("menu.Save Window", false, false);
     pangolin::Var<bool> menuSaveObject("menu.Save Object", false, false);
     pangolin::Var<bool> menuShowCoordinate("menu.Show Coordinate", true, true);
-    pangolin::Var<bool> menuShowRawPosition("menu.Show Raw Position", true, true);
+    pangolin::Var<bool> menuShowRawPosition("menu.Show Raw Position", false, true);
     pangolin::Var<bool> menuShowOptimizedPosition("menu.Show Optimized Position", true, true);
     pangolin::Var<bool> menuShowLandmark("menu.Show Landmark", true, true);
     // ...
@@ -45,7 +48,7 @@ void Viewer::run() {
     pangolin::OpenGlRenderState s_cam(
         pangolin::ProjectionMatrix(1024,768, viewpointF,viewpointF, 512,389, 0.1,1000),
         // pangolin::ModelViewLookAt(viewpointX,viewpointY,viewpointZ, 0,0,0, pangolin::AxisNegZ)
-        pangolin::ModelViewLookAt(viewpointX,viewpointY,viewpointZ, 0,0,0, pangolin::AxisZ)
+        pangolin::ModelViewLookAt(viewpointX,viewpointY,viewpointZ, 0,0,0, pangolin::AxisX)
     );
     /*  our camera coordinate system (where AxisNegY is the up direction)
               / z (yaw)
@@ -66,7 +69,7 @@ void Viewer::run() {
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         // Make the background white (default black)
-        glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
+        if (background) glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
 
         // Activate efficiently by object
         d_cam.Activate(s_cam);
@@ -106,7 +109,7 @@ void Viewer::run() {
 }
 
 void Viewer::drawCoordinate() {
-    float len = 4.0f;
+    float len = 1.0f;
     glLineWidth(2);
     glBegin(GL_LINES);
     glColor4f(1.0f, 0.0f, 0.0f, 1.0f);
@@ -137,7 +140,6 @@ void Viewer::pushRawPosition(const Eigen::Vector3d& p, const int& offset) {
         ysRaw[i] = static_cast<float>(p(1) * viewScale);
         zsRaw[i] = static_cast<float>(p(2) * viewScale);
     }
-    // if (xsRaw.size() >= WINDOWSIZE && offset == WINDOWSIZE - 1) idx++;
 
     readyToDrawRaw = true;
 }
@@ -147,11 +149,21 @@ void Viewer::drawRawPosition() {
 
     if (!readyToDrawRaw) return;
 
+    glColor3f(0.6f, 0.2f, 0.2f);
     glPointSize(pointSize);
     glBegin(GL_POINTS);
-    glColor3f(0.0f, 1.0f, 0.0f);
     for (int i = 0; i < xsRaw.size(); i++)
         glVertex3f(xsRaw[i], ysRaw[i], zsRaw[i]);
+    glEnd();
+
+    glLineWidth(lineWidth);
+    glBegin(GL_LINES);
+    glVertex3f(xsRaw[0], ysRaw[0], zsRaw[0]);
+    for (int i = 0; i < xsRaw.size(); i++) {
+        glVertex3f(xsRaw[i], ysRaw[i], zsRaw[i]);
+        glVertex3f(xsRaw[i], ysRaw[i], zsRaw[i]);
+    }
+    glVertex3f(xsRaw.back(), ysRaw.back(), zsRaw.back());
     glEnd();
 }
 
@@ -182,17 +194,20 @@ void Viewer::drawOptimizedPosition() {
 
     glPointSize(pointSize);
     glBegin(GL_POINTS);
-    glColor3f(1.0f, 0.0f, 0.0f);
+    glColor3f(0.2f, 0.6f, 0.2f);
     for (int i = 0; i < xsOptimized.size(); i++)
         glVertex3f(xsOptimized[i], ysOptimized[i], zsOptimized[i]);
     glEnd();
 
-    // glLineWidth(2);
-    // glColor4f(0.5f, 0.5f, 0.5f, 1.0f);
-    // glBegin(GL_LINES);
-    // for (int i = 0; i < xs.size(); i++)
-    //     glVertex3f(xs[i], ys[i], zs[i]);
-    // glEnd();
+    glLineWidth(lineWidth);
+    glBegin(GL_LINES);
+    glVertex3f(xsOptimized[0], ysOptimized[0], zsOptimized[0]);
+    for (int i = 1; i < xsRaw.size() - 1; i++) {
+        glVertex3f(xsOptimized[i], ysOptimized[i], zsOptimized[i]);
+        glVertex3f(xsOptimized[i], ysOptimized[i], zsOptimized[i]);
+    }
+    glVertex3f(xsOptimized.back(), ysOptimized.back(), zsOptimized.back());
+    glEnd();
 }
 
 void Viewer::pushLandmark(const double& x, const double& y, const double& z) {
@@ -210,9 +225,9 @@ void Viewer::drawLandmark() {
 
     if (!readyToDrawLandmark) return;
 
-    glPointSize(pointSize);
+    glPointSize(landmarkSize);
     glBegin(GL_POINTS);
-    glColor3f(0.0f, 0.0f, 1.0f);
+    glColor3f(0.2f, 0.2f, 0.6f);
     for (int i = 0; i < pointsX.size(); i++)
         glVertex3f(pointsX[i], pointsY[i], pointsZ[i]);
     glEnd();

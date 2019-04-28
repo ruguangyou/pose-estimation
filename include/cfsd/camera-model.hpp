@@ -47,6 +47,9 @@ namespace cfsd {
 class CameraModel {
   public:
     CameraModel() {
+        _stdX = Config::get<double>("stdX");
+        _stdY = Config::get<double>("stdY");
+
         // for cfsd
         // _imageSize.height = Config::get<int>("processHeight");
         // _imageSize.width = Config::get<int>("processWidth");
@@ -78,6 +81,7 @@ class CameraModel {
         cv::initUndistortRectifyMap(_K2, _D2, _R2, _P2, _imageSize, CV_16SC2, _rmap[1][0], _rmap[1][1]);
         std::cout << "Camera init undistort-rectify-map done!" << std::endl << std::endl;
 
+        _K_L = _P1.colRange(0,3);
         cv::cv2eigen(_P1, _P_L);
         cv::cv2eigen(_P2, _P_R);
 
@@ -93,6 +97,10 @@ class CameraModel {
         _T_CB = Sophus::SE3d(Eigen::Quaterniond(eigen_R_CB), eigen_t_CB);
         _T_BC = _T_CB.inverse();
     }
+
+    // Standard deviation of pixel measurement.
+    double _stdX{0};
+    double _stdY{0};
 
     // Convention: first camera is left, second camera is right.
     
@@ -116,6 +124,9 @@ class CameraModel {
     cv::Mat _P1, _P2;
     // 4×4 disparity-to-depth mapping matrix (see reprojectImageTo3D ).
     cv::Mat _Q;
+
+    // 3x3 camera matrix after undistort and rectification.
+    cv::Mat _K_L;
 
     // Undistortion and rectification transformation map.
     cv::Mat _rmap[2][2];

@@ -23,9 +23,13 @@ class Optimizer {
     void motionOnlyBA(const cv::Mat& img);
 
     // Estimate initial IMU bias, align initial IMU acceleration to gravity.
-    void initialAlignment(bool isBiasConstant);
+    void initialGravityVelocity();
+    
+    void initialAlignment();
 
     void initialGyrBias();
+
+    void initialAccBias();
 
     // void localOptimize();
 
@@ -39,10 +43,6 @@ class Optimizer {
     cfsd::Ptr<ImuPreintegrator> _pImuPreintegrator;
 
     cfsd::Ptr<CameraModel> _pCameraModel;
-
-    // Initial states (to be optimized).
-    Eigen::Vector3d _delta_bg;
-    Eigen::Vector3d _delta_ba;
 
     double _pose[WINDOWSIZE][6];  // pose (rotation vector, translation vector / position)
     double _v_bga[WINDOWSIZE][9]; // velocity, bias of gyroscope, bias of accelerometer

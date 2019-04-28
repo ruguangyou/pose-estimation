@@ -51,7 +51,7 @@ int main(int argc, char** argv) {
 
     int rate = cfsd::Config::get<int>("samplingRate") / cfsd::Config::get<int>("cameraFrequency");
     while (!f_imu.eof() && !f_img.eof()) {
-        for (int i = 0; i < rate + 1; i++) {
+        for (int i = 0; i < 2*rate + 1; i++) {
             f_imu >> imuTimestamp;
             f_imu.ignore(1, ',');
             f_imu >> wx;
@@ -70,6 +70,9 @@ int main(int argc, char** argv) {
             pVISLAM->collectImuData(cfsd::SensorType::GYROSCOPE, imuTimestamp, wx, wy, wz);
         }
 
+        f_img >> imgTimestamp;
+        f_img.ignore(1, ',');
+        f_img >> imgName;
         f_img >> imgTimestamp;
         f_img.ignore(1, ',');
         f_img >> imgName;
