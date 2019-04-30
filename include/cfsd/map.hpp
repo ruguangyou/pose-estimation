@@ -76,7 +76,7 @@ class Map {
 
     std::vector<cfsd::Ptr<ImuConstraint>> _imuConstraint;
 
-    std::vector< std::vector< std::pair<cv::Point2d, Eigen::Vector3d> > > _frames;
+    std::vector< std::vector< cfsd::Ptr<MapPoint> > > _frames;
 
     bool _isKeyframe{false};
 

@@ -15,12 +15,9 @@
 
 cmake_minimum_required(VERSION 3.2)
 
-project(cfsd-state-estimation)
+# project(cfsd-state-estimation)
 # project(kitti-state-estimation)
-# Compiler setting
-# set(CMAKE_CXX_COMPILER "g++")
-# set(CMAKE_BUILD_TYPE "Debug")
-# set(CMAKE_CXX_FLAGS "-std=c++11 -march=native -O0 -g")
+project(euroc-state-estimation)
 
 ################################################################################
 # # Defining the relevant versions of OpenDLV Standard Message Set and libcluon.
@@ -61,7 +58,7 @@ find_package(Threads REQUIRED)
 
 ################################################################################
 # Set debug flag
-option(WITH_DEBUG_IMG "Debug mode for feature-tracker" ON)
+option(WITH_DEBUG_IMG "Debug mode for feature-tracker" OFF)
 if(WITH_DEBUG_IMG)
     add_definitions(-DDEBUG_IMG)
 endif()
@@ -132,7 +129,7 @@ include_directories(${CERES_INCLUDE_DIRS})
 set(LIBRARIES ${LIBRARIES} ${CERES_LIBRARIES})
 
 # Pangolin
-option(WITH_VIEWER "Enable visulization" OFF)
+option(WITH_VIEWER "Enable visulization" ON)
 if (WITH_VIEWER)
     add_definitions(-DUSE_VIEWER)
     find_package(Pangolin 0.4 REQUIRED)

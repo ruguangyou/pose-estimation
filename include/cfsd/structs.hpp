@@ -7,7 +7,7 @@ namespace cfsd {
 
 struct Feature {
     Feature() {}
-    Feature(const cv::Point2d& pixelL, const cv::Mat& descriptorL, const cv::Mat& descriptorR, Eigen::Vector3d& position, const int& age)
+    Feature(const cv::Point2d& pixelL, const cv::Mat& descriptorL, const cv::Mat& descriptorR, const Eigen::Vector3d& position, const int& age)
       : pixelL(pixelL), descriptorL(descriptorL), descriptorR(descriptorR), position(position), age(age) {}
 
     // Pixel coordinate of this feature in each frame.
@@ -52,6 +52,17 @@ struct ImuConstraint {
 
     // The time between two camera frames, dt2 = dt^2.
     double dt{0}, dt2{0};
+};
+
+struct MapPoint {
+    MapPoint() {}
+    MapPoint(const size_t id, const cv::Point2d& pixel, const Eigen::Vector3d& position) : id(id), pixel(pixel), position(position) {}
+
+    size_t id;
+    
+    cv::Point2d pixel;
+    
+    Eigen::Vector3d position;
 };
 
 } // namespace cfsd

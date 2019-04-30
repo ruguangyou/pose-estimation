@@ -263,7 +263,7 @@ void FeatureTracker::externalTrack(const bool useRANSAC) {
             if (search != mapCurHist.end() && search->second == m.trainIdx) {
                 // Satisfy circular matching, i.e. curLeft <=> histLeft <=> histRight <=> curRight <=> curLeft, the age of history features will increase 1.
                 size_t featureID = _histFeatureIDs[m.trainIdx];
-                _pMap->_frames.back().push_back(std::make_pair(_curPixelsL[m.queryIdx], _features[featureID]->position));
+                _pMap->_frames.back().push_back(std::make_shared<MapPoint>(featureID, _curPixelsL[m.queryIdx], _features[featureID]->position));
                 _matchedFeatureIDs.push_back(featureID);
                 // Will not be added as new features.
                 _curFeatureMask[m.queryIdx] = false;
@@ -344,7 +344,7 @@ void FeatureTracker::featurePoolUpdate() {
             _histDescriptorsR.push_back(_curDescriptorsR.row(i));
 
             // Feature seen by this frame.
-            _pMap->_frames.back().push_back(std::make_pair(_curPixelsL[i], position));
+            _pMap->_frames.back().push_back(std::make_shared<MapPoint>(_featureID, _curPixelsL[i], position));
 
             _featureID++;
             

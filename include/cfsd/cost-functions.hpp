@@ -47,65 +47,59 @@ struct AutoDiffImageCostFunction {
 };
 
 
-struct ImageCostFunction : public ceres::SizedCostFunction<2, /* residuals */
-                                                           6  /* delta_pose (r, p) */> {
-    ImageCostFunction(const cfsd::Ptr<CameraModel>& pCameraModel, const cv::Point2d& pixel, const Eigen::Vector3d& point, const Sophus::SO3d& R, const Eigen::Vector3d& p)
-        : _pCameraModel(pCameraModel), _pixel(Eigen::Vector2d(pixel.x, pixel.y)), _point_W(point), _R_WB(R), _p_W(p) {}
+struct ImageCostFunction : public ceres::CostFunction {
+    ImageCostFunction(int k, int n, const Eigen::MatrixXd& error, const Eigen::MatrixXd& F)
+        : _numResiduals(k), _numParameterBlocks(n), _error(error), _F(F) {
+
+        set_num_residuals(_numResiduals);
+        
+        std::vector<int32_t> prameterBlockSizes;
+        for (int i = 0; i < n; i++)
+            prameterBlockSizes.push_back(6);
+        *mutable_parameter_block_sizes() = prameterBlockSizes;
+    }
 
     virtual ~ImageCostFunction() {}
 
     virtual bool Evaluate(double const* const* parameters, double* residuals, double** jacobians) const {
         // parameters: delta_pose (delta_r, delta_p)
-        Eigen::Vector3d delta_r(parameters[0][0], parameters[0][1], parameters[0][2]);
-        Eigen::Vector3d delta_p(parameters[0][3], parameters[0][4], parameters[0][5]);
 
-        // T_WB = (r, p) is transformation from body to world frame, T_BW = T_WB.inverse()
-        Sophus::SO3d updated_R_WB = _R_WB * Sophus::SO3d::exp(delta_r);
-        Eigen::Vector3d updated_p_W = _p_W + _R_WB * delta_p;
+        Eigen::VectorXd delta(_numParameterBlocks*6);
+        for (int i = 0; i < _numParameterBlocks; i++) {
+            // delta_r
+            delta.segment<3>(i*6) = Eigen::Vector3d(parameters[i][0], parameters[i][1], parameters[i][2]);
+            // delta_p
+            delta.segment<3>(i*6+3) = Eigen::Vector3d(parameters[i][3], parameters[i][4], parameters[i][5]);
+        }
 
-        // 3D landmark homogeneous coordinates w.r.t camera frame.
-        // point_body = R_BW * point_world + p_B
-        //            = R_WB' * point_world - R_WB' * p_W
-        //            = R_WB' * (point_world - p_W)
+        Eigen::Map<Eigen::VectorXd> residual(residuals, _numResiduals);
 
-        Eigen::Vector3d updated_pixel_homo;
-        updated_pixel_homo = _pCameraModel->_P_L.block<3,3>(0,0) * (_pCameraModel->_T_CB * (updated_R_WB.inverse() * (_point_W - updated_p_W))) + _pCameraModel->_P_L.block<3,1>(0,3);
-        
-        // This "s" is function of delta_r and delta_p, would make the following jacobians wrong.
-        // double s = updated_pixel_homo(2);
+        // Eigen::MatrixXd J = _E_b_ns.transpose() * _F;
 
-        // This "s" is independent of delta_r and delta_p, but (updated_pixel_homo / s) is not the "real" reprojected pixel.
-        double s = (_pCameraModel->_P_L.block<3,3>(0,0) * (_pCameraModel->_T_CB * (_R_WB.inverse() * (_point_W - _p_W))) + _pCameraModel->_P_L.block<3,1>(0,3)).z();
+        // residual = _E_b_ns.transpose() * _error + J * delta;
 
-        Eigen::Map<Eigen::Vector2d> residual(residuals);
+        residual = _error + _F * delta;
 
-        residual = updated_pixel_homo.head<2>() / s - _pixel;
-        
         // Compute jacobians which are crutial for optimization algorithms like Guass-Newton.
         if (!jacobians) return true;
 
-        // Jacobian(2x6) of residual(2x1) w.r.t. ParameterBlock[0](6x1), i.e. pose
-        if (jacobians[0]) {
-            Eigen::Map<Eigen::Matrix<double, 2, 6, Eigen::RowMajor>> jacobian_pose(jacobians[0]);
+        for (int i = 0; i < _numParameterBlocks; i++) {
+            if (jacobians[i]) {
+                Eigen::Map<Eigen::Matrix<double,Eigen::Dynamic,Eigen::Dynamic,Eigen::RowMajor>> jacobian_pose(jacobians[i], _numResiduals, 6);
 
-            Eigen::Matrix<double, 3, 6> dd;
-
-            dd.leftCols<3>() = Sophus::SO3d::hat(_R_WB.inverse() * (_point_W - _p_W));
-
-            dd.rightCols<3>() = -Eigen::Matrix3d::Identity();
-
-            jacobian_pose = (_pCameraModel->_P_L.block<3,3>(0,0) * _pCameraModel->_T_CB.so3().matrix() * dd).topRows<2>() / s;
+                jacobian_pose = _F.block(0,6*i, _numResiduals,6);
+            }
         }
 
         return true;
     }
 
   private:
-    cfsd::Ptr<CameraModel> _pCameraModel;
-    Eigen::Vector2d _pixel; // Pixel coordinates.
-    Eigen::Vector3d _point_W; // Landmark w.r.t world frame.
-    Sophus::SO3d _R_WB;
-    Eigen::Vector3d _p_W;
+    int _numResiduals;
+    int _numParameterBlocks;
+    Eigen::MatrixXd _error;
+    Eigen::MatrixXd _F;
+    // Eigen::MatrixXd _E_b_ns;
 };
 
 
