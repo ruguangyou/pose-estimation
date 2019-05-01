@@ -13,6 +13,8 @@ Map::Map(const cfsd::Ptr<CameraModel>& pCameraModel, const bool verbose) : _pCam
 
     _minRotation = Config::get<double>("keyframeRotation");
     _minTranslation = Config::get<double>("keyframeTranslation");
+    
+    _maxImuTime = Config::get<double>("maxImuTime");
 
     _maxGyrBias = Config::get<double>("maxGyrBias");
     _maxAccBias = Config::get<double>("maxAccBias");
@@ -135,6 +137,8 @@ void Map::pushImuConstraint(const cfsd::Ptr<ImuConstraint>& ic) {
         _dba.back().setZero();
         _imuConstraint.back() = ic;
     }
+
+    _sumImuTime += ic->dt;
 }
 
 void Map::checkKeyframe() {
@@ -147,10 +151,12 @@ void Map::checkKeyframe() {
     Eigen::Vector3d dr = T_ji.so3().log();
     Eigen::Vector3d dp = T_ji.translation();
 
-    _isKeyframe = (dr.norm() > _minRotation || dp.norm() > _minTranslation);
+    _isKeyframe = (dr.norm() > _minRotation || dp.norm() > _minTranslation || _sumImuTime > _maxImuTime);
 
-    if (_isKeyframe)
+    if (_isKeyframe) {
+        _sumImuTime = 0;
         std::cout << "=> this frame IS a keyframe" << std::endl;
+    }
     else
         std::cout << "=> this frame NOT a keyframe" << std::endl;
 }

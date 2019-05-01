@@ -10,7 +10,9 @@
 #include <pangolin/pangolin.h>
 
 // local sliding-window size
+#ifndef WINDOWSIZE
 #define WINDOWSIZE 6
+#endif
 
 namespace cfsd {
 

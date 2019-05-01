@@ -12,44 +12,46 @@
 
 namespace cfsd {
 
-struct AutoDiffImageCostFunction {
-    AutoDiffImageCostFunction(const cfsd::Ptr<CameraModel>& pCameraModel, const cv::Point2d& pixel, const Eigen::Vector3d& point, const Sophus::SO3d& R, const Eigen::Vector3d& p)
-        : _pCameraModel(pCameraModel), _pixel(pixel), _point_W(point), _R_WB(R), _p_W(p) {}
+// struct PriorCostFunction {}
 
-    template <typename T> bool operator()(const T* const pose, T* residual) const {
-        // parameters: delta_pose (delta_r, delta_p)
-        Eigen::Matrix<T,3,1> delta_r(pose[0], pose[1], pose[2]);
-        Eigen::Matrix<T,3,1> delta_p(pose[3], pose[4], pose[5]);
+// struct AutoDiffImageCostFunction {
+//     AutoDiffImageCostFunction(const cfsd::Ptr<CameraModel>& pCameraModel, const cv::Point2d& pixel, const Eigen::Vector3d& point, const Sophus::SO3d& R, const Eigen::Vector3d& p)
+//         : _pCameraModel(pCameraModel), _pixel(pixel), _point_W(point), _R_WB(R), _p_W(p) {}
 
-        // T_WB = (r, p) is transformation from body to world frame, T_BW = T_WB.inverse()
-        Sophus::SO3<T> updated_R_WB = _R_WB * Sophus::SO3<T>::exp(delta_r);
-        Eigen::Matrix<T,3,1> updated_p_W = _p_W + _R_WB * delta_p;
+//     template <typename T> bool operator()(const T* const pose, T* residual) const {
+//         // parameters: delta_pose (delta_r, delta_p)
+//         Eigen::Matrix<T,3,1> delta_r(pose[0], pose[1], pose[2]);
+//         Eigen::Matrix<T,3,1> delta_p(pose[3], pose[4], pose[5]);
 
-        // 3D landmark homogeneous coordinates w.r.t camera frame.
-        // point_body = R_BW * point_world + p_B = R_WB' * point_world - R_WB' * p_W = R_WB' * (point_world - p_W)
+//         // T_WB = (r, p) is transformation from body to world frame, T_BW = T_WB.inverse()
+//         Sophus::SO3<T> updated_R_WB = _R_WB * Sophus::SO3<T>::exp(delta_r);
+//         Eigen::Matrix<T,3,1> updated_p_W = _p_W + _R_WB * delta_p;
 
-        Eigen::Matrix<T,3,1> updated_pixel_homo;
-        updated_pixel_homo = _pCameraModel->_P_L.block<3,3>(0,0) * (_pCameraModel->_T_CB * (updated_R_WB.inverse() * (_point_W - updated_p_W))) + _pCameraModel->_P_L.block<3,1>(0,3);
-        T s = updated_pixel_homo.z();
+//         // 3D landmark homogeneous coordinates w.r.t camera frame.
+//         // point_body = R_BW * point_world + p_B = R_WB' * point_world - R_WB' * p_W = R_WB' * (point_world - p_W)
 
-        residual[0] = (updated_pixel_homo.x() / s - _pixel.x) /_pCameraModel->_stdX;
-        residual[1] = (updated_pixel_homo.y() / s - _pixel.y) /_pCameraModel->_stdY;
+//         Eigen::Matrix<T,3,1> updated_pixel_homo;
+//         updated_pixel_homo = _pCameraModel->_P_L.block<3,3>(0,0) * (_pCameraModel->_T_CB * (updated_R_WB.inverse() * (_point_W - updated_p_W))) + _pCameraModel->_P_L.block<3,1>(0,3);
+//         T s = updated_pixel_homo.z();
 
-        return true;
-    }
+//         residual[0] = (updated_pixel_homo.x() / s - _pixel.x) /_pCameraModel->_stdX;
+//         residual[1] = (updated_pixel_homo.y() / s - _pixel.y) /_pCameraModel->_stdY;
 
-    private:
-    cfsd::Ptr<CameraModel> _pCameraModel;
-    cv::Point2d _pixel; // Pixel coordinates.
-    Eigen::Vector3d _point_W; // Landmark w.r.t world frame.
-    Sophus::SO3d _R_WB;
-    Eigen::Vector3d _p_W;
-};
+//         return true;
+//     }
+
+//     private:
+//     cfsd::Ptr<CameraModel> _pCameraModel;
+//     cv::Point2d _pixel; // Pixel coordinates.
+//     Eigen::Vector3d _point_W; // Landmark w.r.t world frame.
+//     Sophus::SO3d _R_WB;
+//     Eigen::Vector3d _p_W;
+// };
 
 
 struct ImageCostFunction : public ceres::CostFunction {
-    ImageCostFunction(int k, int n, const Eigen::MatrixXd& error, const Eigen::MatrixXd& F)
-        : _numResiduals(k), _numParameterBlocks(n), _error(error), _F(F) {
+    ImageCostFunction(const int& n, const Eigen::MatrixXd& error, const Eigen::MatrixXd& F/*, const Eigen::MatrixXd& E_b_ns*/)
+        : _numResiduals(2*n), /*_numResiduals(2*n-3),*/ _numParameterBlocks(n), _error(error), _F(F)/*, _E_b_nullspace(E_b_ns)*/ {
 
         set_num_residuals(_numResiduals);
         
@@ -63,21 +65,18 @@ struct ImageCostFunction : public ceres::CostFunction {
 
     virtual bool Evaluate(double const* const* parameters, double* residuals, double** jacobians) const {
         // parameters: delta_pose (delta_r, delta_p)
-
-        Eigen::VectorXd delta(_numParameterBlocks*6);
+        Eigen::VectorXd delta(6*_numParameterBlocks);
         for (int i = 0; i < _numParameterBlocks; i++) {
             // delta_r
-            delta.segment<3>(i*6) = Eigen::Vector3d(parameters[i][0], parameters[i][1], parameters[i][2]);
+            delta.segment<3>(6*i) = Eigen::Vector3d(parameters[i][0], parameters[i][1], parameters[i][2]);
             // delta_p
-            delta.segment<3>(i*6+3) = Eigen::Vector3d(parameters[i][3], parameters[i][4], parameters[i][5]);
+            delta.segment<3>(6*i+3) = Eigen::Vector3d(parameters[i][3], parameters[i][4], parameters[i][5]);
         }
 
         Eigen::Map<Eigen::VectorXd> residual(residuals, _numResiduals);
 
-        // Eigen::MatrixXd J = _E_b_ns.transpose() * _F;
-
-        // residual = _E_b_ns.transpose() * _error + J * delta;
-
+        // Eigen::MatrixXd J = _E_b_nullspace.transpose() * _F;
+        // residual = _E_b_nullspace.transpose() * _error + J * delta;
         residual = _error + _F * delta;
 
         // Compute jacobians which are crutial for optimization algorithms like Guass-Newton.
@@ -87,6 +86,7 @@ struct ImageCostFunction : public ceres::CostFunction {
             if (jacobians[i]) {
                 Eigen::Map<Eigen::Matrix<double,Eigen::Dynamic,Eigen::Dynamic,Eigen::RowMajor>> jacobian_pose(jacobians[i], _numResiduals, 6);
 
+                // jacobian_pose = J.block(0,6*i, _numResiduals,6);
                 jacobian_pose = _F.block(0,6*i, _numResiduals,6);
             }
         }
@@ -99,7 +99,7 @@ struct ImageCostFunction : public ceres::CostFunction {
     int _numParameterBlocks;
     Eigen::MatrixXd _error;
     Eigen::MatrixXd _F;
-    // Eigen::MatrixXd _E_b_ns;
+    // Eigen::MatrixXd _E_b_nullspace;
 };
 
 

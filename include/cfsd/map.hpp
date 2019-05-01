@@ -51,6 +51,10 @@ class Map {
     double _minRotation{0};
     double _minTranslation{0};
 
+    // Maximum integration time for imu, avoid accumulating too much drift.
+    double _maxImuTime{0};
+    double _sumImuTime{0};
+
     // Maximum allowable bias norm. Need reinitialization if exceeded.
     double _maxGyrBias{0};
     double _maxAccBias{0};
