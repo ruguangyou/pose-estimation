@@ -11,7 +11,7 @@
 
 // local sliding-window size
 #ifndef WINDOWSIZE
-#define WINDOWSIZE 6
+#define WINDOWSIZE 4
 #endif
 
 namespace cfsd {

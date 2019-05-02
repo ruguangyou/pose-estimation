@@ -4,7 +4,7 @@ namespace cfsd {
 
 FeatureTracker::FeatureTracker(const cfsd::Ptr<Map>& pMap, const cfsd::Ptr<CameraModel>& pCameraModel, const bool verbose) :
         _pMap(pMap), _pCameraModel(pCameraModel), _verbose(verbose) {
-
+    
     _matchRatio = Config::get<float>("matchRatio");
 
     _minMatchDist = Config::get<float>("minMatchDist");
@@ -16,21 +16,31 @@ FeatureTracker::FeatureTracker(const cfsd::Ptr<Map>& pMap, const cfsd::Ptr<Camer
     _maxDepth = Config::get<double>("maxDepth");
     
     if (_verbose) { std::cout << "Setup ORB detector" << std::endl; }
+    _cvORB = Config::get<bool>("cvORB");
     int numberOfFeatures = Config::get<int>("numberOfFeatures");
     float scaleFactor = Config::get<float>("scaleFactor");
     int levelPyramid = Config::get<int>("levelPyramid");
-    int edgeThreshold = Config::get<int>("edgeThreshold");
-    int patchSize = Config::get<int>("patchSize");
-    int fastThreshold = Config::get<int>("fastThreshold");
-    if (Config::get<int>("scoreType") == 0) {
-        _orb = cv::ORB::create(numberOfFeatures, scaleFactor, levelPyramid, edgeThreshold, 0, 2, cv::ORB::HARRIS_SCORE, patchSize, fastThreshold);
-        // _orbLeft = cv::ORB::create(numberOfFeatures, scaleFactor, levelPyramid, edgeThreshold, 0, 2, cv::ORB::HARRIS_SCORE, patchSize, fastThreshold);
-        // _orbRight = cv::ORB::create(numberOfFeatures, scaleFactor, levelPyramid, edgeThreshold, 0, 2, cv::ORB::HARRIS_SCORE, patchSize, fastThreshold);
+    
+    if (_cvORB) { // use ORB of OpenCV
+        int edgeThreshold = Config::get<int>("edgeThreshold");
+        int patchSize = Config::get<int>("patchSize");
+        int fastThreshold = Config::get<int>("fastThreshold");
+        int gridRow = Config::get<int>("gridRow");
+        int gridCol = Config::get<int>("gridCol");
+        if (Config::get<int>("scoreType") == 0) {
+            _orbLeft = cv::ORB::create(numberOfFeatures/(gridRow*gridCol), scaleFactor, levelPyramid, edgeThreshold, 0, 2, cv::ORB::HARRIS_SCORE, patchSize, fastThreshold);
+            _orbRight = cv::ORB::create(numberOfFeatures/(gridRow*gridCol), scaleFactor, levelPyramid, edgeThreshold, 0, 2, cv::ORB::HARRIS_SCORE, patchSize, fastThreshold);
+        }
+        else {
+            _orbLeft = cv::ORB::create(numberOfFeatures/(gridRow*gridCol), scaleFactor, levelPyramid, edgeThreshold, 0, 2, cv::ORB::HARRIS_SCORE, patchSize, fastThreshold);
+            _orbRight = cv::ORB::create(numberOfFeatures/(gridRow*gridCol), scaleFactor, levelPyramid, edgeThreshold, 0, 2, cv::ORB::HARRIS_SCORE, patchSize, fastThreshold);
+        }
     }
-    else {
-        _orb = cv::ORB::create(numberOfFeatures, scaleFactor, levelPyramid, edgeThreshold, 0, 2, cv::ORB::FAST_SCORE, patchSize, fastThreshold);
-        // _orbLeft = cv::ORB::create(numberOfFeatures, scaleFactor, levelPyramid, edgeThreshold, 0, 2, cv::ORB::HARRIS_SCORE, patchSize, fastThreshold);
-        // _orbRight = cv::ORB::create(numberOfFeatures, scaleFactor, levelPyramid, edgeThreshold, 0, 2, cv::ORB::HARRIS_SCORE, patchSize, fastThreshold);
+    else { // use ORB of ORB_SLAM2
+        int iniThFAST = Config::get<int>("iniThFAST");
+        int minThFAST = Config::get<int>("minThFAST");
+        _ORBextractorLeft = new ORB_SLAM2::ORBextractor(numberOfFeatures, scaleFactor, levelPyramid, iniThFAST, minThFAST);
+        _ORBextractorRight = new ORB_SLAM2::ORBextractor(numberOfFeatures, scaleFactor, levelPyramid, iniThFAST, minThFAST);
     }
 
     _minRotation = Config::get<double>("sfmRotation");
@@ -98,14 +108,51 @@ bool FeatureTracker::processImage(const cv::Mat& grayLeft, const cv::Mat& grayRi
     return _matchedFeatureIDs.empty();
 }
 
+void FeatureTracker::orbDetectWithGrid(int flag, const cv::Mat& img, std::vector<cv::KeyPoint>& keypoints, cv::Mat& descriptors) {
+    cv::Ptr<cv::ORB> orb = (flag == 0) ? _orbLeft : _orbRight;
+    int gridRow = Config::get<int>("gridRow");
+    int gridCol = Config::get<int>("gridCol");
+    for (int r = 0; r < gridRow; r++) {
+        for (int c = 0; c < gridCol; c++) {
+            cv::Mat mask = cv::Mat::zeros(img.rows, img.cols, CV_8U);
+            for (int i = 0; i < img.rows / gridRow; i++)
+                for (int j = 0; j < img.cols / gridCol; j++)
+                    mask.at<char>(img.rows/gridRow * r + i, img.cols/gridCol * c + j) = (char)255;
+            std::vector<cv::KeyPoint> ks;
+            cv::Mat ds;
+            orb->detectAndCompute(img, mask, ks, ds);
+            keypoints.insert(keypoints.end(), ks.begin(), ks.end());
+            if (descriptors.empty()) descriptors = ds;
+            else cv::vconcat(descriptors, ds, descriptors);
+        }
+    }
+}
+
+void FeatureTracker::extractORB(int flag, const cv::Mat& img, std::vector<cv::KeyPoint>& keypoints, cv::Mat& descriptors) {
+    if (flag == 0)
+        (*_ORBextractorLeft)(img, cv::Mat(), keypoints, descriptors);
+    else
+        (*_ORBextractorRight)(img, cv::Mat(), keypoints, descriptors);
+}
+
 void FeatureTracker::internalMatch(const cv::Mat& imgLeft, const cv::Mat& imgRight, const bool useRANSAC) {
     auto start = std::chrono::steady_clock::now();
     std::vector<cv::KeyPoint> keypointsL, keypointsR;
     cv::Mat descriptorsL, descriptorsR;
-    // _orb->detectAndCompute(imgLeft,  _mask, keypointsL, descriptorsL);
-    // _orb->detectAndCompute(imgRight, _mask, keypointsR, descriptorsR);
-    _orb->detectAndCompute(imgLeft,  cv::noArray(), keypointsL, descriptorsL);
-    _orb->detectAndCompute(imgRight, cv::noArray(), keypointsR, descriptorsR);
+    if (_cvORB) {
+        // _orb->detectAndCompute(imgLeft,  _mask, keypointsL, descriptorsL);
+        // _orb->detectAndCompute(imgRight, _mask, keypointsR, descriptorsR);
+        std::thread orbLeft(&FeatureTracker::orbDetectWithGrid, this, 0, imgLeft, std::ref(keypointsL), std::ref(descriptorsL));
+        std::thread orbRight(&FeatureTracker::orbDetectWithGrid, this, 1, imgRight, std::ref(keypointsR), std::ref(descriptorsR));
+        orbLeft.join();
+        orbRight.join();
+    }
+    else {
+        std::thread orbLeft(&FeatureTracker::extractORB, this, 0, imgLeft, std::ref(keypointsL), std::ref(descriptorsL));
+        std::thread orbRight(&FeatureTracker::extractORB, this, 1, imgRight, std::ref(keypointsR), std::ref(descriptorsR));
+        orbLeft.join();
+        orbRight.join();
+    }
     auto end = std::chrono::steady_clock::now();
     if (_verbose) std::cout << "orb detection elapsed time: " << std::chrono::duration<double, std::milli>(end-start).count() << "ms" << std::endl;
 
@@ -360,33 +407,36 @@ void FeatureTracker::featurePoolUpdate() {
     _frameID++;
 }
 
-// void FeatureTracker::extractOrb(int flag, const cv::Mat& img) {
-//     if (flag == 0) // left
-//         _orbLeft->detectAndCompute(img, cv::noArray(), _keypointsL, _descriptorsL);
-//     else // right
-//         _orbRight->detectAndCompute(img, cv::noArray(), _keypointsR, _descriptorsR);
-// }
-
 bool FeatureTracker::structFromMotion(const cv::Mat& grayLeft, const cv::Mat& grayRight, Eigen::Vector3d& r, Eigen::Vector3d& p, const bool atBeginning) {
     cv::Mat imgLeft, imgRight;
     cv::remap(grayLeft, imgLeft, _pCameraModel->_rmap[0][0], _pCameraModel->_rmap[0][1], cv::INTER_LINEAR);
     cv::remap(grayRight, imgRight, _pCameraModel->_rmap[1][0], _pCameraModel->_rmap[1][1], cv::INTER_LINEAR);
 
     if (atBeginning) { 
-        _orb->detectAndCompute(imgLeft,  cv::noArray(), _refKeypointsL, _refDescriptorsL);
+        // _orb->detectAndCompute(imgLeft,  cv::noArray(), _refKeypointsL, _refDescriptorsL);
+        if (_cvORB)
+            orbDetectWithGrid(0, imgLeft, _refKeypointsL, _refDescriptorsL);
+        else
+            (*_ORBextractorLeft)(imgLeft, cv::Mat(), _refKeypointsL, _refDescriptorsL);
         return false;
     }
     
     std::vector<cv::KeyPoint> keypointsL, keypointsR;
     cv::Mat descriptorsL, descriptorsR;
-    // _orb->detectAndCompute(imgLeft,  _mask, keypointsL, descriptorsL);
-    // _orb->detectAndCompute(imgRight, _mask, keypointsR, descriptorsR);
-    _orb->detectAndCompute(imgLeft,  cv::noArray(), keypointsL, descriptorsL);
-    _orb->detectAndCompute(imgRight, cv::noArray(), keypointsR, descriptorsR);
-    // std::thread orbLeft(&FeatureTracker::extractOrb, this, 0, imgLeft);
-    // std::thread orbRight(&FeatureTracker::extractOrb, this, 1, imgRight);
-    // orbLeft.join();
-    // orbRight.join();
+    if (_cvORB) {
+        // _orb->detectAndCompute(imgLeft,  _mask, keypointsL, descriptorsL);
+        // _orb->detectAndCompute(imgRight, _mask, keypointsR, descriptorsR);
+        std::thread orbLeft(&FeatureTracker::orbDetectWithGrid, this, 0, imgLeft, std::ref(keypointsL), std::ref(descriptorsL));
+        std::thread orbRight(&FeatureTracker::orbDetectWithGrid, this, 1, imgRight, std::ref(keypointsR), std::ref(descriptorsR));
+        orbLeft.join();
+        orbRight.join();
+    }
+    else {
+        std::thread orbLeft(&FeatureTracker::extractORB, this, 0, imgLeft, std::ref(keypointsL), std::ref(descriptorsL));
+        std::thread orbRight(&FeatureTracker::extractORB, this, 1, imgRight, std::ref(keypointsR), std::ref(descriptorsR));
+        orbLeft.join();
+        orbRight.join();
+    }
 
     cv::BFMatcher matcher(cv::NORM_HAMMING); // Brute Force Mathcer
     std::vector<cv::DMatch> matches;

@@ -125,8 +125,8 @@ void Optimizer::motionOnlyBA(const cv::Mat& img) {
         // Set up reprojection cost function for a specific landmark (a.k.a. residuals).
         // ceres::CostFunction* reprojectCost = new ImageCostFunction(errorTerms, error, F, E_b_nullspace);
         ceres::CostFunction* reprojectCost = new ImageCostFunction(errorTerms, error, F);
-        // problem.AddResidualBlock(reprojectCost, new ceres::HuberLoss(1.0), delta_pose_img);
-        problem.AddResidualBlock(reprojectCost, NULL, delta_pose_img);
+        problem.AddResidualBlock(reprojectCost, new ceres::HuberLoss(1.0), delta_pose_img);
+        // problem.AddResidualBlock(reprojectCost, NULL, delta_pose_img);
     }
 
     // Show pixels and reprojected pixels before optimization.
@@ -134,10 +134,9 @@ void Optimizer::motionOnlyBA(const cv::Mat& img) {
     for (int i = actualSize-1, j = 0; j < _pMap->_frames[n+i].size(); j++) {
         cfsd::Ptr<MapPoint> mp = _pMap->_frames[n+i][j];
         Eigen::Vector3d pixel_homo = _pCameraModel->_P_L.block<3,3>(0,0) * (_pCameraModel->_T_CB * (_pMap->_R[n+i].inverse() * (mp->position - _pMap->_p[n+i])));
-        cv::circle(img0, mp->pixel, 3, cv::Scalar(255,0,0));
-        cv::circle(img0, cv::Point(pixel_homo(0)/pixel_homo(2), pixel_homo(1)/pixel_homo(2)), 3, cv::Scalar(0,0,255));
+        cv::circle(img0, mp->pixel, 3, cv::Scalar(255));
+        cv::circle(img0, cv::Point(pixel_homo(0)/pixel_homo(2), pixel_homo(1)/pixel_homo(2)), 3, cv::Scalar(0));
     }
-    cv::imshow("before optimization", img0);
 
     // Set the solver.
     ceres::Solver::Options options;
@@ -169,10 +168,12 @@ void Optimizer::motionOnlyBA(const cv::Mat& img) {
     for (int i = actualSize-1, j = 0; j < _pMap->_frames[n+i].size(); j++) {
         cfsd::Ptr<MapPoint> mp = _pMap->_frames[n+i][j];
         Eigen::Vector3d pixel_homo = _pCameraModel->_P_L.block<3,3>(0,0) * (_pCameraModel->_T_CB * (_pMap->_R[n+i].inverse() * (mp->position - _pMap->_p[n+i])));
-        cv::circle(img, mp->pixel, 3, cv::Scalar(255,0,0));
-        cv::circle(img, cv::Point(pixel_homo(0)/pixel_homo(2), pixel_homo(1)/pixel_homo(2)), 3, cv::Scalar(0,0,255));
+        cv::circle(img, mp->pixel, 3, cv::Scalar(255));
+        cv::circle(img, cv::Point(pixel_homo(0)/pixel_homo(2), pixel_homo(1)/pixel_homo(2)), 3, cv::Scalar(0));
     }
-    cv::imshow("after optimization", img);
+    cv::Mat out;
+    cv::hconcat(img0, img, out);
+    cv::imshow("before vs. after optimization", out);
     cv::waitKey(0);
 }
 
@@ -218,6 +219,7 @@ void Optimizer::initialGravityVelocity() {
         // problem.AddResidualBlock(gravityVelocityCost, nullptr, delta_g, delta_v[i], delta_v[i+1]);
         problem.AddResidualBlock(gravityVelocityCost, new ceres::HuberLoss(1.0), delta_g, delta_v[i], delta_v[i+1]);
     }
+    problem.SetParameterBlockConstant(delta_v[0]);
 
     ceres::Solver::Options options;
     options.linear_solver_type = ceres::DENSE_QR;

@@ -64,20 +64,35 @@ translationImuToCamera: !!opencv-matrix
     dt: d
     data: [ 0.0652229, -0.0207064, -0.0080546 ]
 
+# Use ORB of OpenCV or ORB_SLAM2
+cvORB: 0 # default: not use OpenCV ORB
+
 # ORB feature detector parameters
-numberOfFeatures: 500
+numberOfFeatures: 800
 scaleFactor: 1.2
 levelPyramid: 8
+
+# (OpenCV)
 edgeThreshold: 31
 scoreType: 1 # 0 is ORB::HARRIS_SCORE, 1 is ORB::FAST_SCORE
 patchSize: 31
 fastThreshold: 20
+# For OpenCV ORB, detect in several grids to make the distribution of keypoints more evenly
+gridRow: 1
+gridCol: 1
+
+# (ORB_SLAM2) ORB Extractor: Fast threshold
+# Image is divided in a grid. At each cell FAST are extracted imposing a minimum response.
+# Firstly we impose iniThFAST. If no corners are detected we impose a lower value minThFAST
+# You can lower these values if your images have low contrast			
+iniThFAST: 20
+minThFAST: 7
 
 # Feature matching parameters
 matchRatio: 2    # the distance of a good match should be smaller than minDist*matchRatio
 minMatchDist: 30.0 # another number for selecting good matches, from experience
 maxVerticalPixelDist: 0.1 # selecting good matching by the vertical coordinates since image have been rectified
-maxFeatureAge: 5  # Max age of a feature
+maxFeatureAge: 8  # Max age of a feature
 maxDepth: 10 # Max depth or distance w.r.t camera
 
 #max_num_lost: 10
@@ -85,10 +100,10 @@ maxDepth: 10 # Max depth or distance w.r.t camera
 
 
 # Keyframe selection
-keyframeRotation: 0.1
+keyframeRotation: 0.2
 keyframeTranslation: 0.1
 # nearPointThres:
-# maxImuTimeInterval:
+maxImuTime: 4
 
 # Reinitialization if bias is corrupted
 maxGyrBias: 0.1

@@ -5,6 +5,7 @@
 #include "cfsd/camera-model.hpp"
 #include "cfsd/structs.hpp"
 #include "cfsd/map.hpp"
+#include "ORBextractor.h"
 
 #include <opencv2/features2d/features2d.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
@@ -24,6 +25,10 @@ class FeatureTracker {
     // - external track (current features and past features)
     // - refinement? (improve the quality of matching)
     bool processImage(const cv::Mat& imgLeft, const cv::Mat& imgRight);
+
+    void orbDetectWithGrid(int flag, const cv::Mat& img, std::vector<cv::KeyPoint>& keypoints, cv::Mat& descriptors);
+
+    void extractORB(int flag, const cv::Mat& img, std::vector<cv::KeyPoint>& keypoints, cv::Mat& descriptors);
 
     void internalMatch(const cv::Mat& imgLeft, const cv::Mat& imgRight, const bool useRANSAC = false);
 
@@ -52,9 +57,14 @@ class FeatureTracker {
     size_t _frameID{0};
 
     // Detector to be used.
+    bool _cvORB{false};
+
     cv::Ptr<cv::ORB> _orb;
-    // cv::Ptr<cv::ORB> _orbLeft;
-    // cv::Ptr<cv::ORB> _orbRight;
+    cv::Ptr<cv::ORB> _orbLeft;
+    cv::Ptr<cv::ORB> _orbRight;
+
+    ORB_SLAM2::ORBextractor* _ORBextractorLeft;
+    ORB_SLAM2::ORBextractor* _ORBextractorRight;
 
     // Current features matched with history features.
     // std::vector<cv::Point2d> _matchedHistPixelsL, _matchedHistPixelsR;

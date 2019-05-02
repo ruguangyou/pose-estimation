@@ -148,7 +148,8 @@ add_library(${PROJECT_NAME}-core STATIC
     ${CMAKE_SOURCE_DIR}/src/feature-tracker.cpp
     ${CMAKE_SOURCE_DIR}/src/map.cpp
     ${CMAKE_SOURCE_DIR}/src/viewer.cpp
-    ${CMAKE_SOURCE_DIR}/src/visual-inertial-slam.cpp)
+    ${CMAKE_SOURCE_DIR}/src/visual-inertial-slam.cpp
+    ${CMAKE_SOURCE_DIR}/src/ORBextractor.cc)
 
 ################################################################################
 # Create executable

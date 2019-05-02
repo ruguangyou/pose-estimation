@@ -7,7 +7,7 @@
 #include "cfsd/camera-model.hpp"
 
 // local sliding-window size
-#define WINDOWSIZE 6
+#define WINDOWSIZE 4
 
 #ifdef USE_VIEWER
 #include "cfsd/viewer.hpp"

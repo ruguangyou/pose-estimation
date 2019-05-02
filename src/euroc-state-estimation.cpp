@@ -79,6 +79,15 @@ int main(int argc, char** argv) {
         cv::Mat grayL = cv::imread(imgLeftDataPath + imgName);
         cv::Mat grayR = cv::imread(imgRightDataPath + imgName);
 
+        if (grayL.channels() == 3) {
+            cv::cvtColor(grayL, grayL, CV_BGR2GRAY);
+            cv::cvtColor(grayR, grayR, CV_BGR2GRAY);
+        }
+        else if (grayL.channels() == 4) {
+            cv::cvtColor(grayL, grayL, CV_BGRA2GRAY);
+            cv::cvtColor(grayR, grayR, CV_BGRA2GRAY);
+        }
+
         if (!pVISLAM->process(grayL, grayR, imgTimestamp)) {
             std::cerr << "Error occurs in processing!" << std::endl;
             return 1;
