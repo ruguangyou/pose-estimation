@@ -2,6 +2,7 @@
 #define OPTIMIZER_HPP
 
 #include "cfsd/cost-functions.hpp"
+#include "cfsd/config.hpp"
 
 #include <opencv2/imgproc/imgproc.hpp>
 #include <opencv2/highgui/highgui.hpp>
@@ -46,6 +47,8 @@ class Optimizer {
 
     double _pose[WINDOWSIZE][6];  // pose (rotation vector, translation vector / position)
     double _v_bga[WINDOWSIZE][9]; // velocity, bias of gyroscope, bias of accelerometer
+
+    double _priorFactor{0};
 
   // public:
   //   std::vector<Eigen::Vector3d> _accs;

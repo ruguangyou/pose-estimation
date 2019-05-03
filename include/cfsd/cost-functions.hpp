@@ -12,7 +12,131 @@
 
 namespace cfsd {
 
-// struct PriorCostFunction {}
+struct PriorCostFunction : public ceres::SizedCostFunction<15, /* residuals */
+                                                            6, /* increment of pose (r, p) at time j */
+                                                            9  /* increment of velocity, delta_bg and delta_ba at time j */> {
+    PriorCostFunction(const cfsd::Ptr<Map>& pMap, const int& idx, const double& priorFactor) : _pMap(pMap), _idx(idx), _priorFactor(priorFactor) {}
+
+    virtual ~PriorCostFunction() {}
+
+    virtual bool Evaluate(double const* const* parameters, double* residuals, double** jacobians) const {
+        // parameters: delta_pose_j, delta_v_dbga_j
+        // pose: [rx,ry,rz, px,py,pz]
+        Eigen::Vector3d delta_r_j(parameters[0][0], parameters[0][1], parameters[0][2]);
+        Eigen::Vector3d delta_p_j(parameters[0][3], parameters[0][4], parameters[0][5]);
+        Eigen::Vector3d delta_v_j(parameters[1][0], parameters[1][1], parameters[1][2]);
+        Eigen::Vector3d delta_dbg_j(parameters[1][3], parameters[1][4], parameters[1][5]);
+        Eigen::Vector3d delta_dba_j(parameters[1][6], parameters[1][7], parameters[1][8]);
+
+        cfsd::Ptr<ImuConstraint> ic = _pMap->_imuConstraint[_idx];
+
+        // Map double* to Eigen Matrix.
+        Eigen::Map<Eigen::Matrix<double, 15, 1>> residual(residuals);
+
+        int index_i = _idx;
+        int index_j = _idx + 1;
+
+        // Bias estimation update at time i, i.e. bias changes by a small amount delta_b during optimization.
+        Eigen::Vector3d delta_bg_i = _pMap->_dbg[index_i];
+        Eigen::Vector3d delta_ba_i = _pMap->_dba[index_i];
+
+        // residual(delta_R_ij)
+        Sophus::SO3d R_i = _pMap->_R[index_i];
+        Sophus::SO3d R_j = _pMap->_R[index_j];
+        Sophus::SO3d updated_R_j = R_j * Sophus::SO3d::exp(delta_r_j);
+        Sophus::SO3d tempR = ic->delta_R_ij * Sophus::SO3d::exp(ic->d_R_bg_ij * delta_bg_i);
+        residual.block<3, 1>(0, 0) = (tempR.inverse() * R_i.inverse() * updated_R_j).log();
+
+        // residual(delta_v_ij)
+        Eigen::Vector3d v_i = _pMap->_v[index_i];
+        Eigen::Vector3d updated_v_j = _pMap->_v[index_j] + delta_v_j;
+        Eigen::Vector3d updated_dv = updated_v_j - v_i - _pMap->_gravity * ic->dt;
+        residual.block<3, 1>(3, 0) = R_i.inverse() * updated_dv - (ic->delta_v_ij + ic->d_v_bg_ij * delta_bg_i + ic->d_v_ba_ij * delta_ba_i);
+
+        // residual(delta_p_ij)
+        Eigen::Vector3d p_i = _pMap->_p[index_i];
+        Eigen::Vector3d updated_p_j = _pMap->_p[index_j] + R_j * delta_p_j;
+        Eigen::Vector3d updated_dp = updated_p_j - p_i - v_i * ic->dt - _pMap->_gravity * ic->dt2 / 2;
+        residual.block<3, 1>(6, 0) = R_i.inverse() * updated_dp - (ic->delta_p_ij + ic->d_p_bg_ij * delta_bg_i + ic->d_p_ba_ij * delta_ba_i);
+
+        // residual(delta_bg_ij)
+        // Eigen::Vector3d bg_i = ic->bg_i + updated_delta_bg_i;
+        // Eigen::Vector3d bg_j = ic->bg_i + _pMap->_dbg[index_j] + delta_dbg_j;
+        // residual.block<3, 1>(9, 0) = bg_j - bg_i;
+        residual.block<3, 1>(9, 0) = _pMap->_dbg[index_j] + delta_dbg_j - delta_bg_i;
+
+        // residual(delta_ba_ij)
+        // Eigen::Vector3d ba_i = ic->ba_i + updated_delta_ba_i;
+        // Eigen::Vector3d ba_j = ic->ba_i + _pMap->_dba[index_j] + delta_dba_j;
+        // residual.block<3, 1>(12, 0) = ba_j - ba_i;
+        residual.block<3, 1>(12, 0) = _pMap->_dba[index_j] + delta_dba_j - delta_ba_i;
+
+        // |r|^2 is defined as: r' * inv(cov) * r
+        // Whereas in ceres, the square of residual is defined as: |x|^2 = x' * x
+        // so we should construct such x from r in order to fit ceres solver.
+        
+        // Use cholesky decomposition: inv(cov) = L * L'
+        // |r|^2 = r' * L * L' * r = (L' * r)' * (L' * r)
+        // define x = L' * r (matrix 15x1)
+        Eigen::Matrix<double, 15, 15> Lt = Eigen::LLT<Eigen::Matrix<double, 15, 15>>(ic->invCovPreintegration_ij * _priorFactor).matrixL().transpose();
+        residual = Lt * residual;
+
+        // Compute jacobians which are crutial for optimization algorithms like Guass-Newton.
+        if (!jacobians) return true;
+
+        // Inverse of right jacobian of residual (delta_R_ij) calculated without adding delta increment.
+        Eigen::Vector3d residual_R = ((ic->delta_R_ij * Sophus::SO3d::exp(ic->d_R_bg_ij * delta_bg_i)).inverse() * R_i.inverse() * R_j).log();
+        Eigen::Matrix3d JrInv = rightJacobianInverseSO3(residual_R);
+
+        // Jacobian(15x6) of residuals(15x1) w.r.t. ParameterBlock[0](6x1), i.e. delta_pose_j
+        if (jacobians[0]) {
+            Eigen::Map<Eigen::Matrix<double, 15, 6, Eigen::RowMajor>> jacobian_rp_j(jacobians[0]);
+
+            jacobian_rp_j.setZero();
+
+            // jacobian of residual(delta_R_ij) with respect to delta_r_j
+            jacobian_rp_j.block<3, 3>(0, 0) = JrInv;
+
+            // jacobian of residual(delta_p_ij) with respect to delta_p_j
+            jacobian_rp_j.block<3, 3>(6, 3) = R_i.matrix().transpose() * R_j.matrix();
+
+            // since cost function is defined as: L' * r
+            jacobian_rp_j = Lt * jacobian_rp_j;
+
+            if (jacobian_rp_j.maxCoeff() > 1e8 || jacobian_rp_j.minCoeff() < -1e8)
+                std::cout << "Numerical unstable in calculating jacobian_j!" << std::endl;
+        }
+
+        // Jacobian(15x9) of residuals(15x1) w.r.t. ParameterBlock[1](9x1), i.e. delta_v_dbga_j
+        if (jacobians[1]) {
+            Eigen::Map<Eigen::Matrix<double, 15, 9, Eigen::RowMajor>> jacobian_vb_j(jacobians[1]);
+
+            jacobian_vb_j.setZero();
+
+            // jacobian of residual(delta_v_ij) with respect to delta_v_j
+            jacobian_vb_j.block<3, 3>(3, 0) = R_i.matrix().transpose();
+
+            // jacobian of residual(delta_bg_ij) with respect to delta_dbg_j
+            jacobian_vb_j.block<3, 3>(9, 3) = Eigen::Matrix3d::Identity();
+
+            // jacobian of residual(delta_ba_ij) with respect to delta_dba_j
+            jacobian_vb_j.block<3, 3>(12, 6) = Eigen::Matrix3d::Identity();
+
+            // since cost function is defined as: L' * r
+            jacobian_vb_j = Lt * jacobian_vb_j;
+
+            if (jacobian_vb_j.maxCoeff() > 1e8 || jacobian_vb_j.minCoeff() < -1e8)
+                std::cout << "Numerical unstable in calculating jacobian_bj!" << std::endl;
+        }
+
+        return true;
+    }
+
+  private:
+    cfsd::Ptr<Map> _pMap;
+    int _idx;
+    double _priorFactor;
+};
 
 // struct AutoDiffImageCostFunction {
 //     AutoDiffImageCostFunction(const cfsd::Ptr<CameraModel>& pCameraModel, const cv::Point2d& pixel, const Eigen::Vector3d& point, const Sophus::SO3d& R, const Eigen::Vector3d& p)

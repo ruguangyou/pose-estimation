@@ -95,6 +95,10 @@ bool VisualInertialSLAM::process(const cv::Mat& grayL, const cv::Mat& grayR, con
             end = std::chrono::steady_clock::now();
             std::cout << "elapsed time: " << std::chrono::duration<double, std::milli>(end-start).count() << "ms" << std::endl;
             std::cout << "Acc bias initialization Done!" << std::endl << std::endl;
+
+            _pImuPreintegrator->reset();
+
+            _pMap->reset(0);
             
             // Initial stereo pair matching.
             std::cout << "Initializing stereo pair matching..." << std::endl;
@@ -103,10 +107,6 @@ bool VisualInertialSLAM::process(const cv::Mat& grayL, const cv::Mat& grayR, con
             
             // Add the initial frame as keyframe.
             _pFeatureTracker->featurePoolUpdate();
-
-            _pImuPreintegrator->reset();
-
-            _pMap->reset(0);
             
             _state = OK;
             break;

@@ -6,7 +6,8 @@
 #include "cfsd/structs.hpp"
 #include "cfsd/camera-model.hpp"
 
-// local sliding-window size
+// Local sliding-window size.
+// the first spot is for prior information
 #define WINDOWSIZE 4
 
 #ifdef USE_VIEWER

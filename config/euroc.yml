@@ -136,6 +136,9 @@ gyroscope_random_walk: 1.9393e-05       # [ rad / s^2 / sqrt(Hz) ] ( gyro bias d
 accelerometer_noise_density: 2.0000e-3  # [ m / s^2 / sqrt(Hz) ]   ( accel "white noise" )
 accelerometer_random_walk: 3.0000e-3    # [ m / s^3 / sqrt(Hz) ].  ( accel bias diffusion )
 
+# Prior confidence
+priorFactor: 1e-5
+
 # Optimization settings
 max_num_iterations: 20 # default: 50
 max_solver_time_in_seconds: 10 # default: 1e6
@@ -151,10 +154,12 @@ check_gradients: 0
 viewScale: 1
 pointSize: 4
 landmarkSize: 2
+cameraSize: 0.08
+cameraLineWidth: 3
 lineWidth: 2
 viewpointX: 10
 viewpointY: 10
 viewpointZ: -30
 viewpointF: 2000
-background: 0 # 0 is black, 1 is white
-# viewDirection: ... 
+background: 0 # 0-black, 1-white
+axisDirection: 2 # 0-AxisNone, 1-AxisNegX, 2-AxisX, 3-AxisNegY, 4-AxisY, 5-AxisNegZ, 6-AxisZ

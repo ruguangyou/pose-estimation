@@ -8,10 +8,13 @@ Viewer::Viewer() {
     pointSize = Config::get<float>("pointSize");
     landmarkSize = Config::get<float>("landmarkSize");
     lineWidth = Config::get<float>("lineWidth");
+    cameraSize = Config::get<float>("cameraSize");
+    cameraLineWidth = Config::get<float>("cameraLineWidth");
     viewpointX = Config::get<float>("viewpointX");
     viewpointY = Config::get<float>("viewpointY");
     viewpointZ = Config::get<float>("viewpointZ");
     viewpointF = Config::get<float>("viewpointF");
+    axisDirection = Config::get<int>("axisDirection");
     background = Config::get<float>("background");
 }
 
@@ -36,32 +39,68 @@ void Viewer::run() {
     // Specialisations mean no conversions take place for exact types and conversions between scalar types are cheap
     pangolin::Var<bool> menuSaveWindow("menu.Save Window", false, false);
     pangolin::Var<bool> menuSaveObject("menu.Save Object", false, false);
+    pangolin::Var<bool> menuFollowBody("menu.Follow Body", true, true);
     pangolin::Var<bool> menuShowCoordinate("menu.Show Coordinate", true, true);
     pangolin::Var<bool> menuShowRawPosition("menu.Show Raw Position", false, true);
-    pangolin::Var<bool> menuShowOptimizedPosition("menu.Show Optimized Position", true, true);
+    pangolin::Var<bool> menuShowPosition("menu.Show Position", true, true);
+    pangolin::Var<bool> menuShowPose("menu.Show Pose", true, true);
     pangolin::Var<bool> menuShowLandmark("menu.Show Landmark", true, true);
     // ...
     pangolin::Var<bool> menuReset("menu.Reset", false, false);
     pangolin::Var<bool> menuExit("menu.Exit", false, false);
 
     // Define Camera Render Object (for view / sceno browsing)
-    pangolin::OpenGlRenderState s_cam(
-        pangolin::ProjectionMatrix(1024,768, viewpointF,viewpointF, 512,389, 0.1,1000),
-        // pangolin::ModelViewLookAt(viewpointX,viewpointY,viewpointZ, 0,0,0, pangolin::AxisNegZ)
-        pangolin::ModelViewLookAt(viewpointX,viewpointY,viewpointZ, 0,0,0, pangolin::AxisX)
-    );
-    /*  our camera coordinate system (where AxisNegY is the up direction)
-              / z (yaw)
-             /
-            ------ x (roll)
-            |
-            | y (pitch)
-    */
+    pangolin::OpenGlRenderState s_cam;
+    switch (axisDirection) {
+        case 0:
+            s_cam = pangolin::OpenGlRenderState(
+                pangolin::ProjectionMatrix(1024,768, viewpointF,viewpointF, 512,389, 0.1,1000),
+                pangolin::ModelViewLookAt(viewpointX,viewpointY,viewpointZ, 0,0,0, pangolin::AxisNone)
+            );
+            break;
+        case 1:
+            s_cam = pangolin::OpenGlRenderState(
+                pangolin::ProjectionMatrix(1024,768, viewpointF,viewpointF, 512,389, 0.1,1000),
+                pangolin::ModelViewLookAt(viewpointX,viewpointY,viewpointZ, 0,0,0, pangolin::AxisNegX)
+            );
+            break;
+        case 2:
+            s_cam = pangolin::OpenGlRenderState(
+                pangolin::ProjectionMatrix(1024,768, viewpointF,viewpointF, 512,389, 0.1,1000),
+                pangolin::ModelViewLookAt(viewpointX,viewpointY,viewpointZ, 0,0,0, pangolin::AxisX)
+            );
+            break;
+        case 3:
+            s_cam = pangolin::OpenGlRenderState(
+                pangolin::ProjectionMatrix(1024,768, viewpointF,viewpointF, 512,389, 0.1,1000),
+                pangolin::ModelViewLookAt(viewpointX,viewpointY,viewpointZ, 0,0,0, pangolin::AxisNegY)
+            );
+            break;
+        case 4:
+            s_cam = pangolin::OpenGlRenderState(
+                pangolin::ProjectionMatrix(1024,768, viewpointF,viewpointF, 512,389, 0.1,1000),
+                pangolin::ModelViewLookAt(viewpointX,viewpointY,viewpointZ, 0,0,0, pangolin::AxisY)
+            );
+            break;
+        case 5:
+            s_cam = pangolin::OpenGlRenderState(
+                pangolin::ProjectionMatrix(1024,768, viewpointF,viewpointF, 512,389, 0.1,1000),
+                pangolin::ModelViewLookAt(viewpointX,viewpointY,viewpointZ, 0,0,0, pangolin::AxisNegZ)
+            );
+            break;
+        case 6:
+            s_cam = pangolin::OpenGlRenderState(
+                pangolin::ProjectionMatrix(1024,768, viewpointF,viewpointF, 512,389, 0.1,1000),
+                pangolin::ModelViewLookAt(viewpointX,viewpointY,viewpointZ, 0,0,0, pangolin::AxisZ)
+            );
+    }
 
     // Add named OpenGL viewport to window and provide 3D Handler
     pangolin::View& d_cam = pangolin::CreateDisplay()
         .SetBounds(0.0, 1.0, pangolin::Attach::Pix(PANEL_WIDTH), 1.0, -1024.0f/768.0f)
         .SetHandler(new pangolin::Handler3D(s_cam));
+
+    T_WB.SetIdentity();
 
     // Defalut hooks for existing (Esc) and fullscreen (tab)
     while (!pangolin::ShouldQuit()) {
@@ -80,25 +119,31 @@ void Viewer::run() {
         if (pangolin::Pushed(menuSaveObject))
             d_cam.SaveOnRender("object");
 
+        if (menuFollowBody)
+            followBody(s_cam);
+
         if (menuShowCoordinate)
             drawCoordinate();
 
         if (menuShowRawPosition)
             drawRawPosition();
 
-        if (menuShowOptimizedPosition)
-            drawOptimizedPosition();
+        if (menuShowPosition)
+            drawPosition();
+
+        if (menuShowPose)
+            drawPose(T_WB);
 
         if (menuShowLandmark)
             drawLandmark();
         
         if (pangolin::Pushed(menuReset)) {
-            std::lock_guard<std::mutex> lockData(dataMutex);
-            std::lock_guard<std::mutex> lockRawData(rawDataMutex);
-            xsOptimized.clear(); ysOptimized.clear(); zsOptimized.clear();
+            std::lock_guard<std::mutex> lockPosition(positionMutex);
+            std::lock_guard<std::mutex> lockRawPosition(rawPositionMutex);
+            xs.clear(); ys.clear(); zs.clear();
             xsRaw.clear(); ysRaw.clear(); zsRaw.clear();
             pointsX.clear(); pointsY.clear(); pointsZ.clear();
-            readyToDrawOptimized = false; readyToDrawRaw = false;
+            readyToDrawPosition = false; readyToDrawRawPosition = false;
         }
 
         // Swap frames and Precess Events
@@ -126,8 +171,36 @@ void Viewer::drawCoordinate() {
     glEnd();
 }
 
+void Viewer::genOpenGlMatrix(const Eigen::Matrix3f& R, const float& x, const float& y, const float& z, pangolin::OpenGlMatrix& M) {
+    M.m[0] = R(0,0);
+    M.m[1] = R(1,0);
+    M.m[2] = R(2,0);
+    M.m[3] = 0.0;
+    M.m[4] = R(0,1);
+    M.m[5] = R(1,1);
+    M.m[6] = R(2,1);
+    M.m[7] = 0.0;
+    M.m[8] = R(0,2);
+    M.m[9] = R(1,2);
+    M.m[10] = R(2,2);
+    M.m[11] = 0.0;
+    M.m[12] = x;
+    M.m[13] = y;
+    M.m[14] = z;
+    M.m[15] = 1.0;
+}
+
+void Viewer::followBody(pangolin::OpenGlRenderState& s_cam) {
+    if (readyToDrawPose && readyToDrawPosition) {
+        std::lock_guard<std::mutex> lockPose(poseMutex);
+        std::lock_guard<std::mutex> lockPosition(positionMutex);
+        genOpenGlMatrix(pose, xs.back(), ys.back(), zs.back(), T_WB);
+    }
+    s_cam.Follow(T_WB);
+}
+
 void Viewer::pushRawPosition(const Eigen::Vector3d& p, const int& offset) {
-    std::lock_guard<std::mutex> lockRawData(rawDataMutex);
+    std::lock_guard<std::mutex> lockRawPosition(rawPositionMutex);
 
     int i = idx + offset;
     if (xsRaw.size() <= i) {
@@ -141,13 +214,51 @@ void Viewer::pushRawPosition(const Eigen::Vector3d& p, const int& offset) {
         zsRaw[i] = static_cast<float>(p(2) * viewScale);
     }
 
-    readyToDrawRaw = true;
+    readyToDrawRawPosition = true;
+}
+
+void Viewer::pushPosition(const Eigen::Vector3d& p, const int& offset) {
+    // rvp: [rx,ry,rz, vx,vy,vz, px,py,pz]
+    std::lock_guard<std::mutex> lockPosition(positionMutex);
+
+    int i = idx + offset;
+    if (xs.size() <= i) {
+        xs.push_back(static_cast<float>(p(0) * viewScale));
+        ys.push_back(static_cast<float>(p(1) * viewScale));
+        zs.push_back(static_cast<float>(p(2) * viewScale));
+    }
+    else {
+        xs[i] = static_cast<float>(p(0) * viewScale);
+        ys[i] = static_cast<float>(p(1) * viewScale);
+        zs[i] = static_cast<float>(p(2) * viewScale);
+    }
+    if (xs.size() >= WINDOWSIZE && offset == WINDOWSIZE - 1) idx++;
+
+    readyToDrawPosition = true;
+}
+
+void Viewer::pushPose(const Eigen::Matrix3d& R) {
+    std::lock_guard<std::mutex> lockPose(poseMutex);
+    
+    pose = R.cast<float>();
+
+    readyToDrawPose = true;
+}
+
+void Viewer::pushLandmark(const double& x, const double& y, const double& z) {
+    std::lock_guard<std::mutex> lockLandmark(landmarkMutex);
+
+    pointsX.push_back(x);
+    pointsY.push_back(y);
+    pointsZ.push_back(z);
+
+    readyToDrawLandmark = true;
 }
 
 void Viewer::drawRawPosition() {
-    std::lock_guard<std::mutex> lockRawData(rawDataMutex);
+    std::lock_guard<std::mutex> lockRawPosition(rawPositionMutex);
 
-    if (!readyToDrawRaw) return;
+    if (!readyToDrawRawPosition) return;
 
     glColor3f(0.6f, 0.2f, 0.2f);
     glPointSize(pointSize);
@@ -167,57 +278,72 @@ void Viewer::drawRawPosition() {
     glEnd();
 }
 
-void Viewer::pushOptimizedPosition(const Eigen::Vector3d& p, const int& offset) {
-    // rvp: [rx,ry,rz, vx,vy,vz, px,py,pz]
-    std::lock_guard<std::mutex> lockData(dataMutex);
+void Viewer::drawPosition() {
+    std::lock_guard<std::mutex> lockPosition(positionMutex);
 
-    int i = idx + offset;
-    if (xsOptimized.size() <= i) {
-        xsOptimized.push_back(static_cast<float>(p(0) * viewScale));
-        ysOptimized.push_back(static_cast<float>(p(1) * viewScale));
-        zsOptimized.push_back(static_cast<float>(p(2) * viewScale));
-    }
-    else {
-        xsOptimized[i] = static_cast<float>(p(0) * viewScale);
-        ysOptimized[i] = static_cast<float>(p(1) * viewScale);
-        zsOptimized[i] = static_cast<float>(p(2) * viewScale);
-    }
-    if (xsOptimized.size() >= WINDOWSIZE && offset == WINDOWSIZE - 1) idx++;
-
-    readyToDrawOptimized = true;
-}
-
-void Viewer::drawOptimizedPosition() {
-    std::lock_guard<std::mutex> lockData(dataMutex);
-
-    if (!readyToDrawOptimized) return;
+    if (!readyToDrawPosition) return;
 
     glPointSize(pointSize);
     glBegin(GL_POINTS);
     glColor3f(0.2f, 0.6f, 0.2f);
-    for (int i = 0; i < xsOptimized.size(); i++)
-        glVertex3f(xsOptimized[i], ysOptimized[i], zsOptimized[i]);
+    for (int i = 0; i < xs.size(); i++)
+        glVertex3f(xs[i], ys[i], zs[i]);
     glEnd();
 
     glLineWidth(lineWidth);
     glBegin(GL_LINES);
-    glVertex3f(xsOptimized[0], ysOptimized[0], zsOptimized[0]);
+    glVertex3f(xs[0], ys[0], zs[0]);
     for (int i = 1; i < xsRaw.size() - 1; i++) {
-        glVertex3f(xsOptimized[i], ysOptimized[i], zsOptimized[i]);
-        glVertex3f(xsOptimized[i], ysOptimized[i], zsOptimized[i]);
+        glVertex3f(xs[i], ys[i], zs[i]);
+        glVertex3f(xs[i], ys[i], zs[i]);
     }
-    glVertex3f(xsOptimized.back(), ysOptimized.back(), zsOptimized.back());
+    glVertex3f(xs.back(), ys.back(), zs.back());
     glEnd();
 }
 
-void Viewer::pushLandmark(const double& x, const double& y, const double& z) {
-    std::lock_guard<std::mutex> lockLandmark(landmarkMutex);
+void Viewer::drawPose(pangolin::OpenGlMatrix &M) {
+    std::lock_guard<std::mutex> lockPose(poseMutex);
 
-    pointsX.push_back(x);
-    pointsY.push_back(y);
-    pointsZ.push_back(z);
+    if (!readyToDrawPose) return;
 
-    readyToDrawLandmark = true;
+    const float &w = cameraSize;
+    const float h = w*0.75;
+    const float z = w*0.5;
+
+    glPushMatrix();
+
+    #ifdef HAVE_GLES
+    glMultMatrixf(M.m);
+    #else
+    glMultMatrixd(M.m);
+    #endif
+
+    glLineWidth(cameraLineWidth);
+    glColor3f(0.6f,0.2f,0.2f);
+    glBegin(GL_LINES);
+    glVertex3f(0,0,0);
+    glVertex3f(w,h,z);
+    glVertex3f(0,0,0);
+    glVertex3f(w,-h,z);
+    glVertex3f(0,0,0);
+    glVertex3f(-w,-h,z);
+    glVertex3f(0,0,0);
+    glVertex3f(-w,h,z);
+
+    glVertex3f(w,h,z);
+    glVertex3f(w,-h,z);
+
+    glVertex3f(-w,h,z);
+    glVertex3f(-w,-h,z);
+
+    glVertex3f(-w,h,z);
+    glVertex3f(w,h,z);
+
+    glVertex3f(-w,-h,z);
+    glVertex3f(w,-h,z);
+    glEnd();
+
+    glPopMatrix();
 }
 
 void Viewer::drawLandmark() {

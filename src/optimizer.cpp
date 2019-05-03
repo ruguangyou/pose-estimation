@@ -3,7 +3,10 @@
 namespace cfsd {
 
 Optimizer::Optimizer(const cfsd::Ptr<Map>& pMap, const cfsd::Ptr<FeatureTracker>& pFeatureTracker, const cfsd::Ptr<ImuPreintegrator>& pImuPreintegrator, const cfsd::Ptr<CameraModel>& pCameraModel, const bool verbose)
-    : _pMap(pMap), _pFeatureTracker(pFeatureTracker), _pImuPreintegrator(pImuPreintegrator), _pCameraModel(pCameraModel), _verbose(verbose) {}
+    : _pMap(pMap), _pFeatureTracker(pFeatureTracker), _pImuPreintegrator(pImuPreintegrator), _pCameraModel(pCameraModel), _verbose(verbose) {
+
+    _priorFactor = Config::get<double>("priorFactor");
+}
 
 void Optimizer::motionOnlyBA(const cv::Mat& img) {
     double delta_pose[WINDOWSIZE][6];
@@ -15,24 +18,24 @@ void Optimizer::motionOnlyBA(const cv::Mat& img) {
             delta_v_dbga[i][j] = 0;
     }
 
-    int actualSize = (_pMap->_R.size() < WINDOWSIZE) ? _pMap->_R.size() : WINDOWSIZE;
+    int actualSize = (_pMap->_R.size() > WINDOWSIZE) ? WINDOWSIZE : _pMap->_R.size()-1;
     
     std::vector<double*> delta_pose_img;
-    // for (int i = 0; i < actualSize; i++)
-    //     delta_pose_img.push_back(delta_pose[i]);
     
     int n = _pMap->_frames.size() - actualSize;
     
     // Build the problem.
     ceres::Problem problem;
 
+    // Set up prior.
+    ceres::CostFunction* priorCost = new PriorCostFunction(_pMap, n-1, _priorFactor);
+    problem.AddResidualBlock(priorCost, NULL, delta_pose[0], delta_v_dbga[0]);
+    
     // Set up imu cost function.
     for (int i = 0; i < actualSize-1; i++) {
         ceres::CostFunction* preintegrationCost = new ImuCostFunction(_pMap, n+i);
         problem.AddResidualBlock(preintegrationCost, NULL, delta_pose[i], delta_v_dbga[i], delta_pose[i+1], delta_v_dbga[i+1]);
     }
-
-    // historical information...................
 
     double fx = _pCameraModel->_K_L.at<double>(0,0);
     double fy = _pCameraModel->_K_L.at<double>(1,1);
@@ -130,12 +133,11 @@ void Optimizer::motionOnlyBA(const cv::Mat& img) {
     }
 
     // Show pixels and reprojected pixels before optimization.
-    cv::Mat img0 = img.clone();
     for (int i = actualSize-1, j = 0; j < _pMap->_frames[n+i].size(); j++) {
         cfsd::Ptr<MapPoint> mp = _pMap->_frames[n+i][j];
         Eigen::Vector3d pixel_homo = _pCameraModel->_P_L.block<3,3>(0,0) * (_pCameraModel->_T_CB * (_pMap->_R[n+i].inverse() * (mp->position - _pMap->_p[n+i])));
-        cv::circle(img0, mp->pixel, 3, cv::Scalar(255));
-        cv::circle(img0, cv::Point(pixel_homo(0)/pixel_homo(2), pixel_homo(1)/pixel_homo(2)), 3, cv::Scalar(0));
+        cv::rectangle(img, cv::Point(mp->pixel.x-4, mp->pixel.y-4), cv::Point(mp->pixel.x+4, mp->pixel.y+4), cv::Scalar(0));
+        cv::circle(img, cv::Point(pixel_homo(0)/pixel_homo(2), pixel_homo(1)/pixel_homo(2)), 3, cv::Scalar(0));
     }
 
     // Set the solver.
@@ -168,13 +170,10 @@ void Optimizer::motionOnlyBA(const cv::Mat& img) {
     for (int i = actualSize-1, j = 0; j < _pMap->_frames[n+i].size(); j++) {
         cfsd::Ptr<MapPoint> mp = _pMap->_frames[n+i][j];
         Eigen::Vector3d pixel_homo = _pCameraModel->_P_L.block<3,3>(0,0) * (_pCameraModel->_T_CB * (_pMap->_R[n+i].inverse() * (mp->position - _pMap->_p[n+i])));
-        cv::circle(img, mp->pixel, 3, cv::Scalar(255));
-        cv::circle(img, cv::Point(pixel_homo(0)/pixel_homo(2), pixel_homo(1)/pixel_homo(2)), 3, cv::Scalar(0));
+        cv::circle(img, cv::Point(pixel_homo(0)/pixel_homo(2), pixel_homo(1)/pixel_homo(2)), 3, cv::Scalar(255));
     }
-    cv::Mat out;
-    cv::hconcat(img0, img, out);
-    cv::imshow("before vs. after optimization", out);
-    cv::waitKey(0);
+    cv::imshow("before vs. after optimization", img);
+    cv::waitKey(1);
 }
 
 void Optimizer::initialGyrBias() {

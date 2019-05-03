@@ -8,8 +8,7 @@ Map::Map(const cfsd::Ptr<CameraModel>& pCameraModel, const bool verbose) : _pCam
     _p.push_back(Eigen::Vector3d::Zero());
     _dbg.push_back(Eigen::Vector3d::Zero());
     _dba.push_back(Eigen::Vector3d::Zero());
-
-    _frames.resize(1);
+    _frames.push_back(std::vector<cfsd::Ptr<MapPoint>>());
 
     _minRotation = Config::get<double>("keyframeRotation");
     _minTranslation = Config::get<double>("keyframeTranslation");
@@ -101,16 +100,27 @@ void Map::updateInitialRotation(const int& start, const Eigen::Vector3d& delta_r
 }
 
 void Map::reset(const int& start) {
-    _R[start] = _R[start+WINDOWSIZE-1];
-    _v[start] = _v[start+WINDOWSIZE-1];
-    _p[start] = _p[start+WINDOWSIZE-1];
+    _R[start] = _R[start+WINDOWSIZE-2];
+    _v[start] = _v[start+WINDOWSIZE-2];
+    _p[start] = _p[start+WINDOWSIZE-2];
+    _R[start+1] = _R[start+WINDOWSIZE-1];
+    _v[start+1] = _v[start+WINDOWSIZE-1];
+    _p[start+1] = _p[start+WINDOWSIZE-1];
     _imuConstraint[start] = _imuConstraint[start+WINDOWSIZE-2];
+    int n = _R.size()-WINDOWSIZE+2;
 
-    int n = _R.size()-WINDOWSIZE+1;
+    // _R[start] = _R[start+WINDOWSIZE-1];
+    // _v[start] = _v[start+WINDOWSIZE-1];
+    // _p[start] = _p[start+WINDOWSIZE-1];
+    // int n = _R.size()-WINDOWSIZE+1;
+
     _R.resize(n);
     _v.resize(n);
     _p.resize(n);
     _imuConstraint.resize(n-1);
+    _dbg.push_back(Eigen::Vector3d::Zero());
+    _dba.push_back(Eigen::Vector3d::Zero());
+    _frames.push_back(std::vector<cfsd::Ptr<MapPoint>>());
 }
 
 void Map::pushImuConstraint(const cfsd::Ptr<ImuConstraint>& ic) {
@@ -162,42 +172,39 @@ void Map::checkKeyframe() {
 }
 
 void Map::updateStates(double delta_pose[WINDOWSIZE][6], double delta_v_dbga[WINDOWSIZE][9]) {
-    int n = _R.size() - WINDOWSIZE;
-    if (n < 0) n = 0;
-    int i;
-    for (i = 0 ; n < _R.size(); i++, n++) {
+    int actualSize = (_R.size() > WINDOWSIZE) ? WINDOWSIZE : _R.size()-1;
+    int n = _R.size() - actualSize;
+
+    for (int i = 0 ; i < actualSize; i++) {
         #ifdef USE_VIEWER
-        _pViewer->pushRawPosition(_p[n], i);
+        _pViewer->pushRawPosition(_p[n+i], i);
         #endif
 
-        _dba[n] = _dba[n] + Eigen::Vector3d(delta_v_dbga[i][6], delta_v_dbga[i][7], delta_v_dbga[i][8]);
+        _dba[n+i] = _dba[n+i] + Eigen::Vector3d(delta_v_dbga[i][6], delta_v_dbga[i][7], delta_v_dbga[i][8]);
 
-        _dbg[n] = _dbg[n] + Eigen::Vector3d(delta_v_dbga[i][3], delta_v_dbga[i][4], delta_v_dbga[i][5]);
+        _dbg[n+i] = _dbg[n+i] + Eigen::Vector3d(delta_v_dbga[i][3], delta_v_dbga[i][4], delta_v_dbga[i][5]);
         
-        _v[n] = _v[n] + Eigen::Vector3d(delta_v_dbga[i][0], delta_v_dbga[i][1], delta_v_dbga[i][2]);
+        _v[n+i] = _v[n+i] + Eigen::Vector3d(delta_v_dbga[i][0], delta_v_dbga[i][1], delta_v_dbga[i][2]);
 
-        _p[n] = _p[n] + _R[n] * Eigen::Vector3d(delta_pose[i][3], delta_pose[i][4], delta_pose[i][5]);
+        _p[n+i] = _p[n+i] + _R[n+i] * Eigen::Vector3d(delta_pose[i][3], delta_pose[i][4], delta_pose[i][5]);
 
-        // Update landmark position.
-        // Sophus::SO3d updated_R = _R[n] * Sophus::SO3d::exp(Eigen::Vector3d(delta_pose[i][0], delta_pose[i][1], delta_pose[i][2]));
-        // for (int j = 0; j < _frames[n].size(); j++)
-        //     _frames[n][j].second = updated_R * (_R[n].inverse() * _frames[n][j].second);
-        //     // update in Viewer as well?
-        // _R[n] = updated_R;
-
-        _R[n] = _R[n] * Sophus::SO3d::exp(Eigen::Vector3d(delta_pose[i][0], delta_pose[i][1], delta_pose[i][2]));
+        _R[n+i] = _R[n+i] * Sophus::SO3d::exp(Eigen::Vector3d(delta_pose[i][0], delta_pose[i][1], delta_pose[i][2]));
 
         #ifdef USE_VIEWER
-        _pViewer->pushOptimizedPosition(_p[n], i);
+        _pViewer->pushPosition(_p[n+i], i);
         #endif
     }
 
-    Eigen::Vector3d updated_bg = _imuConstraint[n-2]->bg_i + _dbg[n-1];
-    Eigen::Vector3d updated_ba = _imuConstraint[n-2]->ba_i + _dba[n-1];
+    #ifdef USE_VIEWER
+    _pViewer->pushPose(_R.back().matrix());
+    #endif
+
+    Eigen::Vector3d updated_bg = _imuConstraint.back()->bg_i + _dbg.back();
+    Eigen::Vector3d updated_ba = _imuConstraint.back()->ba_i + _dba.back();
     _needReinitialize = updated_bg.norm() > _maxGyrBias || updated_ba.norm() > _maxAccBias;
 
-    std::cout << "estimated pose:\n" << Sophus::SE3d(_R[n-1], _p[n-1]).matrix3x4() << std::endl;
-    std::cout << "estimated velocity:\n" << _v[n-1] << std::endl;
+    std::cout << "estimated pose:\n" << Sophus::SE3d(_R.back(), _p.back()).matrix3x4() << std::endl;
+    std::cout << "estimated velocity:\n" << _v.back() << std::endl;
     std::cout << "estimated gyr bias:\n" << updated_bg << std::endl;
     std::cout << "estimated acc bias:\n" << updated_ba << std::endl;
 }
