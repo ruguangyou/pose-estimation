@@ -1,16 +1,16 @@
 %YAML:1.0
 dataset: /home/ruguang/docker-CFSD/cfsd/2019/euroc/V1_01_easy/mav0/
 
+################################################################################
+##### Sensor settings #####
 # Camera
 imageWidth: 752
 imageHeight: 480
 cameraFrequency: 20
-
 # Standard deviation of pixel-level measurement
 stdX: 0.5
 stdY: 0.5
 
-# The following camera parameters is based on 1344x376 resolution (i.e. 672x376 each side)
 # Left camera intrinsics
 camLeft: !!opencv-matrix
     rows: 3
@@ -51,28 +51,43 @@ translationLeftToRight: !!opencv-matrix
     dt: d
     data: [ -0.110074, 0.000399122, -0.000853703 ]
 
+# IMU paramteres
+## IMU coordinate system    camera coordinate system
+##        x |  / z                    / z
+##          | /                      /
+##           ------ y               ------ x
+##                                  |
+##                                  | y
+samplingRate: 200 # [Hz]
+# (euroc) inertial sensor noise model parameters (static)
+gyroscope_noise_density: 1.6968e-04     # [ rad / s / sqrt(Hz) ]   ( gyro "white noise" )
+gyroscope_random_walk: 1.9393e-05       # [ rad / s^2 / sqrt(Hz) ] ( gyro bias diffusion )
+accelerometer_noise_density: 2.0000e-3  # [ m / s^2 / sqrt(Hz) ]   ( accel "white noise" )
+accelerometer_random_walk: 3.0000e-3    # [ m / s^3 / sqrt(Hz) ].  ( accel bias diffusion )
+
 # Camera (left) and imu extrinsics
 rotationImuToCamera: !!opencv-matrix
     rows: 3
     cols: 3
     dt: d
     data: [ 0.0148655, 0.999557, -0.0257744, -0.999881, 0.0149672, 0.00375619, 0.0041403, 0.0257155, 0.999661 ]
-
 translationImuToCamera: !!opencv-matrix
     rows: 3
     cols: 1
     dt: d
     data: [ 0.0652229, -0.0207064, -0.0080546 ]
 
+################################################################################
+##### Feature detection settings #####
 # Use ORB of OpenCV or ORB_SLAM2
 cvORB: 0 # default: not use OpenCV ORB
 
 # ORB feature detector parameters
-numberOfFeatures: 800
+numberOfFeatures: 1000
 scaleFactor: 1.2
 levelPyramid: 8
 
-# (OpenCV)
+# (OpenCV) ORB Detector
 edgeThreshold: 31
 scoreType: 1 # 0 is ORB::HARRIS_SCORE, 1 is ORB::FAST_SCORE
 patchSize: 31
@@ -95,9 +110,10 @@ maxVerticalPixelDist: 0.1 # selecting good matching by the vertical coordinates 
 maxFeatureAge: 8  # Max age of a feature
 maxDepth: 10 # Max depth or distance w.r.t camera
 
+################################################################################
+##### Tracking settings #####
 #max_num_lost: 10
 #min_inliers: 10
-
 
 # Keyframe selection
 keyframeRotation: 0.2
@@ -113,44 +129,21 @@ maxAccBias: 0.6
 sfmRotation: 0
 sfmTranslation: 0
 
-gravity: 9.81734 # [m/s^2] gravitational acceleration (might need slightly modification in case of different location)
-
-# IMU paramteres
-samplingRate: 200 # [Hz]
-## IMU coordinate system    camera coordinate system
-##        x |  / z                    / z
-##          | /                      /
-##           ------ y               ------ x
-##                                  |
-##                                  | y
-
-# (cfsd) IMU noise and bias factor
-# accNoise: 0.000057 # [g*sqrt(s)] accelerometer measurement noise density, 57 micro-g/sqrt(Hz) from "Ellipse_Series_Leaflet.pdf"
-# gyrNoise: 4.3633e-5 # [rad/sqrt(s)] gyroscope measurement noise density, 0.15 degree/sqrt(hr)
-# accBias: 0.000014 # [g] accelerometer bias random walk noise, 14 micro-g
-# gyrBias: 3.3937e-5 # [rad/s] gyroscope bias random walk noise, 7 degree/h
-
-# (euroc) inertial sensor noise model parameters (static)
-gyroscope_noise_density: 1.6968e-04     # [ rad / s / sqrt(Hz) ]   ( gyro "white noise" )
-gyroscope_random_walk: 1.9393e-05       # [ rad / s^2 / sqrt(Hz) ] ( gyro bias diffusion )
-accelerometer_noise_density: 2.0000e-3  # [ m / s^2 / sqrt(Hz) ]   ( accel "white noise" )
-accelerometer_random_walk: 3.0000e-3    # [ m / s^3 / sqrt(Hz) ].  ( accel bias diffusion )
-
-# Prior confidence
-priorFactor: 1e-5
-
-# Optimization settings
+################################################################################
+##### Optimization settings #####
 max_num_iterations: 20 # default: 50
 max_solver_time_in_seconds: 10 # default: 1e6
 num_threads: 4 # default: 1
 check_gradients: 0
 
-# Viewer settings
-## world frame
-##    x |  / z
-##      | /
-##       ------ y
-# set the up direction as AxisX
+# Gravity magnitude for initial accelerometer correction.
+gravity: 9.81734 # [m/s^2] gravitational acceleration (might need slightly modification in case of different location)
+
+# Prior covariance factor
+priorFactor: 1e-5
+
+################################################################################
+##### Viewer settings #####
 viewScale: 1
 pointSize: 4
 landmarkSize: 2
@@ -162,4 +155,9 @@ viewpointY: 10
 viewpointZ: -30
 viewpointF: 2000
 background: 0 # 0-black, 1-white
+## world frame
+##    x |  / z
+##      | /
+##       ------ y
+# set the up direction as AxisX
 axisDirection: 2 # 0-AxisNone, 1-AxisNegX, 2-AxisX, 3-AxisNegY, 4-AxisY, 5-AxisNegZ, 6-AxisZ
