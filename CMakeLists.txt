@@ -15,16 +15,28 @@
 
 cmake_minimum_required(VERSION 3.2)
 
-project(cfsd-state-estimation)
-# Compiler setting
-# set(CMAKE_CXX_COMPILER "g++")
-# set(CMAKE_BUILD_TYPE "Debug")
-# set(CMAKE_CXX_FLAGS "-std=c++11 -march=native -O0 -g")
+option(FOR_CFSD "cfsd state estimation" OFF)
+if(FOR_CFSD)
+    add_definitions(-DCFSD)
+    project(cfsd-state-estimation)
+endif()
+
+option(FOR_EUROC "euroc state estimation" ON)
+if(FOR_EUROC)
+    add_definitions(-DEUROC)
+    project(euroc-state-estimation)
+endif()
+
+option(FOR_KITTI "kitti state estimation" OFF)
+if(FOR_KITTI)
+    add_definitions(-DKITTI)
+    project(kitti-state-estimation)
+endif()
 
 ################################################################################
 # # Defining the relevant versions of OpenDLV Standard Message Set and libcluon.
-set(OPENDLV_STANDARD_MESSAGE_SET opendlv-standard-message-set-v0.9.5.odvd)
-set(CLUON_COMPLETE cluon-complete-v0.0.114.hpp)
+set(OPENDLV_STANDARD_MESSAGE_SET opendlv-standard-message-set-v0.9.7.odvd)
+set(CLUON_COMPLETE cluon-complete-v0.0.121.hpp)
 
 ################################################################################
 # Set the search path for .cmake files.
@@ -38,8 +50,8 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 # Build a static binary.
 set(CMAKE_EXE_LINKER_FLAGS "-static-libgcc -static-libstdc++")
-set(CMAKE_CXX_FLAGS "-O0 -g -D DEBUG_IMU") # DEBUG_IMG DEBUG_IMU
-# # Add further warning levels.
+set(CMAKE_CXX_FLAGS "-O0 -g")
+# Add further warning levels.
 # set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} \
 #     -D_XOPEN_SOURCE=700 \
 #     -D_FORTIFY_SOURCE=2 \
@@ -57,6 +69,18 @@ set(CMAKE_CXX_FLAGS "-O0 -g -D DEBUG_IMU") # DEBUG_IMG DEBUG_IMU
 # Threads are necessary for linking the resulting binaries as UDPReceiver is running in parallel.
 set(THREADS_PREFER_PTHREAD_FLAG ON)
 find_package(Threads REQUIRED)
+
+################################################################################
+# Set debug flag
+option(WITH_DEBUG_IMG "Debug mode for feature-tracker" OFF)
+if(WITH_DEBUG_IMG)
+    add_definitions(-DDEBUG_IMG)
+endif()
+
+option(WITH_DEBUG_IMU "Debug mode for imu-preintegrator" OFF)
+if(WITH_DEBUG_IMU)
+    add_definitions(-DDEBUG_IMU)
+endif()
 
 ################################################################################
 # Set output path
@@ -118,21 +142,32 @@ find_package(Ceres REQUIRED)
 include_directories(${CERES_INCLUDE_DIRS})
 set(LIBRARIES ${LIBRARIES} ${CERES_LIBRARIES})
 
+# Pangolin
+option(WITH_VIEWER "Enable visulization" ON)
+if (WITH_VIEWER)
+    add_definitions(-DUSE_VIEWER)
+    find_package(Pangolin 0.4 REQUIRED)
+    include_directories(${Pangolin_INCLUDE_DIRS})
+    set(LIBRARIES ${LIBRARIES} ${Pangolin_LIBRARIES})
+#else()
+endif()
+
 ################################################################################
 # Generate static libs
-add_library(${PROJECT_NAME}-core STATIC
+add_library(state-estimation-core STATIC
     ${CMAKE_SOURCE_DIR}/src/config.cpp
-    # ${CMAKE_SOURCE_DIR}/src/key-frame.cpp
     ${CMAKE_SOURCE_DIR}/src/optimizer.cpp
     ${CMAKE_SOURCE_DIR}/src/imu-preintegrator.cpp
     ${CMAKE_SOURCE_DIR}/src/feature-tracker.cpp
-    # ${CMAKE_SOURCE_DIR}/src/map.cpp
-    ${CMAKE_SOURCE_DIR}/src/visual-inertial-slam.cpp)
+    ${CMAKE_SOURCE_DIR}/src/map.cpp
+    ${CMAKE_SOURCE_DIR}/src/visual-inertial-slam.cpp
+    ${CMAKE_SOURCE_DIR}/src/viewer.cpp
+    ${CMAKE_SOURCE_DIR}/src/ORBextractor.cc)
 
 ################################################################################
 # Create executable
-add_executable(${PROJECT_NAME} ${CMAKE_SOURCE_DIR}/src/${PROJECT_NAME}.cpp ${CMAKE_SOURCE_DIR}/src/image-reader.cpp ${CMAKE_BINARY_DIR}/opendlv-standard-message-set.hpp)
-target_link_libraries(${PROJECT_NAME} ${PROJECT_NAME}-core ${LIBRARIES})
+add_executable(${PROJECT_NAME} ${CMAKE_SOURCE_DIR}/src/${PROJECT_NAME}.cpp ${CMAKE_BINARY_DIR}/opendlv-standard-message-set.hpp)
+target_link_libraries(${PROJECT_NAME} state-estimation-core ${LIBRARIES})
 
 ################################################################################
 # Enable unit testing

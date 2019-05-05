@@ -1,0 +1,176 @@
+%YAML:1.0
+# dataset: /home/ruguang/docker-CFSD/cfsd/2019/kitti/2011_09_26/2011_09_26_drive_0002_extract/
+dataset: /home/ruguang/docker-CFSD/cfsd/2019/kitti/2011_09_26/2011_09_26_drive_0005_extract/
+
+# Number of measurements in dataset
+maxNumImu: 1648
+maxNumImage: 160
+
+################################################################################
+##### Sensor settings #####
+# Camera
+imageWidth: 1392
+imageHeight: 512
+cameraFrequency: 10
+# Standard deviation of pixel-level measurement
+stdX: 0.5
+stdY: 0.5
+
+# Left camera intrinsics
+# Cam 0
+camLeft: !!opencv-matrix
+    rows: 3
+    cols: 3
+    dt: d
+    data: [ 9.842439e+02, 0.000000e+00, 6.900000e+02, 0.000000e+00, 9.808141e+02, 2.331966e+02, 0.000000e+00, 0.000000e+00, 1.000000e+00 ]
+distLeft: !!opencv-matrix
+    rows: 5
+    cols: 1
+    dt: d
+    data: [ -3.728755e-01, 2.037299e-01, 2.219027e-03, 1.383707e-03, -7.233722e-02 ]
+
+# Right camera intrinsics
+# Cam 1
+camRight: !!opencv-matrix
+    rows: 3
+    cols: 3
+    dt: d
+    data: [ 9.895267e+02, 0.000000e+00, 7.020000e+02, 0.000000e+00, 9.878386e+02, 2.455590e+02, 0.000000e+00, 0.000000e+00, 1.000000e+00 ]
+distRight: !!opencv-matrix
+    rows: 5
+    cols: 1
+    dt: d
+    data: [ -3.644661e-01, 1.790019e-01, 1.148107e-03, -6.298563e-04, -5.314062e-02 ]
+
+# Camera extrinsics
+# Cam0 -> Cam1
+rotationLeftToRight: !!opencv-matrix
+    rows: 3
+    cols: 3
+    dt: d
+    data: [ 9.993513e-01, 1.860866e-02, -3.083487e-02, -1.887662e-02, 9.997863e-01, -8.421873e-03, 3.067156e-02, 8.998467e-03, 9.994890e-01 ]
+translationLeftToRight: !!opencv-matrix
+    rows: 3
+    cols: 1
+    dt: d
+    data: [ -5.370000e-01, 4.822061e-03, -1.252488e-02 ]
+
+# IMU paramteres
+## IMU coordinate system
+##         z |  / x
+##           | /
+##    y ------
+samplingRate: 100 # [Hz]
+# (cfsd) IMU noise and bias factor
+accNoise: 0.000057 # [g*sqrt(s)] accelerometer measurement noise density, 57 micro-g/sqrt(Hz) from "Ellipse_Series_Leaflet.pdf"
+gyrNoise: 4.3633e-5 # [rad/sqrt(s)] gyroscope measurement noise density, 0.15 degree/sqrt(hr)
+# (kitti) otxs RT3003 (https://support.oxts.com/hc/en-us/articles/115001155865-RT3000-Online-manual, rt_manual.pdf, p.23)
+accBias: 0.000005 # [g] accelerometer bias random walk noise, 5 micro-g
+gyrBias: 0.0001745 # [rad/s] gyroscope bias random walk noise, 0.01 degree/s
+
+# Camera (left) and imu extrinsics
+# imu -> Cam0
+rotationImuToCamera: !!opencv-matrix
+    rows: 3
+    cols: 3
+    dt: d
+    data: [ 0.008317858903706, -0.999864653701645,  0.014190685666587, 0.012777698923067, -0.014083738773391, -0.999819239796591, 0.999883767619045,  0.008497678938770,  0.012658822786866 ]
+translationImuToCamera: !!opencv-matrix
+    rows: 3
+    cols: 1
+    dt: d
+    data: [ -0.329215773856599, 0.711581353599277, -1.089782651897934 ]
+
+################################################################################
+##### Feature detection settings #####
+# Use ORB of OpenCV or ORB_SLAM2
+cvORB: 0 # default: not use OpenCV ORB
+
+# ORB feature detector parameters
+numberOfFeatures: 2000
+scaleFactor: 1.2
+levelPyramid: 8
+
+# (OpenCV) ORB Detector
+edgeThreshold: 31
+scoreType: 1 # 0 is ORB::HARRIS_SCORE, 1 is ORB::FAST_SCORE
+patchSize: 31
+fastThreshold: 20
+# For OpenCV ORB, detect in several grids to make the distribution of keypoints more evenly
+gridRow: 1
+gridCol: 1
+
+# (ORB_SLAM2) ORB Extractor: Fast threshold
+# Image is divided in a grid. At each cell FAST are extracted imposing a minimum response.
+# Firstly we impose iniThFAST. If no corners are detected we impose a lower value minThFAST
+# You can lower these values if your images have low contrast
+iniThFAST: 12
+minThFAST: 7
+
+# Feature matching parameters
+matchRatio: 2 # the distance of a good match should be smaller than minDist*matchRatio
+minMatchDist: 30.0 # another number for selecting good matches, from experience
+maxVerticalPixelDist: 0.1 # selecting good matching by the vertical coordinates since image have been rectified
+maxFeatureAge: 8 # Max age of a feature
+maxDepth: 35 # Max depth or distance w.r.t camera
+
+################################################################################
+##### Tracking settings #####
+#max_num_lost: 10
+#min_inliers: 10
+
+# Keyframe selection
+keyframe_rotation: 0.1
+keyframe_translation: 0.1
+# nearPointThres:
+maxImuTime: 4
+
+# Reinitialization if bias is corrupted
+maxGyrBias: 0.1
+maxAccBias: 0.6
+
+# SfM frame selection
+sfmRotation: 0.1
+sfmTranslation: 0.1
+
+# Method for solving PnP problem:
+# 0-SOLVEPNP_ITERATIVE (default)
+# 1-SOLVEPNP_EPNP (Efficient Perspective-n-Point Camera Pose Estimation)
+# 2-SOLVEPNP_P3P (Complete Solution Classification for the Perspective-Three-Point Problem)
+# 3-SOLVEPNP_DLS (A Direct Least-Squares (DLS) Method for PnP)
+# 4-SOLVEPNP_UPNP (Exhaustive Linearization for Robust Camera Pose and Focal Length Estimation)
+# 5-SOLVEPNP_AP3P (An Efficient Algebraic Solution to the Perspective-Three-Point Problem)
+solvePnP: 2
+
+################################################################################
+##### Optimization settings #####
+max_num_iterations: 20 # default: 50
+max_solver_time_in_seconds: 10 # default: 1e6
+num_threads: 4 # default: 1
+check_gradients: 0
+
+# Gravity magnitude for initial accelerometer correction.
+gravity: 9.81734 # [m/s^2] gravitational acceleration (might need slightly modification in case of different location)
+
+# Prior covariance factor
+priorFactor: 1e-5
+
+################################################################################
+##### Viewer settings #####
+viewScale: 1
+pointSize: 4
+landmarkSize: 2
+cameraSize: 0.08
+cameraLineWidth: 3
+lineWidth: 2
+viewpointX: -10
+viewpointY: 1
+viewpointZ: 20
+viewpointF: 2000
+background: 0 # 0-black, 1-white
+## world frame
+##       z |  / x
+##         | /
+##  y ------
+# set the up direction as AxisZ
+axisDirection: 6 # 0-AxisNone, 1-AxisNegX, 2-AxisX, 3-AxisNegY, 4-AxisY, 5-AxisNegZ, 6-AxisZ

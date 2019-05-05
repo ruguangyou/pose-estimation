@@ -1,0 +1,175 @@
+%YAML:1.0
+dataset: /home/ruguang/docker-CFSD/cfsd/2019/euroc/V1_01_easy/mav0/
+
+# Skip some images
+speedUp: 2
+
+################################################################################
+##### Sensor settings #####
+# Camera
+imageWidth: 752
+imageHeight: 480
+cameraFrequency: 20
+# Standard deviation of pixel-level measurement
+stdX: 0.5
+stdY: 0.5
+
+# Left camera intrinsics
+camLeft: !!opencv-matrix
+    rows: 3
+    cols: 3
+    dt: d
+    data: [ 458.654, 0, 367.215,
+            0, 457.296, 248.375,
+            0, 0, 1 ]
+distLeft: !!opencv-matrix
+    rows: 5
+    cols: 1
+    dt: d
+    data: [ -0.28340811, 0.07395907, 0.00019359, 1.76187114e-05, 0 ]
+
+# Right camera intrinsics
+camRight: !!opencv-matrix
+    rows: 3
+    cols: 3
+    dt: d
+    data: [ 457.587, 0, 379.999,
+            0, 456.134, 255.238,
+            0, 0, 1 ]
+distRight: !!opencv-matrix
+    rows: 5
+    cols: 1
+    dt: d
+    data: [ -0.28368365,  0.07451284, -0.00010473, -3.55590700e-05, 0 ]
+
+# Camera extrinsics
+rotationLeftToRight: !!opencv-matrix
+    rows: 3
+    cols: 3
+    dt: d
+    data: [ 0.999997, 0.00231207, 0.000376008, -0.00231714, 0.999898, 0.0140898, -0.000343393, -0.0140907, 0.999901 ]
+translationLeftToRight: !!opencv-matrix
+    rows: 3
+    cols: 1
+    dt: d
+    data: [ -0.110074, 0.000399122, -0.000853703 ]
+
+# IMU paramteres
+## IMU coordinate system    camera coordinate system
+##        x |  / z                    / z
+##          | /                      /
+##           ------ y               ------ x
+##                                  |
+##                                  | y
+samplingRate: 200 # [Hz]
+# (euroc) inertial sensor noise model parameters (static)
+gyroscope_noise_density: 1.6968e-04     # [ rad / s / sqrt(Hz) ]   ( gyro "white noise" )
+gyroscope_random_walk: 1.9393e-05       # [ rad / s^2 / sqrt(Hz) ] ( gyro bias diffusion )
+accelerometer_noise_density: 2.0000e-3  # [ m / s^2 / sqrt(Hz) ]   ( accel "white noise" )
+accelerometer_random_walk: 3.0000e-3    # [ m / s^3 / sqrt(Hz) ].  ( accel bias diffusion )
+
+# Camera (left) and imu extrinsics
+rotationImuToCamera: !!opencv-matrix
+    rows: 3
+    cols: 3
+    dt: d
+    data: [ 0.0148655, 0.999557, -0.0257744, -0.999881, 0.0149672, 0.00375619, 0.0041403, 0.0257155, 0.999661 ]
+translationImuToCamera: !!opencv-matrix
+    rows: 3
+    cols: 1
+    dt: d
+    data: [ 0.0652229, -0.0207064, -0.0080546 ]
+
+################################################################################
+##### Feature detection settings #####
+# Use ORB of OpenCV or ORB_SLAM2
+cvORB: 0 # default: not use OpenCV ORB
+
+# ORB feature detector parameters
+numberOfFeatures: 800
+scaleFactor: 1.2
+levelPyramid: 8
+
+# (OpenCV) ORB Detector
+edgeThreshold: 31
+scoreType: 1 # 0 is ORB::HARRIS_SCORE, 1 is ORB::FAST_SCORE
+patchSize: 31
+fastThreshold: 20
+# For OpenCV ORB, detect in several grids to make the distribution of keypoints more evenly
+gridRow: 1
+gridCol: 1
+
+# (ORB_SLAM2) ORB Extractor: Fast threshold
+# Image is divided in a grid. At each cell FAST are extracted imposing a minimum response.
+# Firstly we impose iniThFAST. If no corners are detected we impose a lower value minThFAST
+# You can lower these values if your images have low contrast			
+iniThFAST: 20
+minThFAST: 7
+
+# Feature matching parameters
+matchRatio: 2    # the distance of a good match should be smaller than minDist*matchRatio
+minMatchDist: 30.0 # another number for selecting good matches, from experience
+maxVerticalPixelDist: 0.1 # selecting good matching by the vertical coordinates since image have been rectified
+maxFeatureAge: 8  # Max age of a feature
+maxDepth: 10 # Max depth or distance w.r.t camera
+
+################################################################################
+##### Tracking settings #####
+#max_num_lost: 10
+#min_inliers: 10
+
+# Keyframe selection
+keyframeRotation: 0.2
+keyframeTranslation: 0.1
+# nearPointThres:
+maxImuTime: 4
+
+# Reinitialization if bias is corrupted
+maxGyrBias: 0.1
+maxAccBias: 0.6
+
+# SfM frame selection
+sfmRotation: 0
+sfmTranslation: 0
+
+# Method for solving PnP problem:
+# 0-SOLVEPNP_ITERATIVE (default)
+# 1-SOLVEPNP_EPNP (Efficient Perspective-n-Point Camera Pose Estimation)
+# 2-SOLVEPNP_P3P (Complete Solution Classification for the Perspective-Three-Point Problem)
+# 3-SOLVEPNP_DLS (A Direct Least-Squares (DLS) Method for PnP)
+# 4-SOLVEPNP_UPNP (Exhaustive Linearization for Robust Camera Pose and Focal Length Estimation)
+# 5-SOLVEPNP_AP3P (An Efficient Algebraic Solution to the Perspective-Three-Point Problem)
+solvePnP: 0
+
+################################################################################
+##### Optimization settings #####
+max_num_iterations: 20 # default: 50
+max_solver_time_in_seconds: 10 # default: 1e6
+num_threads: 4 # default: 1
+check_gradients: 0
+
+# Gravity magnitude for initial accelerometer correction.
+gravity: 9.81734 # [m/s^2] gravitational acceleration (might need slightly modification in case of different location)
+
+# Prior covariance factor
+priorFactor: 1e-5
+
+################################################################################
+##### Viewer settings #####
+viewScale: 1
+pointSize: 4
+landmarkSize: 2
+cameraSize: 0.08
+cameraLineWidth: 3
+lineWidth: 2
+viewpointX: 10
+viewpointY: 10
+viewpointZ: -30
+viewpointF: 2000
+background: 0 # 0-black, 1-white
+## world frame
+##    x |  / z
+##      | /
+##       ------ y
+# set the up direction as AxisX
+axisDirection: 2 # 0-AxisNone, 1-AxisNegX, 2-AxisX, 3-AxisNegY, 4-AxisY, 5-AxisNegZ, 6-AxisZ

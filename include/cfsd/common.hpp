@@ -15,10 +15,6 @@
 #include <opencv2/core/core.hpp>
 #include <opencv2/core/eigen.hpp> // cv::eigen2cv, cv::cv2eigen
 
-#ifdef DEBUG_IMG
-#include <opencv2/highgui/highgui.hpp>
-#endif
-
 // std utilities
 #include <iostream>         // several standard stream objects
 #include <memory>           // higher level memory management utilities (std::shared_ptr, std::unique_ptr, ...)
@@ -38,21 +34,6 @@
 #include <map>              // std::map and std::multimap associative containers
 #include <unordered_map>    // std::unordered_map and std::unordered_multimap unordered associative containers
 #include <set>              // std::set and std::multiset associative containers
-
-// pre-defined type (easy to change between float and double type)
-typedef double precisionType;
-typedef Eigen::Matrix3d EigenMatrix3Type;
-typedef Eigen::Vector3d EigenVector3Type;
-typedef Eigen::Vector2d EigenVector2Type;
-typedef Eigen::Matrix<double,4,1> EigenVector4Type;
-typedef Eigen::Quaterniond EigenQuaternionType;
-typedef Sophus::SE3d SophusSE3Type;
-typedef Sophus::SO3d SophusSO3Type;
-typedef cv::Point3d cvPoint3Type;
-typedef cv::Point2d cvPoint2Type;
-typedef cv::Matx33d cvMatrix3Type;
-typedef cv::Matx41d cvVector4Type;
-typedef cv::Matx34d cvMatrix34Type;
 
 // pre-defined smart pointer type
 namespace cfsd {
