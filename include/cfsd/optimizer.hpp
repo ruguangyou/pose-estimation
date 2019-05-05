@@ -48,6 +48,9 @@ class Optimizer {
     double _pose[WINDOWSIZE][6];  // pose (rotation vector, translation vector / position)
     double _v_bga[WINDOWSIZE][9]; // velocity, bias of gyroscope, bias of accelerometer
 
+    double _fx{0}, _fy{0}, _cx{0}, _cy{0};
+    Eigen::Matrix2d _invStdT;
+    
     double _priorFactor{0};
 
   // public:

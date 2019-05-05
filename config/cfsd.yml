@@ -57,9 +57,9 @@ distRight: !!opencv-matrix
 # Camera extrinsics
 rotationLeftToRight: !!opencv-matrix
     rows: 3
-    cols: 1
+    cols: 3
     dt: d
-    data: [ -0.0132397, 0.021005, -0.00121284 ]
+    data: [ 0.999779, 0.00107367, 0.0210109, -0.00135176, 0.999912, 0.0132256, -0.0209948, -0.0132511, 0.999692 ]
 translationLeftToRight: !!opencv-matrix
     rows: 3
     cols: 1
@@ -157,6 +157,15 @@ maxAccBias: 0.6
 # SfM frame selection
 sfmRotation: 0
 sfmTranslation: 0
+
+# Method for solving PnP problem:
+# 0-SOLVEPNP_ITERATIVE (default)
+# 1-SOLVEPNP_EPNP (Efficient Perspective-n-Point Camera Pose Estimation)
+# 2-SOLVEPNP_P3P (Complete Solution Classification for the Perspective-Three-Point Problem)
+# 3-SOLVEPNP_DLS (A Direct Least-Squares (DLS) Method for PnP)
+# 4-SOLVEPNP_UPNP (Exhaustive Linearization for Robust Camera Pose and Focal Length Estimation)
+# 5-SOLVEPNP_AP3P (An Efficient Algebraic Solution to the Perspective-Three-Point Problem)
+solvePnP: 2
 
 ################################################################################
 ##### Optimization settings #####

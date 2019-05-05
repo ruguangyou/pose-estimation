@@ -5,6 +5,11 @@ namespace cfsd {
 Optimizer::Optimizer(const cfsd::Ptr<Map>& pMap, const cfsd::Ptr<FeatureTracker>& pFeatureTracker, const cfsd::Ptr<ImuPreintegrator>& pImuPreintegrator, const cfsd::Ptr<CameraModel>& pCameraModel, const bool verbose)
     : _pMap(pMap), _pFeatureTracker(pFeatureTracker), _pImuPreintegrator(pImuPreintegrator), _pCameraModel(pCameraModel), _verbose(verbose) {
 
+    _fx = _pCameraModel->_K_L.at<double>(0,0);
+    _fy = _pCameraModel->_K_L.at<double>(1,1);
+    _cx = _pCameraModel->_K_L.at<double>(0,2);
+    _cy = _pCameraModel->_K_L.at<double>(1,2);
+    _invStdT << 1/_pCameraModel->_stdX, 0, 0, 1/_pCameraModel->_stdY;
     _priorFactor = Config::get<double>("priorFactor");
 }
 
@@ -34,15 +39,9 @@ void Optimizer::motionOnlyBA(const cv::Mat& img) {
     // Set up imu cost function.
     for (int i = 0; i < actualSize-1; i++) {
         ceres::CostFunction* preintegrationCost = new ImuCostFunction(_pMap, n+i);
-        problem.AddResidualBlock(preintegrationCost, NULL, delta_pose[i], delta_v_dbga[i], delta_pose[i+1], delta_v_dbga[i+1]);
+        problem.AddResidualBlock(preintegrationCost, new ceres::HuberLoss(1.0), delta_pose[i], delta_v_dbga[i], delta_pose[i+1], delta_v_dbga[i+1]);
+        // problem.AddResidualBlock(preintegrationCost, NULL, delta_pose[i], delta_v_dbga[i], delta_pose[i+1], delta_v_dbga[i+1]);
     }
-
-    double fx = _pCameraModel->_K_L.at<double>(0,0);
-    double fy = _pCameraModel->_K_L.at<double>(1,1);
-    double cx = _pCameraModel->_K_L.at<double>(0,2);
-    double cy = _pCameraModel->_K_L.at<double>(1,2);
-    Eigen::Matrix2d invStdT;
-    invStdT << 1/_pCameraModel->_stdX, 0, 0, 1/_pCameraModel->_stdY;
 
     // (landmark : frame)
     std::unordered_map< size_t, std::vector< std::pair<int,int> > > landmarks;
@@ -78,8 +77,8 @@ void Optimizer::motionOnlyBA(const cv::Mat& img) {
         // Each F_ij block (2x6 matrix) is partial derivative of error w.r.t pose_i.
         Eigen::MatrixXd F(2*errorTerms, 6*errorTerms);
         F.setZero();
-        // // Each E_ij block (2x3 matrix) is partial detivative of error w.r.t landmark_j.
-        // Eigen::MatrixXd E(2*errorTerms, 3);
+        // Each E_ij block (2x3 matrix) is partial detivative of error w.r.t landmark_j.
+        Eigen::MatrixXd E(2*errorTerms, 3);
 
         for (int i = 0, j = 0; i < l.second.size(); i++) {
             const auto& pair = l.second[i];
@@ -96,25 +95,25 @@ void Optimizer::motionOnlyBA(const cv::Mat& img) {
             double z = point_wrt_cam.z();
             
             Eigen::Matrix<double,2,3> d_e_pcam;
-            d_e_pcam(0,0) = fx / z;
+            d_e_pcam(0,0) = _fx / z;
             d_e_pcam(0,1) = 0;
-            d_e_pcam(0,2) = -fx * x / (z * z);
+            d_e_pcam(0,2) = -_fx * x / (z * z);
             d_e_pcam(1,0) = 0;
-            d_e_pcam(1,1) = fy / z;
-            d_e_pcam(1,2) = -fy * y / (z * z);
+            d_e_pcam(1,1) = _fy / z;
+            d_e_pcam(1,2) = -_fy * y / (z * z);
         
-            error(2*j) = fx * x / z + cx - mp->pixel.x;
-            error(2*j+1) = fy * y / z + cy - mp->pixel.y;
-            error.segment<2>(2*j) = invStdT * error.segment<2>(2*j);
+            error(2*j) = _fx * x / z + _cx - mp->pixel.x;
+            error(2*j+1) = _fy * y / z + _cy - mp->pixel.y;
+            error.segment<2>(2*j) = _invStdT * error.segment<2>(2*j);
 
             // F.block<2,3>(2*j, 6*j) = d_e_pcam * _pCameraModel->_T_CB.so3().matrix() * Sophus::SO3d::hat(temp);
             F.block<2,3>(2*j, 6*j+3) = -d_e_pcam * _pCameraModel->_T_CB.so3().matrix();
             F.block<2,3>(2*j, 6*j) = -F.block<2,3>(2*j, 6*j+3) * Sophus::SO3d::hat(temp);
-            F.block<2,6>(2*j, 6*j) = invStdT * F.block<2,6>(2*j, 6*j);
+            F.block<2,6>(2*j, 6*j) = _invStdT * F.block<2,6>(2*j, 6*j);
 
             // // E.block<2,3>(2*j, 0) = d_e_cam * _pCameraModel->_T_CB.so3().matrix() * _pMap->_R[pair.first].inverse().matrix();
             // E.block<2,3>(2*j, 0) = -F.block<2,3>(2*j, 6*j+3) * _pMap->_R[pair.first].inverse().matrix();
-            // E.block<2,3>(2*j, 0) = invStdT * E.block<2,3>(2*j, 0);
+            // E.block<2,3>(2*j, 0) = _invStdT * E.block<2,3>(2*j, 0);
 
             j++;
         }
@@ -125,7 +124,11 @@ void Optimizer::motionOnlyBA(const cv::Mat& img) {
         // // E.rows() is 2*errorTerms; the rank of E is 3, i.e. svd.singularValues().rows() is 3
         // Eigen::MatrixXd E_b_nullspace = svd.matrixU().rightCols(2*errorTerms-3);
 
+        // // Calculate I - E * inv(E'*E) * E'
+        // Eigen::MatrixXd D = Eigen::MatrixXd::Identity(E.rows(), E.rows()) - E * (E.transpose() * E).inverse() * E.transpose();
+
         // Set up reprojection cost function for a specific landmark (a.k.a. residuals).
+        // ceres::CostFunction* reprojectCost = new ImageCostFunction(errorTerms, error, F, D);
         // ceres::CostFunction* reprojectCost = new ImageCostFunction(errorTerms, error, F, E_b_nullspace);
         ceres::CostFunction* reprojectCost = new ImageCostFunction(errorTerms, error, F);
         problem.AddResidualBlock(reprojectCost, new ceres::HuberLoss(1.0), delta_pose_img);
@@ -218,7 +221,9 @@ void Optimizer::initialGravityVelocity() {
         // problem.AddResidualBlock(gravityVelocityCost, nullptr, delta_g, delta_v[i], delta_v[i+1]);
         problem.AddResidualBlock(gravityVelocityCost, new ceres::HuberLoss(1.0), delta_g, delta_v[i], delta_v[i+1]);
     }
-    problem.SetParameterBlockConstant(delta_v[0]);
+
+    // Assume initial velocity is zero?
+    // problem.SetParameterBlockConstant(delta_v[0]);
 
     ceres::Solver::Options options;
     options.linear_solver_type = ceres::DENSE_QR;
@@ -240,23 +245,35 @@ void Optimizer::initialAlignment() {
             ------ y
             |
             | z
-    
-        kitti imu coordinate system
-              z |  / x
-                | /
-          y -----
 
         euroc imu coordinate system
               x |  / z
                 | /
                 ------ y
+    
+        kitti imu coordinate system
+              z |  / x
+                | /
+          y -----
     */
     
     // Find rotation of gravity from the initial body frame to world frame (inertial frame), and refine the gravity magnitude.
 
-    // For euroc: only consider rotation around y and z axis.
+    // Only consider rotation around non-gravitational axis.
     double delta_r[2] = {0,0};
-    Eigen::Vector3d unit_gravity(-1,0,0);
+    Eigen::Vector3d unit_gravity;
+    
+    #ifdef CFSD
+    unit_gravity << 0.0, 0.0, 1.0;
+    #endif
+
+    #ifdef EUROC
+    unit_gravity << -1.0, 0.0, 0.0;
+    #endif
+    
+    #ifdef KITTI
+    unit_gravity << 0.0, 0.0, -1.0;
+    #endif
     
     ceres::Problem problem; // initial rotation
 
@@ -272,7 +289,17 @@ void Optimizer::initialAlignment() {
     ceres::Solve(options, &problem, &summary);
     // std::cout << summary.FullReport() << std::endl;
 
-    _pMap->updateInitialRotation(0, Eigen::Vector3d(0, delta_r[0], delta_r[1]));
+    #ifdef CFSD
+    _pMap->updateInitialRotation(0, Eigen::Vector3d(delta_r[0], delta_r[1], 0.0));
+    #endif
+
+    #ifdef EUROC
+    _pMap->updateInitialRotation(0, Eigen::Vector3d(0.0, delta_r[0], delta_r[1]));
+    #endif
+    
+    #ifdef KITTI
+    _pMap->updateInitialRotation(0, Eigen::Vector3d(delta_r[0], delta_r[1], 0.0));
+    #endif
 }
 
 void Optimizer::initialAccBias() {

@@ -46,8 +46,10 @@ FeatureTracker::FeatureTracker(const cfsd::Ptr<Map>& pMap, const cfsd::Ptr<Camer
     _minRotation = Config::get<double>("sfmRotation");
     _minTranslation = Config::get<double>("sfmTranslation");
 
-    // int height = Config::get<int>("processHeight");
-    // int width = Config::get<int>("processWidth");
+    _solvePnP = Config::get<int>("solvePnP");
+
+    // int height = Config::get<int>("imageHeight");
+    // int width = Config::get<int>("imageWidth");
     // _mask = cv::Mat::zeros(height, width, CV_8U);
     // // Pixel representation.
     // int h1  = Config::get<int>("h1");
@@ -444,21 +446,28 @@ bool FeatureTracker::structFromMotion(const cv::Mat& grayLeft, const cv::Mat& gr
     float minDist = std::min_element(matches.begin(), matches.end(), [] (const cv::DMatch& m1, const cv::DMatch& m2) { return m1.distance < m2.distance; })->distance;
 
     // cv::Mat out;
-    // cv::drawMatches(imgLeft, _keypointsL, imgRight, _keypointsR, matches, out);
-    // std::cout << _keypointsL.size() << std::endl;
-    // cv::imshow("out", out);
+    // cv::drawMatches(imgLeft, keypointsL, imgRight, keypointsR, matches, out);
+    // std::cout << matches.size() << std::endl;
+    // cv::imshow("matches", out);
     // cv::waitKey(0);
 
     // Only keep good matches, for pixel (ul, vl) and (ur, vr), |vl-vr| should be small enough since the image has been rectified.
     std::vector<cv::Point2d> pixelsL, pixelsR;
     std::vector<int> indexL;
+    // std::vector<cv::DMatch> good_matches;
     for (auto& m : matches) {
         if (m.distance < std::max(_matchRatio * minDist, _minMatchDist) && std::abs(keypointsL[m.queryIdx].pt.y - keypointsR[m.trainIdx].pt.y) < _maxVerticalPixelDist) {
             pixelsL.push_back(keypointsL[m.queryIdx].pt);
             pixelsR.push_back(keypointsR[m.trainIdx].pt);
             indexL.push_back(m.queryIdx);
+            // good_matches.push_back(m);
         }
     }
+
+    // cv::drawMatches(imgLeft, keypointsL, imgRight, keypointsR, good_matches, out);
+    // std::cout << good_matches.size() << std::endl;
+    // cv::imshow("good matches", out);
+    // cv::waitKey(0);
 
     // Removing matches of big descriptor distance maybe not enough. To root out outliers further, use 2D-2D RANSAC.
     cv::Mat ransacMask;
@@ -490,7 +499,7 @@ bool FeatureTracker::structFromMotion(const cv::Mat& grayLeft, const cv::Mat& gr
             int i = m.queryIdx;
             double depth = points4D.at<double>(2,i) / points4D.at<double>(3,i);
             // Discard points that are too far away (i.e. less accurate) w.r.t current camera.
-            if (depth > _maxDepth) continue;
+            if (depth < 0.1 || depth > _maxDepth) continue;
             
             imagePoints.push_back(_refKeypointsL[m.trainIdx].pt);
             objectPoints.push_back(cv::Point3d(points4D.at<double>(0,i) / points4D.at<double>(3,i), points4D.at<double>(1,i) / points4D.at<double>(3,i), depth));
@@ -499,7 +508,25 @@ bool FeatureTracker::structFromMotion(const cv::Mat& grayLeft, const cv::Mat& gr
 
     auto start = std::chrono::steady_clock::now();
     cv::Mat rvec, tvec;
-    cv::solvePnPRansac(objectPoints, imagePoints, _pCameraModel->_K_L, cv::noArray(), rvec, tvec);
+    switch (_solvePnP) {
+        case 0:
+            cv::solvePnPRansac(objectPoints, imagePoints, _pCameraModel->_K_L, cv::noArray(), rvec, tvec, false, 100, 8.0, 0.99, cv::noArray(), cv::SOLVEPNP_ITERATIVE);
+            break;
+        case 1:
+            cv::solvePnPRansac(objectPoints, imagePoints, _pCameraModel->_K_L, cv::noArray(), rvec, tvec, false, 100, 8.0, 0.99, cv::noArray(), cv::SOLVEPNP_EPNP);
+            break;
+        case 2:
+            cv::solvePnPRansac(objectPoints, imagePoints, _pCameraModel->_K_L, cv::noArray(), rvec, tvec, false, 100, 8.0, 0.99, cv::noArray(), cv::SOLVEPNP_P3P);
+            break;
+        case 3:
+            cv::solvePnPRansac(objectPoints, imagePoints, _pCameraModel->_K_L, cv::noArray(), rvec, tvec, false, 100, 8.0, 0.99, cv::noArray(), cv::SOLVEPNP_DLS);
+            break;
+        case 4:
+            cv::solvePnPRansac(objectPoints, imagePoints, _pCameraModel->_K_L, cv::noArray(), rvec, tvec, false, 100, 8.0, 0.99, cv::noArray(), cv::SOLVEPNP_UPNP);
+            break;
+        case 5:
+            cv::solvePnPRansac(objectPoints, imagePoints, _pCameraModel->_K_L, cv::noArray(), rvec, tvec, false, 100, 8.0, 0.99, cv::noArray(), cv::SOLVEPNP_AP3P);
+    }
     cv::cv2eigen(rvec, r);
     cv::cv2eigen(tvec, p);
     auto end = std::chrono::steady_clock::now();

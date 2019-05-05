@@ -76,8 +76,7 @@ bool VisualInertialSLAM::process(const cv::Mat& grayL, const cv::Mat& grayR, con
 
             std::cout << "Initializing gravity and velocity..." << std::endl;
             start = std::chrono::steady_clock::now();
-            // Assume zero acc bias.
-            _pOptimizer->initialGravityVelocity();
+            _pOptimizer->initialGravityVelocity(); // assume zero acc bias
             end = std::chrono::steady_clock::now();
             std::cout << "elapsed time: " << std::chrono::duration<double, std::milli>(end-start).count() << "ms" << std::endl;
             std::cout << "Gravity and velocity initialization Done!" << std::endl << std::endl;
@@ -97,7 +96,6 @@ bool VisualInertialSLAM::process(const cv::Mat& grayL, const cv::Mat& grayR, con
             std::cout << "Acc bias initialization Done!" << std::endl << std::endl;
 
             _pImuPreintegrator->reset();
-
             _pMap->reset(0);
             
             // Initial stereo pair matching.

@@ -33,12 +33,12 @@ int main(int argc, char** argv) {
     const int width = cfsd::Config::get<int>("readWidth");
 
     // Resolution that is used in post-processing, i.e. if image from shared memory is of different size, it will be resized.
-    const int resizeHeight = cfsd::Config::get<int>("processHeight");
-    const int resizeWidth = cfsd::Config::get<int>("processWidth") * 2;
+    const int resizeHeight = cfsd::Config::get<int>("imageHeight");
+    const int resizeWidth = cfsd::Config::get<int>("imageWidth") * 2;
     cv::Size imgSize(resizeWidth, resizeHeight);
 
     // Time interval in microseconds between two image frames.
-    // const long imgDeltaTus = (long)1000000 / cfsd::Config::get<int>("processFrequency");
+    // const long imgDeltaTus = (long)1000000 / cfsd::Config::get<int>("cameraFrequency");
 
     // Interface to VI-SLAM.
     cfsd::Ptr<cfsd::VisualInertialSLAM> pVISLAM{new cfsd::VisualInertialSLAM(verbose)};
@@ -136,6 +136,5 @@ int main(int argc, char** argv) {
         std::cerr << "Failed to attach to shared memory." << std::endl;
         return 1;
     }
-    
     return 0;
 }

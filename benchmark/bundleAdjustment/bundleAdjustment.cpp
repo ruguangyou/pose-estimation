@@ -158,6 +158,9 @@ int main(int argc, char** argv) {
     // cv::transpose(R, R);
     cv::stereoRectify(K1, D1, K2, D2, imageSize, R, T, R1, R2, P1, P2, Q, cv::CALIB_ZERO_DISPARITY, 0, imageSize, &validRoi[0], &validRoi[1]);
 
+    std::cout << P1 << std::endl;
+    std::cout << P2 << std::endl;
+
     cv::Mat rmap[2][2];
     cv::initUndistortRectifyMap(K1, D1, R1, P1, imageSize, CV_16SC2, rmap[0][0], rmap[0][1]);
     cv::initUndistortRectifyMap(K2, D2, R2, P2, imageSize, CV_16SC2, rmap[1][0], rmap[1][1]);

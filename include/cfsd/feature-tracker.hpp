@@ -110,6 +110,8 @@ class FeatureTracker {
     double _minRotation{0};
     double _minTranslation{0};
 
+    int _solvePnP{0};
+
   public:
     // Features that pass circular matching, i.e. curLeft <=> histLeft <=> histRight <=> curRight <=> curLeft
     // store the id of the circularly matched features, s.t. the _age grows normally, i.e., increase 1.

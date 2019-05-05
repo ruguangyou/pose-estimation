@@ -80,55 +80,58 @@ ImuPreintegrator::ImuPreintegrator(const cfsd::Ptr<Map> pMap, const bool verbose
     _samplingRate = Config::get<int>("samplingRate");
     _deltaT = 1.0 / (double)_samplingRate;
     _deltaT2 = _deltaT * _deltaT;
+    double sqrtDeltaT = std::sqrt(_deltaT);
 
     _deltaTus = (long)1000000 / _samplingRate;
+    
+    double g = Config::get<double>("gravity");
 
-    // double sqrtDeltaT = std::sqrt(_deltaT);
+    double gyrNoiseD, accNoiseD, gyrBias, accBias;
+    #ifdef CFSD
+        // Noise density of accelerometer and gyroscope measurements.
+        //   Continuous-time model: sigma_g, unit: [rad/(s*sqrt(Hz))] or [rad/sqrt(s)]
+        //                          sigma_a, unit: [m/(s^2*sqrt(Hz))] or [m/(s*sqrt(s))]
+        //   Discrete-time model: sigma_gd = sigma_g/sqrt(delta_t), unit: [rad/s]
+        //                        sigma_ad = sigma_a/sqrt(delta_t), unit: [m/s^2]
+        // Convert unit [rad/sqrt(s)] to [rad/s]
+        gyrNoiseD = Config::get<double>("gyrNoise") / sqrtDeltaT;
+        // Convert unit [g*sqrt(s)] to [m/s^2].
+        accNoiseD = Config::get<double>("accNoise") * g / sqrtDeltaT;
+        // Bias random walk noise density of accelerometer and gyroscope.
+        //   Continuous-time model: sigma_bg, unit: [rad/(s^2*sqrt(Hz))] or [rad/(s*sqrt(s))]
+        //                          sigma_ba, unit: [m/(s^3*sqrt(Hz))] or [m/(s^2*sqrt(s))]
+        //   Discrete-time model: sigma_bgd = sigma_bg*sqrt(delta_t), unit: [rad/s]
+        //                        sigma_bad = sigma_ba*sqrt(delta_t), unit: [m/s^2]
+        // (Bias are modelled with a "Brownian motion" process, also termed a "Wiener process", or "random walk" in discrete-time)
+        // Convert unit [rad/s] to [rad/(s*sqrt(s))]
+        gyrBias = Config::get<double>("gyrBias") / sqrtDeltaT;
+        // Convert unit [g] to [m/(s^2*sqrt(s))]
+        accBias = Config::get<double>("accBias") * g / sqrtDeltaT;
+    #endif
 
-    // For cfsd and kitti.
-    // // Noise density of accelerometer and gyroscope measurements.
-    // //   Continuous-time model: sigma_g, unit: [rad/(s*sqrt(Hz))] or [rad/sqrt(s)]
-    // //                          sigma_a, unit: [m/(s^2*sqrt(Hz))] or [m/(s*sqrt(s))]
-    // //   Discrete-time model: sigma_gd = sigma_g/sqrt(delta_t), unit: [rad/s]
-    // //                        sigma_ad = sigma_a/sqrt(delta_t), unit: [m/s^2]
-    // double accNoiseD, gyrNoiseD;
-    // // Convert unit [rad/sqrt(s)] to [rad/s]
-    // gyrNoiseD = Config::get<double>("gyrNoise") / sqrtDeltaT;
-    // // Convert unit [g*sqrt(s)] to [m/s^2].
-    // accNoiseD = Config::get<double>("accNoise") * g / sqrtDeltaT;
+    #ifdef KITTI
+        gyrNoiseD = Config::get<double>("gyrNoise") / sqrtDeltaT;
+        accNoiseD = Config::get<double>("accNoise") * g / sqrtDeltaT;
+        gyrBias = Config::get<double>("gyrBias") / sqrtDeltaT;
+        accBias = Config::get<double>("accBias") * g / sqrtDeltaT;
+    #endif
 
-    // // Bias random walk noise density of accelerometer and gyroscope.
-    // //   Continuous-time model: sigma_bg, unit: [rad/(s^2*sqrt(Hz))] or [rad/(s*sqrt(s))]
-    // //                          sigma_ba, unit: [m/(s^3*sqrt(Hz))] or [m/(s^2*sqrt(s))]
-    // //   Discrete-time model: sigma_bgd = sigma_bg*sqrt(delta_t), unit: [rad/s]
-    // //                        sigma_bad = sigma_ba*sqrt(delta_t), unit: [m/s^2]
-    // // (Bias are modelled with a "Brownian motion" process, also termed a "Wiener process", or "random walk" in discrete-time)
-    // double accBiasD, gyrBiasD;
-    // // Unit [rad/s]
-    // gyrBiasD = Config::get<double>("gyrBias");
-    // // Convert unit [g] to [m/s^2]
-    // accBiasD = Config::get<double>("accBias") * g;
-
-    // For euroc.
-    double accNoise, gyrNoise;
-    gyrNoise = Config::get<double>("gyroscope_noise_density");
-    accNoise = Config::get<double>("accelerometer_noise_density");
-    double accBias, gyrBias;
-    gyrBias = Config::get<double>("gyroscope_random_walk");
-    accBias = Config::get<double>("accelerometer_random_walk");
+    #ifdef EUROC
+        gyrNoiseD = Config::get<double>("gyroscope_noise_density") / sqrtDeltaT; // unit: [rad/s]
+        accNoiseD = Config::get<double>("accelerometer_noise_density") / sqrtDeltaT; // unit: [m/s^2]
+        gyrBias = Config::get<double>("gyroscope_random_walk"); // unit: [rad/(s*sqrt(s))]
+        accBias = Config::get<double>("accelerometer_random_walk"); // unit: [m/(s^2*sqrt(s))]
+    #endif
     
     // For noise, cov(nd) = cov(n) / deltaT. (deltaT is the time interval between two consecutive imu measurements)
     // Covariance matrix of discrete-time noise [n_gd, n_ad]
-    _covNoiseD.block<3, 3>(0, 0) = (gyrNoise * gyrNoise) * Eigen::Matrix3d::Identity() / _deltaT;
-    _covNoiseD.block<3, 3>(3, 3) = (accNoise * accNoise) * Eigen::Matrix3d::Identity() / _deltaT;
+    _covNoiseD.block<3, 3>(0, 0) = (gyrNoiseD * gyrNoiseD) * Eigen::Matrix3d::Identity(); // unit: [rad^2/s^2]
+    _covNoiseD.block<3, 3>(3, 3) = (accNoiseD * accNoiseD) * Eigen::Matrix3d::Identity(); // unit: [m^2/s^4]
 
     // For bias, cov(bd) = cov(b) * dt_ij. (dt_ij is the time interval between two keyframes)
     // Covariance matrix of discrete-time bias [b_gd, b_ad]
-    _covBias.block<3, 3>(0, 0) = (gyrBias * gyrBias) * Eigen::Matrix3d::Identity();
-    _covBias.block<3, 3>(3, 3) = (accBias * accBias) * Eigen::Matrix3d::Identity();
-
-    // // Initialize preintegration covariance (r,v,p,bg,ba, 15x15).
-    // _covPreintegration_ij.block<6, 6>(9, 9) = _covBias;
+    _covBias.block<3, 3>(0, 0) = (gyrBias * gyrBias) * Eigen::Matrix3d::Identity(); // unit: [rad^2/(s^3)]
+    _covBias.block<3, 3>(3, 3) = (accBias * accBias) * Eigen::Matrix3d::Identity(); // unit: [m^2/(s^5)]
 }
 
 void ImuPreintegrator::pushImuData(const long& timestamp, const Eigen::Vector3d& gyr, const Eigen::Vector3d& acc) {

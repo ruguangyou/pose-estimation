@@ -15,15 +15,6 @@ namespace cfsd {
 Eigen::Matrix3d rightJacobianSO3(const Eigen::Vector3d& omega);
 Eigen::Matrix3d rightJacobianInverseSO3(const Eigen::Vector3d& omega);
 
-/* for cfsd
-   default IMU coordinate system => convert to camera coordinate system
-            / x (roll)                          / z (yaw)
-           /                                   /
-          ------ y (pitch)                    ------ x (roll)
-          |                                   |
-          | z (yaw)                           | y (pitch)
-*/
-
 // class ImuPreintegrator : public std::enable_shared_from_this<ImuPreintegrator>
 // shared_from_this() returns a std::shared_ptr<T> that shares ownership of *this with all existing std::shared_ptr that refer to *this.
 

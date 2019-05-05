@@ -50,11 +50,6 @@ class CameraModel {
         _stdX = Config::get<double>("stdX");
         _stdY = Config::get<double>("stdY");
 
-        // for cfsd
-        // _imageSize.height = Config::get<int>("processHeight");
-        // _imageSize.width = Config::get<int>("processWidth");
-        
-        // for kitti or euroc
         _imageSize.height = Config::get<int>("imageHeight");
         _imageSize.width = Config::get<int>("imageWidth");
         
@@ -62,7 +57,8 @@ class CameraModel {
         _D1 = Config::get<cv::Mat>("distLeft");
         _K2 = Config::get<cv::Mat>("camRight");
         _D2 = Config::get<cv::Mat>("distRight");
-        cv::Rodrigues(Config::get<cv::Mat>("rotationLeftToRight"), _R);
+        _R = Config::get<cv::Mat>("rotationLeftToRight");
+        // cv::Rodrigues(Config::get<cv::Mat>("rotationLeftToRight"), _R);
         _T = Config::get<cv::Mat>("translationLeftToRight");
 
         // CALIB_ZERO_DISPARITY: with this flag, the function makes the principal points of each camera have the same pixel coordinates in the rectified views.

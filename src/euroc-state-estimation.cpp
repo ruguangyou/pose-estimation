@@ -3,7 +3,6 @@
 
 #include <opencv2/imgcodecs.hpp>
 
-// #include <iostream>
 #include <fstream>
 
 int main(int argc, char** argv) {
@@ -50,8 +49,9 @@ int main(int argc, char** argv) {
     long imuTimestamp, imgTimestamp;
 
     int rate = cfsd::Config::get<int>("samplingRate") / cfsd::Config::get<int>("cameraFrequency");
+    int speedUp = cfsd::Config::get<int>("speedUp");
     while (!f_imu.eof() && !f_img.eof()) {
-        for (int i = 0; i < 2*rate + 1; i++) {
+        for (int i = 0; i < speedUp*rate + 1; i++) {
             f_imu >> imuTimestamp;
             f_imu.ignore(1, ',');
             f_imu >> wx;
@@ -70,12 +70,11 @@ int main(int argc, char** argv) {
             pVISLAM->collectImuData(cfsd::SensorType::GYROSCOPE, imuTimestamp, wx, wy, wz);
         }
 
-        f_img >> imgTimestamp;
-        f_img.ignore(1, ',');
-        f_img >> imgName;
-        f_img >> imgTimestamp;
-        f_img.ignore(1, ',');
-        f_img >> imgName;
+        for (int i = 0; i < speedUp; i++) {
+            f_img >> imgTimestamp;
+            f_img.ignore(1, ',');
+            f_img >> imgName;
+        }
         cv::Mat grayL = cv::imread(imgLeftDataPath + imgName);
         cv::Mat grayR = cv::imread(imgRightDataPath + imgName);
 

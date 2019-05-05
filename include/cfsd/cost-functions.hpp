@@ -138,6 +138,7 @@ struct PriorCostFunction : public ceres::SizedCostFunction<15, /* residuals */
     double _priorFactor;
 };
 
+
 // struct AutoDiffImageCostFunction {
 //     AutoDiffImageCostFunction(const cfsd::Ptr<CameraModel>& pCameraModel, const cv::Point2d& pixel, const Eigen::Vector3d& point, const Sophus::SO3d& R, const Eigen::Vector3d& p)
 //         : _pCameraModel(pCameraModel), _pixel(pixel), _point_W(point), _R_WB(R), _p_W(p) {}
@@ -174,8 +175,12 @@ struct PriorCostFunction : public ceres::SizedCostFunction<15, /* residuals */
 
 
 struct ImageCostFunction : public ceres::CostFunction {
-    ImageCostFunction(const int& n, const Eigen::MatrixXd& error, const Eigen::MatrixXd& F/*, const Eigen::MatrixXd& E_b_ns*/)
-        : _numResiduals(2*n), /*_numResiduals(2*n-3),*/ _numParameterBlocks(n), _error(error), _F(F)/*, _E_b_nullspace(E_b_ns)*/ {
+    // ImageCostFunction(const int& n, const Eigen::MatrixXd& error, const Eigen::MatrixXd& F, const Eigen::MatrixXd& D)
+    //     : _numResiduals(2*n), _numParameterBlocks(n), _error(error), _F(F), _D(D) {
+    // ImageCostFunction(const int& n, const Eigen::MatrixXd& error, const Eigen::MatrixXd& F, const Eigen::MatrixXd& E_b_ns)
+    //     : _numResiduals(2*n-3), _numParameterBlocks(n), _error(error), _F(F), _E_b_nullspace(E_b_ns) {
+    ImageCostFunction(const int& n, const Eigen::MatrixXd& error, const Eigen::MatrixXd& F)
+        : _numResiduals(2*n), _numParameterBlocks(n), _error(error), _F(F){
 
         set_num_residuals(_numResiduals);
         
@@ -199,8 +204,12 @@ struct ImageCostFunction : public ceres::CostFunction {
 
         Eigen::Map<Eigen::VectorXd> residual(residuals, _numResiduals);
 
+        // Eigen::MatrixXd J = _D * _F;
+        // residual = _D * _error + J * delta;
+
         // Eigen::MatrixXd J = _E_b_nullspace.transpose() * _F;
         // residual = _E_b_nullspace.transpose() * _error + J * delta;
+
         residual = _error + _F * delta;
 
         // Compute jacobians which are crutial for optimization algorithms like Guass-Newton.
@@ -211,6 +220,7 @@ struct ImageCostFunction : public ceres::CostFunction {
                 Eigen::Map<Eigen::Matrix<double,Eigen::Dynamic,Eigen::Dynamic,Eigen::RowMajor>> jacobian_pose(jacobians[i], _numResiduals, 6);
 
                 // jacobian_pose = J.block(0,6*i, _numResiduals,6);
+                
                 jacobian_pose = _F.block(0,6*i, _numResiduals,6);
             }
         }
@@ -223,6 +233,7 @@ struct ImageCostFunction : public ceres::CostFunction {
     int _numParameterBlocks;
     Eigen::MatrixXd _error;
     Eigen::MatrixXd _F;
+    // Eigen::MatrixXd _D;
     // Eigen::MatrixXd _E_b_nullspace;
 };
 
@@ -559,14 +570,43 @@ struct GravityVelocityCostFunction : public ceres::SizedCostFunction<6, /* resid
 
 
 struct AlignmentCostFunction : public ceres::SizedCostFunction<3, /* residuals of gravity refinement */
-                                                               2  /* delta_r around y and z axis */> {
+                                                               2  /* delta_r around non-gravitational axis */> {
     AlignmentCostFunction(const Eigen::Vector3d& init_g, const Eigen::Vector3d& unit_g) : _init_g(init_g), _unit_g(unit_g) {}
 
     virtual ~AlignmentCostFunction() {}
 
     virtual bool Evaluate(double const* const* parameters, double* residuals, double** jacobians) const {
-        // parameters: [delta_ry, delta_rz]
-        Eigen::Vector3d delta_r(0, parameters[0][0], parameters[0][1]);
+        /*  cfsd imu coordinate system
+                      / x
+                     /
+                    ------ y
+                    |
+                    | z
+
+            euroc imu coordinate system
+                  x |  / z
+                    | /
+                    ------ y
+        
+            kitti imu coordinate system
+                  z |  / x
+                    | /
+              y -----
+        */
+
+        Eigen::Vector3d delta_r;
+
+        #ifdef CFSD
+        delta_r << parameters[0][0], parameters[0][1], 0.0;
+        #endif
+        
+        #ifdef EUROC
+        delta_r << 0.0, parameters[0][0], parameters[0][1];
+        #endif
+
+        #ifdef KITTI
+        delta_r << parameters[0][0], parameters[0][1], 0.0;
+        #endif
         
         Eigen::Map<Eigen::Matrix<double,3,1>> residual(residuals);
 
@@ -577,8 +617,17 @@ struct AlignmentCostFunction : public ceres::SizedCostFunction<3, /* residuals o
         if (jacobians[0]) {
             Eigen::Map<Eigen::Matrix<double,3,2,Eigen::RowMajor>> jacobian_r(jacobians[0]);
 
-            // delta_gravity w.r.t [delta_ry, delta_rz]
+            #ifdef CFSD
+            jacobian_r = Sophus::SO3d::hat(_init_g).leftCols<2>();
+            #endif
+            
+            #ifdef EUROC
             jacobian_r = Sophus::SO3d::hat(_init_g).rightCols<2>();
+            #endif
+
+            #ifdef KITTI
+            jacobian_r = Sophus::SO3d::hat(_init_g).leftCols<2>();
+            #endif
         }
 
         return true;

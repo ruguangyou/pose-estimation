@@ -15,9 +15,23 @@
 
 cmake_minimum_required(VERSION 3.2)
 
-# project(cfsd-state-estimation)
-# project(kitti-state-estimation)
-project(euroc-state-estimation)
+option(FOR_CFSD "cfsd state estimation" OFF)
+if(FOR_CFSD)
+    add_definitions(-DCFSD)
+    project(cfsd-state-estimation)
+endif()
+
+option(FOR_EUROC "euroc state estimation" ON)
+if(FOR_EUROC)
+    add_definitions(-DEUROC)
+    project(euroc-state-estimation)
+endif()
+
+option(FOR_KITTI "kitti state estimation" OFF)
+if(FOR_KITTI)
+    add_definitions(-DKITTI)
+    project(kitti-state-estimation)
+endif()
 
 ################################################################################
 # # Defining the relevant versions of OpenDLV Standard Message Set and libcluon.
@@ -140,21 +154,20 @@ endif()
 
 ################################################################################
 # Generate static libs
-add_library(${PROJECT_NAME}-core STATIC
+add_library(state-estimation-core STATIC
     ${CMAKE_SOURCE_DIR}/src/config.cpp
-    # ${CMAKE_SOURCE_DIR}/src/key-frame.cpp
     ${CMAKE_SOURCE_DIR}/src/optimizer.cpp
     ${CMAKE_SOURCE_DIR}/src/imu-preintegrator.cpp
     ${CMAKE_SOURCE_DIR}/src/feature-tracker.cpp
     ${CMAKE_SOURCE_DIR}/src/map.cpp
-    ${CMAKE_SOURCE_DIR}/src/viewer.cpp
     ${CMAKE_SOURCE_DIR}/src/visual-inertial-slam.cpp
+    ${CMAKE_SOURCE_DIR}/src/viewer.cpp
     ${CMAKE_SOURCE_DIR}/src/ORBextractor.cc)
 
 ################################################################################
 # Create executable
 add_executable(${PROJECT_NAME} ${CMAKE_SOURCE_DIR}/src/${PROJECT_NAME}.cpp ${CMAKE_BINARY_DIR}/opendlv-standard-message-set.hpp)
-target_link_libraries(${PROJECT_NAME} ${PROJECT_NAME}-core ${LIBRARIES})
+target_link_libraries(${PROJECT_NAME} state-estimation-core ${LIBRARIES})
 
 ################################################################################
 # Enable unit testing

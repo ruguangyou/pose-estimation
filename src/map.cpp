@@ -25,20 +25,28 @@ Map::Map(const cfsd::Ptr<CameraModel>& pCameraModel, const bool verbose) : _pCam
             ------ y
             |
             | z
-    
-        kitti imu coordinate system
-              z |  / x
-                | /
-          y -----
 
         euroc imu coordinate system
               x |  / z
                 | /
                 ------ y
+    
+        kitti imu coordinate system
+              z |  / x
+                | /
+          y -----
     */
-    // _gravity << 0, 0, g; // for cfsd
-    // _gravity << 0, 0, -g; // for kitti
+    #ifdef CFSD
+    _gravity << 0, 0, g; // for cfsd
+    #endif
+
+    #ifdef EUROC
     _gravity << -g, 0, 0; // for euroc
+    #endif
+    
+    #ifdef KITTI
+    _gravity << 0, 0, -g; // for kitti
+    #endif
 }
 
 void Map::pushSfm(const Eigen::Vector3d& r, const Eigen::Vector3d& p, const cfsd::Ptr<ImuConstraint>& ic) {
