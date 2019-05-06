@@ -34,12 +34,13 @@ class VisualInertialSLAM {
 
     #ifdef USE_VIEWER
     void setViewer(const cfsd::Ptr<Viewer>& pViewer) { _pMap->_pViewer = pViewer; }
-    void stopViewer() { _pMap->_pViewer->setStop(); }
     #endif
 
     bool process(const cv::Mat& grayL, const cv::Mat& grayR, const long& imgTimestamp);
 
     void collectImuData(const cfsd::SensorType& st, const long& timestamp, const float& x, const float& y, const float& z);
+
+    void saveResults();
 
   private:
     bool _verbose;

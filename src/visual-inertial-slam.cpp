@@ -59,7 +59,7 @@ bool VisualInertialSLAM::process(const cv::Mat& grayL, const cv::Mat& grayR, con
 
             // This step should be after the motion-only BA, s.t. we can know if current frame is keyframe and also the current camera pose.
             start = std::chrono::steady_clock::now();
-            _pFeatureTracker->featurePoolUpdate();
+            _pFeatureTracker->featurePoolUpdate(imgTimestamp);
             end = std::chrono::steady_clock::now();
             std::cout << "Feature pool update elapsed time: " << std::chrono::duration<double, std::milli>(end-start).count() << "ms" << std::endl << std::endl;
 
@@ -104,7 +104,7 @@ bool VisualInertialSLAM::process(const cv::Mat& grayL, const cv::Mat& grayR, con
             std::cout << "Initial matching Done!" << std::endl << std::endl;
             
             // Add the initial frame as keyframe.
-            _pFeatureTracker->featurePoolUpdate();
+            _pFeatureTracker->featurePoolUpdate(imgTimestamp);
             
             _state = OK;
             break;
@@ -115,7 +115,10 @@ bool VisualInertialSLAM::process(const cv::Mat& grayL, const cv::Mat& grayR, con
                 // Relative transformation from current frame to preveious frame.
                 Eigen::Vector3d r, p;
 
-                _pImuPreintegrator->processImu(imgTimestamp);
+                if(!_pImuPreintegrator->processImu(imgTimestamp)) {
+                    std::cerr << "Error occurs in imu-preintegration!" << std::endl;
+                    return false;
+                }
                 
                 // If sfm return true, it means this frame has significant pose change; otherwise, ignore this frame.
                 start = std::chrono::steady_clock::now();
@@ -167,6 +170,37 @@ void VisualInertialSLAM::collectImuData(const cfsd::SensorType& st, const long& 
         _gyrGot = false;
         _accGot = false;
     }
+}
+
+void VisualInertialSLAM::saveResults() {
+    std::cout << "Saving results..." << std::endl;
+
+    // Write estimated states to file.
+    std::ofstream ofs("states.csv", std::ofstream::out);
+    ofs << "timestamp,qw,qx,qy,qz,px,py,pz,vx,vy,vz,bgx,bgy,bgz,bax,bay,baz\n";
+    Eigen::Quaterniond q;
+    Eigen::Vector3d p, v, bg, ba;
+    for (int i = 1; i < _pMap->_imuConstraint.size(); i++) {
+        ofs << _pMap->_timestamp[i] << ",";
+
+        q = _pMap->_R[i].unit_quaternion();
+        ofs << q.w() << "," << q.x() << "," << q.y() << "," << q.z() << ",";
+        
+        p = _pMap->_p[i];
+        ofs << p(0)  << ","  << p(1)  << ","  << p(2)  << ",";
+
+        v = _pMap->_v[i];
+        ofs << v(0) << "," << v(1) << "," << v(2) << ",";
+
+        bg = _pMap->_imuConstraint[i]->bg_i + _pMap->_dbg[i];
+        ofs << bg(0) << "," << bg(1) << "," << bg(2) << ",";
+
+        ba = _pMap->_imuConstraint[i]->ba_i + _pMap->_dba[i];
+        ofs << ba(0) << "," << ba(1) << "," << ba(2) << "\n";
+    }
+    ofs.close();
+
+    std::cout << "Saved" << std::endl << std::endl;
 }
 
 } // namespace cfsd

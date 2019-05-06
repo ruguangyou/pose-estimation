@@ -34,7 +34,7 @@ class FeatureTracker {
 
     void externalTrack(const bool useRANSAC = false);
 
-    void featurePoolUpdate();
+    void featurePoolUpdate(const long& imgTimestamp);
 
     // void extractOrb(int flag, const cv::Mat& img);
 

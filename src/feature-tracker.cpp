@@ -327,7 +327,7 @@ void FeatureTracker::externalTrack(const bool useRANSAC) {
     }
 }
 
-void FeatureTracker::featurePoolUpdate() {
+void FeatureTracker::featurePoolUpdate(const long& imgTimestamp) {
     // The number of new and old features in the pool should be well balanced.
     int eraseCount = 0;
     int insertCount = 0;
@@ -335,6 +335,8 @@ void FeatureTracker::featurePoolUpdate() {
 
     // If current frame is keyframe, the not matched features in current frame will be viewed as new features and be added into feature pool.
     if (_features.empty() || _pMap->_isKeyframe) {
+        _pMap->_timestamp.push_back(imgTimestamp);
+
         // _age minus 1, will add 2 later.
         for (int i = 0; i < _matchedFeatureIDs.size(); i++) {
             _features[_matchedFeatureIDs[i]]->age -= 1;

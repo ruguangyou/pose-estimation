@@ -9,6 +9,7 @@ Map::Map(const cfsd::Ptr<CameraModel>& pCameraModel, const bool verbose) : _pCam
     _dbg.push_back(Eigen::Vector3d::Zero());
     _dba.push_back(Eigen::Vector3d::Zero());
     _frames.push_back(std::vector<cfsd::Ptr<MapPoint>>());
+    _timestamp.push_back(0);
 
     _minRotation = Config::get<double>("keyframeRotation");
     _minTranslation = Config::get<double>("keyframeTranslation");
