@@ -92,6 +92,9 @@ int main(int argc, char** argv) {
             return 1;
         }
     }
+    f_imu.close();
+    f_img.close();
+    pVISLAM->saveResults();
 
     std::cout << "Done!" << std::endl;
     viewerThread.join();

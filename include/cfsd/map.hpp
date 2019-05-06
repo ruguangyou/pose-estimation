@@ -78,10 +78,9 @@ class Map {
     std::vector<Eigen::Vector3d> _v;
     std::vector<Eigen::Vector3d> _dbg;
     std::vector<Eigen::Vector3d> _dba;
-
     std::vector<cfsd::Ptr<ImuConstraint>> _imuConstraint;
-
     std::vector< std::vector< cfsd::Ptr<MapPoint> > > _frames;
+    std::vector<long> _timestamp;
 
     bool _isKeyframe{false};
 

@@ -32,6 +32,10 @@ void Optimizer::motionOnlyBA(const cv::Mat& img) {
     // Build the problem.
     ceres::Problem problem;
 
+    // Loss function.
+    ceres::LossFunction* lossFunction = new ceres::HuberLoss(1.0);
+    // ceres::LossFunction* lossFunction = new ceres::CauchyLoss(1.0);
+
     // Set up prior.
     ceres::CostFunction* priorCost = new PriorCostFunction(_pMap, n-1, _priorFactor);
     problem.AddResidualBlock(priorCost, NULL, delta_pose[0], delta_v_dbga[0]);
@@ -39,8 +43,8 @@ void Optimizer::motionOnlyBA(const cv::Mat& img) {
     // Set up imu cost function.
     for (int i = 0; i < actualSize-1; i++) {
         ceres::CostFunction* preintegrationCost = new ImuCostFunction(_pMap, n+i);
-        problem.AddResidualBlock(preintegrationCost, new ceres::HuberLoss(1.0), delta_pose[i], delta_v_dbga[i], delta_pose[i+1], delta_v_dbga[i+1]);
-        // problem.AddResidualBlock(preintegrationCost, NULL, delta_pose[i], delta_v_dbga[i], delta_pose[i+1], delta_v_dbga[i+1]);
+        // problem.AddResidualBlock(preintegrationCost, lossFunction, delta_pose[i], delta_v_dbga[i], delta_pose[i+1], delta_v_dbga[i+1]);
+        problem.AddResidualBlock(preintegrationCost, NULL, delta_pose[i], delta_v_dbga[i], delta_pose[i+1], delta_v_dbga[i+1]);
     }
 
     // (landmark : frame)
@@ -102,18 +106,15 @@ void Optimizer::motionOnlyBA(const cv::Mat& img) {
             d_e_pcam(1,1) = _fy / z;
             d_e_pcam(1,2) = -_fy * y / (z * z);
         
-            error(2*j) = _fx * x / z + _cx - mp->pixel.x;
-            error(2*j+1) = _fy * y / z + _cy - mp->pixel.y;
-            error.segment<2>(2*j) = _invStdT * error.segment<2>(2*j);
+            error(2*j) = _invStdT(0,0) * (_fx * x / z + _cx - mp->pixel.x);
+            error(2*j+1) = _invStdT(1,1) * (_fy * y / z + _cy - mp->pixel.y);
 
-            // F.block<2,3>(2*j, 6*j) = d_e_pcam * _pCameraModel->_T_CB.so3().matrix() * Sophus::SO3d::hat(temp);
-            F.block<2,3>(2*j, 6*j+3) = -d_e_pcam * _pCameraModel->_T_CB.so3().matrix();
+            // F.block<2,3>(2*j, 6*j) = _invStdT * d_e_pcam * _pCameraModel->_T_CB.so3().matrix() * Sophus::SO3d::hat(temp);
+            F.block<2,3>(2*j, 6*j+3) = -_invStdT * d_e_pcam * _pCameraModel->_T_CB.so3().matrix();
             F.block<2,3>(2*j, 6*j) = -F.block<2,3>(2*j, 6*j+3) * Sophus::SO3d::hat(temp);
-            F.block<2,6>(2*j, 6*j) = _invStdT * F.block<2,6>(2*j, 6*j);
 
-            // // E.block<2,3>(2*j, 0) = d_e_cam * _pCameraModel->_T_CB.so3().matrix() * _pMap->_R[pair.first].inverse().matrix();
+            // // E.block<2,3>(2*j, 0) = _invStdT * d_e_cam * _pCameraModel->_T_CB.so3().matrix() * _pMap->_R[pair.first].inverse().matrix();
             // E.block<2,3>(2*j, 0) = -F.block<2,3>(2*j, 6*j+3) * _pMap->_R[pair.first].inverse().matrix();
-            // E.block<2,3>(2*j, 0) = _invStdT * E.block<2,3>(2*j, 0);
 
             j++;
         }
@@ -131,7 +132,7 @@ void Optimizer::motionOnlyBA(const cv::Mat& img) {
         // ceres::CostFunction* reprojectCost = new ImageCostFunction(errorTerms, error, F, D);
         // ceres::CostFunction* reprojectCost = new ImageCostFunction(errorTerms, error, F, E_b_nullspace);
         ceres::CostFunction* reprojectCost = new ImageCostFunction(errorTerms, error, F);
-        problem.AddResidualBlock(reprojectCost, new ceres::HuberLoss(1.0), delta_pose_img);
+        problem.AddResidualBlock(reprojectCost, lossFunction, delta_pose_img);
         // problem.AddResidualBlock(reprojectCost, NULL, delta_pose_img);
     }
 
