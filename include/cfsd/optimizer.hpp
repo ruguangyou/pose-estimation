@@ -53,6 +53,8 @@ class Optimizer {
     
     double _priorFactor{0};
 
+    int _delay{0};
+
   // public:
   //   std::vector<Eigen::Vector3d> _accs;
   //   std::vector<Eigen::Vector3d> _gyrs;

@@ -94,6 +94,8 @@ gyrBias: 3.3937e-5 # [rad/s] gyroscope bias random walk noise, 7 degree/h
 
 ################################################################################
 ##### Feature detection settings #####
+delay: 0
+
 # Use ORB of OpenCV or ORB_SLAM2
 cvORB: 0 # default: not use OpenCV ORB
 

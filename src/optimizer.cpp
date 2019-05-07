@@ -11,6 +11,7 @@ Optimizer::Optimizer(const cfsd::Ptr<Map>& pMap, const cfsd::Ptr<FeatureTracker>
     _cy = _pCameraModel->_K_L.at<double>(1,2);
     _invStdT << 1/_pCameraModel->_stdX, 0, 0, 1/_pCameraModel->_stdY;
     _priorFactor = Config::get<double>("priorFactor");
+    _delay = Config::get<int>("delay");
 }
 
 void Optimizer::motionOnlyBA(const cv::Mat& img) {
@@ -177,7 +178,7 @@ void Optimizer::motionOnlyBA(const cv::Mat& img) {
         cv::circle(img, cv::Point(pixel_homo(0)/pixel_homo(2), pixel_homo(1)/pixel_homo(2)), 3, cv::Scalar(255));
     }
     cv::imshow("before vs. after optimization", img);
-    cv::waitKey(1);
+    cv::waitKey(_delay);
 }
 
 void Optimizer::initialGyrBias() {

@@ -82,6 +82,8 @@ translationImuToCamera: !!opencv-matrix
 
 ################################################################################
 ##### Feature detection settings #####
+delay: 0
+
 # Use ORB of OpenCV or ORB_SLAM2
 cvORB: 0 # default: not use OpenCV ORB
 

@@ -26,6 +26,7 @@ services:    # Must be present exactly once at the beginning of the docker-compo
           #- CLUON_SHAREDMEMORY_POSIX=1
         volumes:
          - /tmp:/tmp
+         - ${PWD}/config/euroc.yml:/opt/config/euroc.yml
          - /home/ruguang/docker-CFSD/cfsd/2019/euroc/V1_01_easy/mav0:/opt/euroc/V1_01_easy/mav0
         command: "euroc-state-estimation ./config/euroc.yml"
 

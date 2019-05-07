@@ -73,9 +73,9 @@ RUN echo http://dl-4.alpinelinux.org/alpine/v3.8/main > /etc/apk/repositories &&
         glog \
         gflags \
         openblas \
-        suitesparse \
+        #suitesparse \
         libcanberra-gtk3
 
 WORKDIR /usr/bin
 COPY --from=builder /tmp/bin/euroc-state-estimation .
-ENTRYPOINT ["/usr/bin/euroc-state-estimation"]
+#ENTRYPOINT ["/usr/bin/euroc-state-estimation"]
