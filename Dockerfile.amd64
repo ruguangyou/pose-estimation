@@ -13,47 +13,44 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-FROM chrberger/cluon-amd64:latest as builder
-MAINTAINER Christian Berger "christian.berger@gu.se"
+FROM ruguangyou/alpine-opencv-ceres-sophus as builder
 
-# eigen 3.3.7
-# opencv 3.2.0
-# glog 0.3.5
-# gflags 2.2.2
-# openblas 0.3.6 (with LAPACK)
-# suitesparse 5.3.0
 RUN echo http://dl-4.alpinelinux.org/alpine/v3.8/main > /etc/apk/repositories && \
     echo http://dl-4.alpinelinux.org/alpine/v3.8/community >> /etc/apk/repositories && \
     echo http://dl-4.alpinelinux.org/alpine/edge/testing >> /etc/apk/repositories && \
     apk update && \
     apk --no-cache add \
         cmake \
+        make \
         g++ \
-        opencv \
-        opencv-dev \
         eigen \
         eigen-dev \
-        glog \
-        glog-dev \
-        gflags \
-        gflags-dev \
         openblas \
         openblas-dev \
         # suitesparse \
         # suitesparse-dev \
-        git \
-        make
+        glog \
+        glog-dev \
+        gflags \
+        gflags-dev \
+        # Intel® TBB, a widely used C++ template library for task parallelism
+        #libtbb@testing  \
+        #libtbb-dev@testing   \
+        # Wrapper for libjpeg-turbo
+        libjpeg  \
+        # accelerated baseline JPEG compression and decompression library
+        libjpeg-turbo-dev \
+        # Portable Network Graphics library
+        libpng-dev \
+        # A software-based implementation of the codec specified in the emerging JPEG-2000 Part-1 standard (development files)
+        jasper-dev \
+        # Provides support for the Tag Image File Format or TIFF (development files)
+        tiff-dev \
+        # Libraries for working with WebP images (development files)
+        libwebp-dev
 
 ADD . /opt/sources
 WORKDIR /opt/sources
-RUN mkdir -p thirdparty/Sophus-1.0.0/build && \
-    cd thirdparty/Sophus-1.0.0/build && \
-    cmake -D BUILD_TESTS=OFF .. && \
-    make && make install
-RUN mkdir -p thirdparty/ceres-solver-1.14.0/build && \
-    cd thirdparty/ceres-solver-1.14.0/build && \
-    cmake -D BUILD_TESTING=OFF -D BUILD_EXAMPLES=OFF .. && \
-    make -j2 && make install
 RUN mkdir build && \
     cd build && \
     cmake -D CMAKE_BUILD_TYPE=Release -D CMAKE_INSTALL_PREFIX=/tmp -D WITH_VIEWER=OFF -D FOR_EUROC=ON .. && \
@@ -68,14 +65,17 @@ RUN echo http://dl-4.alpinelinux.org/alpine/v3.8/main > /etc/apk/repositories &&
     echo http://dl-4.alpinelinux.org/alpine/edge/testing >> /etc/apk/repositories && \
     apk update && \
     apk --no-cache add \
-        opencv-libs \
         eigen \
-        glog \
-        gflags \
         openblas \
         #suitesparse \
+        glog \
+        gflags \
+        libgomp \
+        jasper \
+        libwebp \
         libcanberra-gtk3
 
 WORKDIR /usr/bin
+COPY --from=builder /usr/local/lib64 /user/lib
 COPY --from=builder /tmp/bin/euroc-state-estimation .
 #ENTRYPOINT ["/usr/bin/euroc-state-estimation"]
