@@ -178,4 +178,4 @@ target_link_libraries(${PROJECT_NAME} state-estimation-core ${LIBRARIES})
 
 ################################################################################
 # Install executable
-# install(TARGETS ${PROJECT_NAME} DESTINATION bin COMPONENT ${PROJECT_NAME})
+install(TARGETS ${PROJECT_NAME} DESTINATION bin COMPONENT ${PROJECT_NAME})

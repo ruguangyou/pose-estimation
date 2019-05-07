@@ -97,7 +97,10 @@ int main(int argc, char** argv) {
     pVISLAM->saveResults();
 
     std::cout << "Done!" << std::endl;
+
+    #ifdef USE_VIEWER
     viewerThread.join();
+    #endif
 
     return 0;
 }

@@ -526,8 +526,8 @@ bool FeatureTracker::structFromMotion(const cv::Mat& grayLeft, const cv::Mat& gr
         case 4:
             cv::solvePnPRansac(objectPoints, imagePoints, _pCameraModel->_K_L, cv::noArray(), rvec, tvec, false, 100, 8.0, 0.99, cv::noArray(), cv::SOLVEPNP_UPNP);
             break;
-        case 5:
-            cv::solvePnPRansac(objectPoints, imagePoints, _pCameraModel->_K_L, cv::noArray(), rvec, tvec, false, 100, 8.0, 0.99, cv::noArray(), cv::SOLVEPNP_AP3P);
+        // case 5: // not available in OpenCV 3.2.0
+        //     cv::solvePnPRansac(objectPoints, imagePoints, _pCameraModel->_K_L, cv::noArray(), rvec, tvec, false, 100, 8.0, 0.99, cv::noArray(), cv::SOLVEPNP_AP3P);
     }
     cv::cv2eigen(rvec, r);
     cv::cv2eigen(tvec, p);

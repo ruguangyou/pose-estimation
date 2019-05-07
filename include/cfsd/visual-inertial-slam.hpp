@@ -11,6 +11,8 @@
 #include "cfsd/viewer.hpp"
 #endif
 
+#include <fstream>
+
 namespace cfsd {
 
 enum SensorType {

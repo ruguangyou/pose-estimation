@@ -164,7 +164,7 @@ sfmTranslation: 0
 # 2-SOLVEPNP_P3P (Complete Solution Classification for the Perspective-Three-Point Problem)
 # 3-SOLVEPNP_DLS (A Direct Least-Squares (DLS) Method for PnP)
 # 4-SOLVEPNP_UPNP (Exhaustive Linearization for Robust Camera Pose and Focal Length Estimation)
-# 5-SOLVEPNP_AP3P (An Efficient Algebraic Solution to the Perspective-Three-Point Problem)
+# [not available in OpenCV 3.2.0] 5-SOLVEPNP_AP3P (An Efficient Algebraic Solution to the Perspective-Three-Point Problem)
 solvePnP: 2
 
 ################################################################################

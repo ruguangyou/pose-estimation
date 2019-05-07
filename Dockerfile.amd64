@@ -19,6 +19,9 @@ MAINTAINER Christian Berger "christian.berger@gu.se"
 # eigen 3.3.7
 # opencv 3.2.0
 # glog 0.3.5
+# gflags 2.2.2
+# openblas 0.3.6 (with LAPACK)
+# suitesparse 5.3.0
 RUN echo http://dl-4.alpinelinux.org/alpine/v3.8/main > /etc/apk/repositories && \
     echo http://dl-4.alpinelinux.org/alpine/v3.8/community >> /etc/apk/repositories && \
     echo http://dl-4.alpinelinux.org/alpine/edge/testing >> /etc/apk/repositories && \
@@ -26,13 +29,19 @@ RUN echo http://dl-4.alpinelinux.org/alpine/v3.8/main > /etc/apk/repositories &&
     apk --no-cache add \
         cmake \
         g++ \
-        eigen \
-        eigen-dev \
         opencv \
         opencv-dev \
+        eigen \
+        eigen-dev \
         glog \
+        glog-dev \
+        gflags \
+        gflags-dev \
+        openblas \
+        openblas-dev \
+        # suitesparse \
+        # suitesparse-dev \
         git \
-        cmake \
         make
 
 ADD . /opt/sources
@@ -44,24 +53,29 @@ RUN mkdir -p thirdparty/Sophus-1.0.0/build && \
 RUN mkdir -p thirdparty/ceres-solver-1.14.0/build && \
     cd thirdparty/ceres-solver-1.14.0/build && \
     cmake .. && \
-    make && make install
+    make -j2 && make install
 RUN mkdir build && \
     cd build && \
     cmake -D CMAKE_BUILD_TYPE=Release -D CMAKE_INSTALL_PREFIX=/tmp .. && \
-    make && make install
+    make -j2 && make install
 
 
-#FROM chrberger/cluon-amd64:latest
-#MAINTAINER Christian Berger "christian.berger@gu.se"
-#
-#RUN echo http://dl-4.alpinelinux.org/alpine/v3.8/main > /etc/apk/repositories && \
-#    echo http://dl-4.alpinelinux.org/alpine/v3.8/community >> /etc/apk/repositories && \
-#    echo http://dl-4.alpinelinux.org/alpine/edge/testing >> /etc/apk/repositories && \
-#    apk update && \
-#    apk --no-cache add \
-#        opencv-libs \
-#        libcanberra-gtk3
-#
-#WORKDIR /usr/bin
-#COPY --from=builder /tmp/bin/image-postprocessing-opencv .
-#ENTRYPOINT ["/usr/bin/image-postprocessing-opencv"]
+FROM chrberger/cluon-amd64:latest
+MAINTAINER Christian Berger "christian.berger@gu.se"
+
+RUN echo http://dl-4.alpinelinux.org/alpine/v3.8/main > /etc/apk/repositories && \
+    echo http://dl-4.alpinelinux.org/alpine/v3.8/community >> /etc/apk/repositories && \
+    echo http://dl-4.alpinelinux.org/alpine/edge/testing >> /etc/apk/repositories && \
+    apk update && \
+    apk --no-cache add \
+        opencv-libs \
+        eigen \
+        glog \
+        gflags \
+        openblas \
+        suitesparse \
+        libcanberra-gtk3
+
+WORKDIR /usr/bin
+COPY --from=builder /tmp/bin/euroc-state-estimation .
+ENTRYPOINT ["/usr/bin/euroc-state-estimation"]
