@@ -64,7 +64,8 @@ Eigen::Matrix3d rightJacobianInverseSO3(const Eigen::Vector3d& omega) {
 
 
 ImuPreintegrator::ImuPreintegrator(const cfsd::Ptr<Map> pMap, const bool verbose) :
-        _pMap(pMap), _verbose(verbose), _covNoiseD(), _covBias(),
+        _pMap(pMap), _verbose(verbose),
+        _covNoiseD(Eigen::Matrix<double,6,6>::Zero()), _covBias(Eigen::Matrix<double,6,6>::Zero()),
         _covPreintegration_ij(Eigen::Matrix<double,15,15>::Zero()),
         _bg_i(Eigen::Vector3d::Zero()), _ba_i(Eigen::Vector3d::Zero()),
         _delta_R_ij(Sophus::SO3d()), _delta_R_ijm1(Sophus::SO3d()),
