@@ -3,7 +3,8 @@
 
 namespace cfsd {
 
-VisualInertialSLAM::VisualInertialSLAM(const bool verbose) : _state(SYNCHRONIZING), _verbose(verbose) {
+VisualInertialSLAM::VisualInertialSLAM(const bool verbose) : 
+    _state(SYNCHRONIZING), _verbose(verbose), _gyr(), _acc(), _pCameraModel(), _pMap(), _pFeatureTracker(), _pOptimizer(), _pImuPreintegrator() {
     
     _pCameraModel = std::make_shared<CameraModel>();
 
@@ -14,7 +15,6 @@ VisualInertialSLAM::VisualInertialSLAM(const bool verbose) : _state(SYNCHRONIZIN
     _pFeatureTracker = std::make_shared<FeatureTracker>(_pMap, _pCameraModel, verbose);
 
     _pOptimizer = std::make_shared<Optimizer>(_pMap, _pFeatureTracker, _pImuPreintegrator, _pCameraModel, verbose);
-
 }
 
 bool VisualInertialSLAM::process(const cv::Mat& grayL, const cv::Mat& grayR, const long& imgTimestamp) {

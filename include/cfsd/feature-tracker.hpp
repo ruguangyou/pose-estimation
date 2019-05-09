@@ -10,15 +10,16 @@
 #include <opencv2/features2d/features2d.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
 
-// #ifdef DEBUG_IMG
-#include <opencv2/highgui/highgui.hpp>
-// #endif
+// #include <opencv2/highgui/highgui.hpp>
 
 namespace cfsd {
 
 class FeatureTracker {
   public:
     FeatureTracker(const cfsd::Ptr<Map>& pMap, const cfsd::Ptr<CameraModel>& pCameraModel, const bool verbose);
+
+    FeatureTracker(const FeatureTracker&) = delete; // copy constructor
+    FeatureTracker& operator=(const FeatureTracker&) = delete; // copy assignment constructor
 
     // Feature matching and tracking, including:
     // - internal match (current frame's left and right image)
@@ -43,10 +44,10 @@ class FeatureTracker {
     bool structFromMotion(const cv::Mat& grayLeft, const cv::Mat& grayRight, Eigen::Vector3d& r, Eigen::Vector3d& p, const bool atBeginning = false);
 
   private:
-    bool _verbose;
+    const bool _verbose;
 
     // Pinhole camera Model.
-    cfsd::Ptr<CameraModel> _pCameraModel;
+    const cfsd::Ptr<CameraModel>& _pCameraModel;
 
     cfsd::Ptr<Map> _pMap;
 
@@ -59,7 +60,6 @@ class FeatureTracker {
     // Detector to be used.
     bool _cvORB{false};
 
-    cv::Ptr<cv::ORB> _orb;
     cv::Ptr<cv::ORB> _orbLeft;
     cv::Ptr<cv::ORB> _orbRight;
 

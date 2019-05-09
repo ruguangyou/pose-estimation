@@ -3,7 +3,7 @@
 namespace cfsd {
 
 Optimizer::Optimizer(const cfsd::Ptr<Map>& pMap, const cfsd::Ptr<FeatureTracker>& pFeatureTracker, const cfsd::Ptr<ImuPreintegrator>& pImuPreintegrator, const cfsd::Ptr<CameraModel>& pCameraModel, const bool verbose)
-    : _pMap(pMap), _pFeatureTracker(pFeatureTracker), _pImuPreintegrator(pImuPreintegrator), _pCameraModel(pCameraModel), _verbose(verbose) {
+    : _pMap(pMap), _pFeatureTracker(pFeatureTracker), _pImuPreintegrator(pImuPreintegrator), _pCameraModel(pCameraModel), _verbose(verbose), _invStdT() {
 
     _fx = _pCameraModel->_K_L.at<double>(0,0);
     _fy = _pCameraModel->_K_L.at<double>(1,1);
@@ -137,6 +137,7 @@ void Optimizer::motionOnlyBA(const cv::Mat& img) {
         // problem.AddResidualBlock(reprojectCost, NULL, delta_pose_img);
     }
 
+    #ifdef SHOW_IMG
     // Show pixels and reprojected pixels before optimization.
     for (int i = actualSize-1, j = 0; j < _pMap->_frames[n+i].size(); j++) {
         cfsd::Ptr<MapPoint> mp = _pMap->_frames[n+i][j];
@@ -144,6 +145,7 @@ void Optimizer::motionOnlyBA(const cv::Mat& img) {
         cv::rectangle(img, cv::Point(mp->pixel.x-4, mp->pixel.y-4), cv::Point(mp->pixel.x+4, mp->pixel.y+4), cv::Scalar(0));
         cv::circle(img, cv::Point(pixel_homo(0)/pixel_homo(2), pixel_homo(1)/pixel_homo(2)), 3, cv::Scalar(0));
     }
+    #endif
 
     // Set the solver.
     ceres::Solver::Options options;
@@ -171,6 +173,7 @@ void Optimizer::motionOnlyBA(const cv::Mat& img) {
     _pMap->checkKeyframe();
     _pImuPreintegrator->updateBias();
 
+    #ifdef SHOW_IMG
     // Show pixels and reprojected pixels after optimization.
     for (int i = actualSize-1, j = 0; j < _pMap->_frames[n+i].size(); j++) {
         cfsd::Ptr<MapPoint> mp = _pMap->_frames[n+i][j];
@@ -179,6 +182,7 @@ void Optimizer::motionOnlyBA(const cv::Mat& img) {
     }
     cv::imshow("before vs. after optimization", img);
     cv::waitKey(_delay);
+    #endif
 }
 
 void Optimizer::initialGyrBias() {

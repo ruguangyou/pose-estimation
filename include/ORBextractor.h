@@ -36,9 +36,9 @@ public:
 
     void DivideNode(ExtractorNode &n1, ExtractorNode &n2, ExtractorNode &n3, ExtractorNode &n4);
 
-    std::vector<cv::KeyPoint> vKeys;
-    cv::Point2i UL, UR, BL, BR;
-    std::list<ExtractorNode>::iterator lit;
+    std::vector<cv::KeyPoint> vKeys{};
+    cv::Point2i UL{}, UR{}, BL{}, BR{};
+    std::list<ExtractorNode>::iterator lit{};
     bool bNoMore;
 };
 
@@ -82,7 +82,7 @@ public:
         return mvInvLevelSigma2;
     }
 
-    std::vector<cv::Mat> mvImagePyramid;
+    std::vector<cv::Mat> mvImagePyramid{};
 
 protected:
 
@@ -92,22 +92,22 @@ protected:
                                            const int &maxX, const int &minY, const int &maxY, const int &nFeatures, const int &level);
 
     void ComputeKeyPointsOld(std::vector<std::vector<cv::KeyPoint> >& allKeypoints);
-    std::vector<cv::Point> pattern;
+    std::vector<cv::Point> pattern{};
 
-    int nfeatures;
-    double scaleFactor;
-    int nlevels;
-    int iniThFAST;
-    int minThFAST;
+    int nfeatures{0};
+    double scaleFactor{1.2};
+    int nlevels{8};
+    int iniThFAST{20};
+    int minThFAST{7};
 
-    std::vector<int> mnFeaturesPerLevel;
+    std::vector<int> mnFeaturesPerLevel{};
 
-    std::vector<int> umax;
+    std::vector<int> umax{};
 
-    std::vector<float> mvScaleFactor;
-    std::vector<float> mvInvScaleFactor;    
-    std::vector<float> mvLevelSigma2;
-    std::vector<float> mvInvLevelSigma2;
+    std::vector<float> mvScaleFactor{};
+    std::vector<float> mvInvScaleFactor{};    
+    std::vector<float> mvLevelSigma2{};
+    std::vector<float> mvInvLevelSigma2{};
 };
 
 } //namespace ORB_SLAM

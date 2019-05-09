@@ -6,7 +6,7 @@
 namespace cfsd {
 
 struct Feature {
-    Feature() {}
+    Feature() : pixelL(), descriptorL(), descriptorR(), position() {}
     Feature(const cv::Point2d& pixelL, const cv::Mat& descriptorL, const cv::Mat& descriptorR, const Eigen::Vector3d& position, const int& age)
       : pixelL(pixelL), descriptorL(descriptorL), descriptorR(descriptorR), position(position), age(age) {}
 
@@ -20,11 +20,11 @@ struct Feature {
     // 3D landmark position w.r.t world frame.
     Eigen::Vector3d position;
 
-    int age;
+    int age{0};
 };
 
 struct ImuConstraint {
-    ImuConstraint() {}
+    ImuConstraint() : invCovPreintegration_ij(), bg_i(), ba_i(), delta_R_ij(), delta_v_ij(), delta_p_ij(), d_R_bg_ij(), d_v_bg_ij(), d_v_ba_ij(), d_p_bg_ij(), d_p_ba_ij() {}
     ImuConstraint(const Eigen::Matrix<double,15,15>& invCovPreintegration_ij, const Eigen::Vector3d& bg_i, const Eigen::Vector3d& ba_i,
                   const Sophus::SO3d& delta_R_ij, const Eigen::Vector3d& delta_v_ij, const Eigen::Vector3d& delta_p_ij,
                   const Eigen::Matrix3d& d_R_bg_ij, const Eigen::Matrix3d& d_v_bg_ij, const Eigen::Matrix3d& d_v_ba_ij, 
@@ -55,10 +55,10 @@ struct ImuConstraint {
 };
 
 struct MapPoint {
-    MapPoint() {}
+    MapPoint() : pixel(), position() {}
     MapPoint(const size_t id, const cv::Point2d& pixel, const Eigen::Vector3d& position) : id(id), pixel(pixel), position(position) {}
 
-    size_t id;
+    size_t id{0};
     
     cv::Point2d pixel;
     

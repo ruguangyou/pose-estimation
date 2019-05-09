@@ -4,8 +4,10 @@
 #include "cfsd/cost-functions.hpp"
 #include "cfsd/config.hpp"
 
-#include <opencv2/imgproc/imgproc.hpp>
+#ifdef SHOW_IMG
 #include <opencv2/highgui/highgui.hpp>
+#endif
+#include <opencv2/imgproc/imgproc.hpp>
 
 namespace cfsd {
 
@@ -35,7 +37,7 @@ class Optimizer {
     // void localOptimize();
 
   private:
-    bool _verbose;
+    const bool _verbose;
 
     cfsd::Ptr<Map> _pMap;
 
@@ -43,7 +45,7 @@ class Optimizer {
 
     cfsd::Ptr<ImuPreintegrator> _pImuPreintegrator;
 
-    cfsd::Ptr<CameraModel> _pCameraModel;
+    const cfsd::Ptr<CameraModel>& _pCameraModel;
 
     double _pose[WINDOWSIZE][6];  // pose (rotation vector, translation vector / position)
     double _v_bga[WINDOWSIZE][9]; // velocity, bias of gyroscope, bias of accelerometer

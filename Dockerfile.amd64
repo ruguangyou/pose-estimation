@@ -13,7 +13,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-FROM ruguangyou/alpine-opencv-ceres-sophus as builder
+FROM ruguangyou/alpine-opencv-ceres-sophus:v0.2 as builder
 
 RUN echo http://dl-4.alpinelinux.org/alpine/v3.8/main > /etc/apk/repositories && \
     echo http://dl-4.alpinelinux.org/alpine/v3.8/community >> /etc/apk/repositories && \
@@ -76,6 +76,6 @@ RUN echo http://dl-4.alpinelinux.org/alpine/v3.8/main > /etc/apk/repositories &&
         libcanberra-gtk3
 
 WORKDIR /usr/bin
-COPY --from=builder /usr/local/lib64 /user/lib
+COPY --from=builder /usr/local/lib64 /usr/lib
 COPY --from=builder /tmp/bin/euroc-state-estimation .
 #ENTRYPOINT ["/usr/bin/euroc-state-estimation"]

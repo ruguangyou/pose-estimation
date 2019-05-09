@@ -46,7 +46,7 @@ namespace cfsd {
 
 class CameraModel {
   public:
-    CameraModel() {
+    CameraModel() : _imageSize(), _K1(), _K2(), _D1(), _D2(), _R(), _T(), _R1(), _R2(), _P1(), _P2(), _Q(), _K_L(), _P_L(), _P_R(), _T_BC(), _T_CB() {
         _stdX = Config::get<double>("stdX");
         _stdY = Config::get<double>("stdY");
 

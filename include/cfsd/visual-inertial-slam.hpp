@@ -45,7 +45,7 @@ class VisualInertialSLAM {
     void saveResults();
 
   private:
-    bool _verbose;
+    const bool _verbose;
     
     VIOstate _state;
 

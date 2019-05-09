@@ -3,7 +3,11 @@
 namespace cfsd {
 
 FeatureTracker::FeatureTracker(const cfsd::Ptr<Map>& pMap, const cfsd::Ptr<CameraModel>& pCameraModel, const bool verbose) :
-        _pMap(pMap), _pCameraModel(pCameraModel), _verbose(verbose) {
+        _pMap(pMap), _pCameraModel(pCameraModel), _verbose(verbose), 
+        _orbLeft(), _orbRight(), _ORBextractorLeft(), _ORBextractorRight(),
+        _mask(), _curPixelsL(), _curPixelsR(), _curDescriptorsL(), _curDescriptorsR(), _curFeatureMask(), 
+        _histFeatureIDs(), _histDescriptorsL(), _histDescriptorsR(), _refKeypointsL(), _refDescriptorsL(),
+        _matchedFeatureIDs(), _features() {
     
     _matchRatio = Config::get<float>("matchRatio");
 
@@ -79,14 +83,12 @@ bool FeatureTracker::processImage(const cv::Mat& grayLeft, const cv::Mat& grayRi
 
     // std::cout << _mask.size() << std::endl;
     // std::cout << imgLeft.size() << ", " << imgRight.size() << std::endl;
-    // #ifdef DEBUG_IMG
     // cv::Mat rectified;
     // cv::line(imgLeft, cv::Point(0,210), cv::Point(672,210), cv::Scalar(0,0,255), 2);
     // cv::line(imgLeft, cv::Point(0,300), cv::Point(672,300), cv::Scalar(0,0,255), 2);
     // cv::hconcat(imgLeft, imgRight, rectified);
     // cv::imshow("rectified", rectified);
     // cv::waitKey(0);
-    // #endif
     
     _curPixelsL.clear();
     _curPixelsR.clear();
@@ -163,12 +165,10 @@ void FeatureTracker::internalMatch(const cv::Mat& imgLeft, const cv::Mat& imgRig
     matcher.match(descriptorsL, descriptorsR, matches);
     float minDist = std::min_element(matches.begin(), matches.end(), [] (const cv::DMatch& m1, const cv::DMatch& m2) { return m1.distance < m2.distance; })->distance;
 
-    // #ifdef DEBUG_IMG
     // cv::Mat img_matches;
     // cv::drawMatches(imgLeft, keypointsL, imgRight, keypointsR, matches, img_matches);
     // cv::imshow("matches", img_matches);
     // cv::waitKey(0);
-    // #endif
 
     // Only keep good matches, for pixel (ul, vl) and (ur, vr), |vl-vr| should be small enough since the image has been rectified.
     if (useRANSAC) {

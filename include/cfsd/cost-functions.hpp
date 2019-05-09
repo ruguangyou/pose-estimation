@@ -28,7 +28,7 @@ struct PriorCostFunction : public ceres::SizedCostFunction<15, /* residuals */
         Eigen::Vector3d delta_dbg_j(parameters[1][3], parameters[1][4], parameters[1][5]);
         Eigen::Vector3d delta_dba_j(parameters[1][6], parameters[1][7], parameters[1][8]);
 
-        cfsd::Ptr<ImuConstraint> ic = _pMap->_imuConstraint[_idx];
+        cfsd::Ptr<ImuConstraint>& ic = _pMap->_imuConstraint[_idx];
 
         // Map double* to Eigen Matrix.
         Eigen::Map<Eigen::Matrix<double, 15, 1>> residual(residuals);
@@ -37,8 +37,8 @@ struct PriorCostFunction : public ceres::SizedCostFunction<15, /* residuals */
         int index_j = _idx + 1;
 
         // Bias estimation update at time i, i.e. bias changes by a small amount delta_b during optimization.
-        Eigen::Vector3d delta_bg_i = _pMap->_dbg[index_i];
-        Eigen::Vector3d delta_ba_i = _pMap->_dba[index_i];
+        Eigen::Vector3d& delta_bg_i = _pMap->_dbg[index_i];
+        Eigen::Vector3d& delta_ba_i = _pMap->_dba[index_i];
 
         // residual(delta_R_ij)
         Sophus::SO3d R_i = _pMap->_R[index_i];
@@ -48,13 +48,13 @@ struct PriorCostFunction : public ceres::SizedCostFunction<15, /* residuals */
         residual.block<3, 1>(0, 0) = (tempR.inverse() * R_i.inverse() * updated_R_j).log();
 
         // residual(delta_v_ij)
-        Eigen::Vector3d v_i = _pMap->_v[index_i];
+        Eigen::Vector3d& v_i = _pMap->_v[index_i];
         Eigen::Vector3d updated_v_j = _pMap->_v[index_j] + delta_v_j;
         Eigen::Vector3d updated_dv = updated_v_j - v_i - _pMap->_gravity * ic->dt;
         residual.block<3, 1>(3, 0) = R_i.inverse() * updated_dv - (ic->delta_v_ij + ic->d_v_bg_ij * delta_bg_i + ic->d_v_ba_ij * delta_ba_i);
 
         // residual(delta_p_ij)
-        Eigen::Vector3d p_i = _pMap->_p[index_i];
+        Eigen::Vector3d& p_i = _pMap->_p[index_i];
         Eigen::Vector3d updated_p_j = _pMap->_p[index_j] + R_j * delta_p_j;
         Eigen::Vector3d updated_dp = updated_p_j - p_i - v_i * ic->dt - _pMap->_gravity * ic->dt2 / 2;
         residual.block<3, 1>(6, 0) = R_i.inverse() * updated_dp - (ic->delta_p_ij + ic->d_p_bg_ij * delta_bg_i + ic->d_p_ba_ij * delta_ba_i);
@@ -133,45 +133,10 @@ struct PriorCostFunction : public ceres::SizedCostFunction<15, /* residuals */
     }
 
   private:
-    cfsd::Ptr<Map> _pMap;
+    const cfsd::Ptr<Map>& _pMap;
     int _idx;
-    double _priorFactor;
+    const double& _priorFactor;
 };
-
-
-// struct AutoDiffImageCostFunction {
-//     AutoDiffImageCostFunction(const cfsd::Ptr<CameraModel>& pCameraModel, const cv::Point2d& pixel, const Eigen::Vector3d& point, const Sophus::SO3d& R, const Eigen::Vector3d& p)
-//         : _pCameraModel(pCameraModel), _pixel(pixel), _point_W(point), _R_WB(R), _p_W(p) {}
-
-//     template <typename T> bool operator()(const T* const pose, T* residual) const {
-//         // parameters: delta_pose (delta_r, delta_p)
-//         Eigen::Matrix<T,3,1> delta_r(pose[0], pose[1], pose[2]);
-//         Eigen::Matrix<T,3,1> delta_p(pose[3], pose[4], pose[5]);
-
-//         // T_WB = (r, p) is transformation from body to world frame, T_BW = T_WB.inverse()
-//         Sophus::SO3<T> updated_R_WB = _R_WB * Sophus::SO3<T>::exp(delta_r);
-//         Eigen::Matrix<T,3,1> updated_p_W = _p_W + _R_WB * delta_p;
-
-//         // 3D landmark homogeneous coordinates w.r.t camera frame.
-//         // point_body = R_BW * point_world + p_B = R_WB' * point_world - R_WB' * p_W = R_WB' * (point_world - p_W)
-
-//         Eigen::Matrix<T,3,1> updated_pixel_homo;
-//         updated_pixel_homo = _pCameraModel->_P_L.block<3,3>(0,0) * (_pCameraModel->_T_CB * (updated_R_WB.inverse() * (_point_W - updated_p_W))) + _pCameraModel->_P_L.block<3,1>(0,3);
-//         T s = updated_pixel_homo.z();
-
-//         residual[0] = (updated_pixel_homo.x() / s - _pixel.x) /_pCameraModel->_stdX;
-//         residual[1] = (updated_pixel_homo.y() / s - _pixel.y) /_pCameraModel->_stdY;
-
-//         return true;
-//     }
-
-//     private:
-//     cfsd::Ptr<CameraModel> _pCameraModel;
-//     cv::Point2d _pixel; // Pixel coordinates.
-//     Eigen::Vector3d _point_W; // Landmark w.r.t world frame.
-//     Sophus::SO3d _R_WB;
-//     Eigen::Vector3d _p_W;
-// };
 
 
 struct ImageCostFunction : public ceres::CostFunction {
@@ -233,8 +198,8 @@ struct ImageCostFunction : public ceres::CostFunction {
     int _numParameterBlocks;
     Eigen::MatrixXd _error;
     Eigen::MatrixXd _F;
-    // Eigen::MatrixXd _D;
-    // Eigen::MatrixXd _E_b_nullspace;
+    // const Eigen::MatrixXd& _D;
+    // const Eigen::MatrixXd& _E_b_nullspace;
 };
 
 
@@ -271,7 +236,7 @@ struct ImuCostFunction : public ceres::SizedCostFunction<15, /* residuals */
         Eigen::Vector3d delta_dba_i(parameters[1][6], parameters[1][7], parameters[1][8]);
         Eigen::Vector3d delta_dba_j(parameters[3][6], parameters[3][7], parameters[3][8]);
 
-        cfsd::Ptr<ImuConstraint> ic = _pMap->_imuConstraint[_idx];
+        cfsd::Ptr<ImuConstraint>& ic = _pMap->_imuConstraint[_idx];
 
         // Map double* to Eigen Matrix.
         Eigen::Map<Eigen::Matrix<double, 15, 1>> residual(residuals);
@@ -284,8 +249,8 @@ struct ImuCostFunction : public ceres::SizedCostFunction<15, /* residuals */
         Eigen::Vector3d updated_delta_ba_i = _pMap->_dba[index_i] + delta_dba_i;
 
         // residual(delta_R_ij)
-        Sophus::SO3d R_i = _pMap->_R[index_i];
-        Sophus::SO3d R_j = _pMap->_R[index_j];
+        Sophus::SO3d& R_i = _pMap->_R[index_i];
+        Sophus::SO3d& R_j = _pMap->_R[index_j];
         Sophus::SO3d updated_R_i = R_i * Sophus::SO3d::exp(delta_r_i);
         Sophus::SO3d updated_R_j = R_j * Sophus::SO3d::exp(delta_r_j);
         Sophus::SO3d tempR = ic->delta_R_ij * Sophus::SO3d::exp(ic->d_R_bg_ij * updated_delta_bg_i);
@@ -445,7 +410,7 @@ struct ImuCostFunction : public ceres::SizedCostFunction<15, /* residuals */
     }
 
   private:
-    cfsd::Ptr<Map> _pMap;
+    const cfsd::Ptr<Map>& _pMap;
     int _idx;
 };
 
@@ -484,9 +449,9 @@ struct BiasGyrCostFunction : public ceres::SizedCostFunction<3, /* residuals of 
     }
 
   private:
-    cfsd::Ptr<ImuConstraint> _ic;
-    Sophus::SO3d _R_i;
-    Sophus::SO3d _R_j;
+    const cfsd::Ptr<ImuConstraint>& _ic;
+    const Sophus::SO3d& _R_i;
+    const Sophus::SO3d& _R_j;
 };
 
 
@@ -562,10 +527,10 @@ struct GravityVelocityCostFunction : public ceres::SizedCostFunction<6, /* resid
     }
 
   private:
-    cfsd::Ptr<ImuConstraint> _ic;
-    Sophus::SO3d _R_i;
-    Eigen::Vector3d _p_i;
-    Eigen::Vector3d _p_j;
+    const cfsd::Ptr<ImuConstraint>& _ic;
+    const Sophus::SO3d& _R_i;
+    const Eigen::Vector3d& _p_i;
+    const Eigen::Vector3d& _p_j;
 };
 
 
@@ -634,8 +599,8 @@ struct AlignmentCostFunction : public ceres::SizedCostFunction<3, /* residuals o
     }
 
   private:
-    Eigen::Vector3d _init_g;
-    Eigen::Vector3d _unit_g;
+    const Eigen::Vector3d& _init_g;
+    const Eigen::Vector3d& _unit_g;
 };
 
 
@@ -682,13 +647,13 @@ struct AccCostFunction : public ceres::SizedCostFunction<6, /* residuals of delt
     }
 
   private:
-    cfsd::Ptr<ImuConstraint> _ic;
-    Sophus::SO3d _R_i;
-    Eigen::Vector3d _v_i;
-    Eigen::Vector3d _v_j;
-    Eigen::Vector3d _p_i;
-    Eigen::Vector3d _p_j;
-    Eigen::Vector3d _gravity;
+    const cfsd::Ptr<ImuConstraint>& _ic;
+    const Sophus::SO3d& _R_i;
+    const Eigen::Vector3d& _v_i;
+    const Eigen::Vector3d& _v_j;
+    const Eigen::Vector3d& _p_i;
+    const Eigen::Vector3d& _p_j;
+    const Eigen::Vector3d& _gravity;
 };
 
 } // namespace cfsd

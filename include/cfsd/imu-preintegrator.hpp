@@ -46,7 +46,7 @@ class ImuPreintegrator {
     void biasJacobians(const Sophus::SO3d& dR, const Eigen::Matrix3d& Jr, Eigen::Matrix3d& temp);
 
   private:
-    bool _verbose;
+    const bool _verbose;
 
     cfsd::Ptr<Map> _pMap;
 

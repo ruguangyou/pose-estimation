@@ -76,7 +76,7 @@ ImuPreintegrator::ImuPreintegrator(const cfsd::Ptr<Map> pMap, const bool verbose
         _d_v_ba_ij(Eigen::Matrix3d::Zero()), _d_v_ba_ijm1(Eigen::Matrix3d::Zero()),
         _d_p_bg_ij(Eigen::Matrix3d::Zero()), _d_p_bg_ijm1(Eigen::Matrix3d::Zero()),
         _d_p_ba_ij(Eigen::Matrix3d::Zero()), _d_p_ba_ijm1(Eigen::Matrix3d::Zero()),
-        _dataMutex(), _dataQueue(), _timestampQueue() {
+        _dataMutex(), _dataQueue(), _timestampQueue(), _ic() {
     
     _samplingRate = Config::get<int>("samplingRate");
     _deltaT = 1.0 / (double)_samplingRate;

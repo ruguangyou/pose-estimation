@@ -1,5 +1,5 @@
 %YAML:1.0
-dataset: /home/ruguang/docker-CFSD/cfsd/2019/euroc/V1_01_easy/mav0/
+dataset: /home/ruguang/docker-CFSD/cfsd/2019/euroc/V1_02_medium/mav0/
 
 # Skip some images
 speedUp: 2

@@ -2,7 +2,10 @@
 
 namespace cfsd {
 
-Map::Map(const cfsd::Ptr<CameraModel>& pCameraModel, const bool verbose) : _pCameraModel(pCameraModel), _verbose(verbose), _gravity() {
+Map::Map(const cfsd::Ptr<CameraModel>& pCameraModel, const bool verbose) : 
+    _pCameraModel(pCameraModel), _verbose(verbose), _gravity(), _init_gravity(),
+    _R(), _p(), _v(), _dbg(), _dba(), _imuConstraint(), _frames(), _timestamp() {
+    
     _R.push_back(Sophus::SO3d());
     _v.push_back(Eigen::Vector3d::Zero());
     _p.push_back(Eigen::Vector3d::Zero());
@@ -86,7 +89,7 @@ void Map::setInitialGravity(const Eigen::Vector3d& g) {
 
     std::cout << "Gravity w.r.t the initial body frame:" << std::endl
               << "estimated direction (unit vector):\n" << _init_gravity << std::endl
-              << "estimated magnititude:" << g.norm() << std::endl;
+              << "estimated magnititude: " << g.norm() << std::endl;
 }
 
 void Map::updateInitialVelocity(const int& start, double delta_v[WINDOWSIZE][3]) {

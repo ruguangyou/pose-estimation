@@ -50,36 +50,31 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 # Build a static binary.
 set(CMAKE_EXE_LINKER_FLAGS "-static-libgcc -static-libstdc++")
-set(CMAKE_CXX_FLAGS "-O0 -g")
 # Add further warning levels.
-# set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} \
-#     -D_XOPEN_SOURCE=700 \
-#     -D_FORTIFY_SOURCE=2 \
-#     -O2 \
-#     -fstack-protector \
-#     -fomit-frame-pointer \
-#     -pipe \
-#     -Weffc++ \
-#     -Wall -Wextra -Wshadow -Wdeprecated \
+# set(CMAKE_CXX_FLAGS "-O0 -g")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} \
+    -D_XOPEN_SOURCE=700 \
+    -D_FORTIFY_SOURCE=2 \
+    -O2 \
+    -fstack-protector \
+    -fomit-frame-pointer \
+    -pipe \
+    -Weffc++")
+    # -Wall -Wextra -Wshadow -Wdeprecated")
 #     -Wdiv-by-zero -Wfloat-equal -Wfloat-conversion -Wsign-compare -Wpointer-arith \
 #     -Wuninitialized -Wunreachable-code \
 #     -Wunused -Wunused-function -Wunused-label -Wunused-parameter -Wunused-but-set-parameter -Wunused-but-set-variable \
 #     -Wunused-value -Wunused-variable -Wunused-result \
-#     -Wmissing-field-initializers -Wmissing-format-attribute -Wmissing-include-dirs -Wmissing-noreturn")
+#    -Wmissing-field-initializers -Wmissing-format-attribute -Wmissing-include-dirs -Wmissing-noreturn")
 # Threads are necessary for linking the resulting binaries as UDPReceiver is running in parallel.
 set(THREADS_PREFER_PTHREAD_FLAG ON)
 find_package(Threads REQUIRED)
 
 ################################################################################
 # Set debug flag
-option(WITH_DEBUG_IMG "Debug mode for feature-tracker" OFF)
-if(WITH_DEBUG_IMG)
-    add_definitions(-DDEBUG_IMG)
-endif()
-
-option(WITH_DEBUG_IMU "Debug mode for imu-preintegrator" OFF)
-if(WITH_DEBUG_IMU)
-    add_definitions(-DDEBUG_IMU)
+option(WITH_IMSHOW "Display image" ON)
+if(WITH_IMSHOW)
+    add_definitions(-DSHOW_IMG)
 endif()
 
 ################################################################################
@@ -123,14 +118,14 @@ if(UNIX)
     endif()
 endif()
 
-# Eigen
-include_directories("/usr/include/eigen3")
-set(LIBRARIES ${LIBRARIES} ${Eigen3_LIBS})
+# Eigen ("SYSTEM": make it "system headers" and compiler would suppresses warnings against Eigen headers)
+include_directories(SYSTEM "/usr/include/eigen3")
+set(LIBRARIES ${LIBRARIES} ${Eigen3_LIBS}) # maybe unnecessary since Eigen is header-only
 
 # Sophus
 find_package(Sophus REQUIRED)
 include_directories(${Sophus_INCLUDE_DIRS})
-set(LIBRARIES ${LIBRARIES} ${Sophus_LIBS})
+set(LIBRARIES ${LIBRARIES} ${Sophus_LIBS}) # maybe unnecessary since Sophus is header-only
 
 # OpenCV
 find_package(OpenCV REQUIRED)
@@ -143,7 +138,7 @@ include_directories(${CERES_INCLUDE_DIRS})
 set(LIBRARIES ${LIBRARIES} ${CERES_LIBRARIES})
 
 # Pangolin
-option(WITH_VIEWER "Enable visulization" ON)
+option(WITH_VIEWER "Enable visulization" OFF)
 if (WITH_VIEWER)
     add_definitions(-DUSE_VIEWER)
     find_package(Pangolin 0.4 REQUIRED)
