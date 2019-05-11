@@ -2,6 +2,7 @@
 #define VISUAL_INERTIAL_SLAM_HPP
 
 #include "cfsd/camera-model.hpp"
+#include "cfsd/loop-closure.hpp"
 #include "cfsd/feature-tracker.hpp"
 #include "cfsd/imu-preintegrator.hpp"
 #include "cfsd/optimizer.hpp"
@@ -52,6 +53,8 @@ class VisualInertialSLAM {
     cfsd::Ptr<CameraModel> _pCameraModel;
 
     cfsd::Ptr<Map> _pMap;
+
+    cfsd::Ptr<LoopClosure> _pLoopClosure;
 
     cfsd::Ptr<FeatureTracker> _pFeatureTracker;
 

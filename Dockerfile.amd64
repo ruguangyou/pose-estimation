@@ -13,7 +13,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-FROM ruguangyou/alpine-opencv-ceres-sophus:v0.2 as builder
+FROM ruguangyou/alpine-opencv-ceres-sophus:v0.4 as builder
 
 RUN echo http://dl-4.alpinelinux.org/alpine/v3.8/main > /etc/apk/repositories && \
     echo http://dl-4.alpinelinux.org/alpine/v3.8/community >> /etc/apk/repositories && \
@@ -23,38 +23,20 @@ RUN echo http://dl-4.alpinelinux.org/alpine/v3.8/main > /etc/apk/repositories &&
         cmake \
         make \
         g++ \
-        eigen \
         eigen-dev \
-        openblas \
         openblas-dev \
-        # suitesparse \
-        # suitesparse-dev \
-        glog \
         glog-dev \
-        gflags \
         gflags-dev \
-        # Intel® TBB, a widely used C++ template library for task parallelism
-        #libtbb@testing  \
-        #libtbb-dev@testing   \
-        # Wrapper for libjpeg-turbo
-        libjpeg  \
-        # accelerated baseline JPEG compression and decompression library
-        libjpeg-turbo-dev \
-        # Portable Network Graphics library
-        libpng-dev \
-        # A software-based implementation of the codec specified in the emerging JPEG-2000 Part-1 standard (development files)
-        jasper-dev \
-        # Provides support for the Tag Image File Format or TIFF (development files)
-        tiff-dev \
-        # Libraries for working with WebP images (development files)
-        libwebp-dev
+        gtk+2.0-dev \
+        pkgconfig \
+        ffmpeg-dev
 
 ADD . /opt/sources
 WORKDIR /opt/sources
 RUN mkdir build && \
     cd build && \
-    cmake -D CMAKE_BUILD_TYPE=Release -D CMAKE_INSTALL_PREFIX=/tmp -D WITH_VIEWER=OFF -D FOR_EUROC=ON .. && \
-    make -j2 && make install
+    cmake -D CMAKE_BUILD_TYPE=Release -D CMAKE_INSTALL_PREFIX=/tmp -D WITH_VIEWER=OFF -D WITH_IMSHOW=ON -D FOR_EUROC=ON .. && \
+    make -j4 && make install
 
 
 FROM chrberger/cluon-amd64:latest
@@ -71,9 +53,7 @@ RUN echo http://dl-4.alpinelinux.org/alpine/v3.8/main > /etc/apk/repositories &&
         glog \
         gflags \
         libgomp \
-        jasper \
-        libwebp \
-        libcanberra-gtk3
+        gtk+2.0     
 
 WORKDIR /usr/bin
 COPY --from=builder /usr/local/lib64 /usr/lib

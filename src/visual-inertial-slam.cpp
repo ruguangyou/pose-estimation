@@ -4,15 +4,17 @@
 namespace cfsd {
 
 VisualInertialSLAM::VisualInertialSLAM(const bool verbose) : 
-    _state(SYNCHRONIZING), _verbose(verbose), _gyr(), _acc(), _pCameraModel(), _pMap(), _pFeatureTracker(), _pOptimizer(), _pImuPreintegrator() {
+    _state(SYNCHRONIZING), _verbose(verbose), _gyr(), _acc(), _pCameraModel(), _pMap(), _pLoopClosure(), _pFeatureTracker(), _pOptimizer(), _pImuPreintegrator() {
     
     _pCameraModel = std::make_shared<CameraModel>();
 
     _pMap = std::make_shared<Map>(_pCameraModel, verbose);
-    
-    _pImuPreintegrator = std::make_shared<ImuPreintegrator>(_pMap, verbose);
 
-    _pFeatureTracker = std::make_shared<FeatureTracker>(_pMap, _pCameraModel, verbose);
+    _pImuPreintegrator = std::make_shared<ImuPreintegrator>(_pMap, verbose);
+    
+    _pLoopClosure = std::make_shared<LoopClosure>(verbose);
+
+    _pFeatureTracker = std::make_shared<FeatureTracker>(_pMap, _pCameraModel, _pLoopClosure, verbose);
 
     _pOptimizer = std::make_shared<Optimizer>(_pMap, _pFeatureTracker, _pImuPreintegrator, _pCameraModel, verbose);
 }
@@ -35,14 +37,17 @@ bool VisualInertialSLAM::process(const cv::Mat& grayL, const cv::Mat& grayR, con
             std::cout << "Imu-preintegration elapsed time: " << std::chrono::duration<double, std::milli>(end-start).count() << "ms" << std::endl << std::endl;
             // ........... integration time between two keyframes should not be too large because of the drifting nature of imu.
 
+            cv::Mat descriptorsMat;
             // Do feature tracking.
             start = std::chrono::steady_clock::now();
-            bool emptyMatch = _pFeatureTracker->processImage(grayL, grayR);
+            bool emptyMatch = _pFeatureTracker->processImage(grayL, grayR, descriptorsMat);
             end = std::chrono::steady_clock::now();
             std::cout << "Feature-tracking elapsed time: " << std::chrono::duration<double, std::milli>(end-start).count() << "ms" << std::endl << std::endl;
 
-            //TODO................
-            // what if the processing time exceeds 100ms?
+            start = std::chrono::steady_clock::now();
+            _pLoopClosure->detectLoop(descriptorsMat);
+            end = std::chrono::steady_clock::now();
+            std::cout << "Query database elapsed time: " << std::chrono::duration<double, std::milli>(end-start).count() << "ms" << std::endl << std::endl;
 
             // Perform motion-only BA.
             if (!emptyMatch) {
@@ -58,10 +63,18 @@ bool VisualInertialSLAM::process(const cv::Mat& grayL, const cv::Mat& grayR, con
             }
 
             // This step should be after the motion-only BA, s.t. we can know if current frame is keyframe and also the current camera pose.
-            start = std::chrono::steady_clock::now();
-            _pFeatureTracker->featurePoolUpdate(imgTimestamp);
-            end = std::chrono::steady_clock::now();
-            std::cout << "Feature pool update elapsed time: " << std::chrono::duration<double, std::milli>(end-start).count() << "ms" << std::endl << std::endl;
+            if (_pMap->_isKeyframe) {
+                start = std::chrono::steady_clock::now();
+                _pFeatureTracker->featurePoolUpdate(imgTimestamp);
+                end = std::chrono::steady_clock::now();
+                std::cout << "Feature pool update elapsed time: " << std::chrono::duration<double, std::milli>(end-start).count() << "ms" << std::endl << std::endl;
+
+                // Add left images (in the form of descriptors) to the bag-of-words database.
+                start = std::chrono::steady_clock::now();
+                _pLoopClosure->addImage(descriptorsMat);
+                end = std::chrono::steady_clock::now();
+                std::cout << "Add image to database elapsed time: " << std::chrono::duration<double, std::milli>(end-start).count() << "ms" << std::endl << std::endl;
+            }
 
             break;
         }
@@ -98,13 +111,16 @@ bool VisualInertialSLAM::process(const cv::Mat& grayL, const cv::Mat& grayR, con
             _pImuPreintegrator->reset();
             _pMap->reset(0);
             
+            cv::Mat descriptorsMat;
             // Initial stereo pair matching.
             std::cout << "Initializing stereo pair matching..." << std::endl;
-            _pFeatureTracker->processImage(grayL, grayR);
+            _pFeatureTracker->processImage(grayL, grayR, descriptorsMat);
             std::cout << "Initial matching Done!" << std::endl << std::endl;
-            
+
             // Add the initial frame as keyframe.
             _pFeatureTracker->featurePoolUpdate(imgTimestamp);
+
+            _pLoopClosure->addImage(descriptorsMat);
             
             _state = OK;
             break;
@@ -180,22 +196,24 @@ void VisualInertialSLAM::saveResults() {
     ofs << "timestamp,qw,qx,qy,qz,px,py,pz,vx,vy,vz,bgx,bgy,bgz,bax,bay,baz\n";
     Eigen::Quaterniond q;
     Eigen::Vector3d p, v, bg, ba;
-    for (int i = 1; i < _pMap->_imuConstraint.size(); i++) {
-        ofs << _pMap->_timestamp[i] << ",";
+    for (int i = 1; i < _pMap->_pKeyframes.size(); i++) {
+        const cfsd::Ptr<Keyframe>& frame = _pMap->_pKeyframes[i];
 
-        q = _pMap->_R[i].unit_quaternion();
+        ofs << frame->timestamp << ",";
+
+        q = frame->R.unit_quaternion();
         ofs << q.w() << "," << q.x() << "," << q.y() << "," << q.z() << ",";
         
-        p = _pMap->_p[i];
+        p = frame->p;
         ofs << p(0)  << ","  << p(1)  << ","  << p(2)  << ",";
 
-        v = _pMap->_v[i];
+        v = frame->v;
         ofs << v(0) << "," << v(1) << "," << v(2) << ",";
 
-        bg = _pMap->_imuConstraint[i]->bg_i + _pMap->_dbg[i];
+        bg = frame->pImuConstraint->bg_i + frame->dbg;
         ofs << bg(0) << "," << bg(1) << "," << bg(2) << ",";
 
-        ba = _pMap->_imuConstraint[i]->ba_i + _pMap->_dba[i];
+        ba = frame->pImuConstraint->ba_i + frame->dba;
         ofs << ba(0) << "," << ba(1) << "," << ba(2) << "\n";
     }
     ofs.close();

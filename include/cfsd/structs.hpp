@@ -65,6 +65,22 @@ struct MapPoint {
     Eigen::Vector3d position;
 };
 
+struct Keyframe {
+    Keyframe() : R(), p(Eigen::Vector3d::Zero()), v(Eigen::Vector3d::Zero()), dbg(Eigen::Vector3d::Zero()), dba(Eigen::Vector3d::Zero()), pImuConstraint(), points() {}
+    Keyframe(const Sophus::SO3d& R, const Eigen::Vector3d& p, const Eigen::Vector3d& v, const Eigen::Vector3d& dbg, const Eigen::Vector3d& dba, 
+             const cfsd::Ptr<ImuConstraint>& pImuConstraint, const std::vector<cfsd::Ptr<MapPoint>>&  points, const long& timestamp) :
+        R(R), p(p), v(v), dbg(dbg), dba(dba), pImuConstraint(pImuConstraint), points(points), timestamp(timestamp) {}
+
+    Sophus::SO3d R;
+    Eigen::Vector3d p;
+    Eigen::Vector3d v;
+    Eigen::Vector3d dbg;
+    Eigen::Vector3d dba;
+    cfsd::Ptr<ImuConstraint> pImuConstraint;
+    std::vector<cfsd::Ptr<MapPoint>> points;
+    long timestamp{0};
+};
+
 } // namespace cfsd
 
 #endif // STRUCTS_HPP

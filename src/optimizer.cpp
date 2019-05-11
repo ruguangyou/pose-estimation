@@ -10,8 +10,14 @@ Optimizer::Optimizer(const cfsd::Ptr<Map>& pMap, const cfsd::Ptr<FeatureTracker>
     _cx = _pCameraModel->_K_L.at<double>(0,2);
     _cy = _pCameraModel->_K_L.at<double>(1,2);
     _invStdT << 1/_pCameraModel->_stdX, 0, 0, 1/_pCameraModel->_stdY;
-    _priorFactor = Config::get<double>("priorFactor");
+    _priorWeight = Config::get<double>("priorWeight");
     _delay = Config::get<int>("delay");
+
+    _minimizerProgressToStdout = Config::get<bool>("minimizer_progress_to_stdout");
+    _maxNumIterations = Config::get<int>("max_num_iterations");
+    _maxSolverTimeInSeconds = Config::get<double>("max_solver_time_in_seconds");
+    _numThreads = Config::get<int>("num_threads");
+    _checkGradients = Config::get<bool>("check_gradients");
 }
 
 void Optimizer::motionOnlyBA(const cv::Mat& img) {
@@ -24,11 +30,11 @@ void Optimizer::motionOnlyBA(const cv::Mat& img) {
             delta_v_dbga[i][j] = 0;
     }
 
-    int actualSize = (_pMap->_R.size() > WINDOWSIZE) ? WINDOWSIZE : _pMap->_R.size()-1;
+    int actualSize = (_pMap->_pKeyframes.size() > WINDOWSIZE) ? WINDOWSIZE : _pMap->_pKeyframes.size()-1;
     
     std::vector<double*> delta_pose_img;
     
-    int n = _pMap->_frames.size() - actualSize;
+    int n = _pMap->_pKeyframes.size() - actualSize;
     
     // Build the problem.
     ceres::Problem problem;
@@ -38,7 +44,7 @@ void Optimizer::motionOnlyBA(const cv::Mat& img) {
     // ceres::LossFunction* lossFunction = new ceres::CauchyLoss(1.0);
 
     // Set up prior.
-    ceres::CostFunction* priorCost = new PriorCostFunction(_pMap, n-1, _priorFactor);
+    ceres::CostFunction* priorCost = new PriorCostFunction(_pMap, n-1, _priorWeight);
     problem.AddResidualBlock(priorCost, NULL, delta_pose[0], delta_v_dbga[0]);
     
     // Set up imu cost function.
@@ -52,8 +58,9 @@ void Optimizer::motionOnlyBA(const cv::Mat& img) {
     std::unordered_map< size_t, std::vector< std::pair<int,int> > > landmarks;
     size_t landmarkID;
     for (int i = 0; i < actualSize; i++) {
-        for (int j = 0; j < _pMap->_frames[n+i].size(); j++) {
-            landmarkID = _pMap->_frames[n+i][j]->id;
+        const std::vector<cfsd::Ptr<MapPoint>>& points = _pMap->_pKeyframes[n+i]->points;
+        for (int j = 0; j < points.size(); j++) {
+            landmarkID =points[j]->id;
             if (landmarks.find(landmarkID) == landmarks.end())
                 landmarks[landmarkID] = std::vector< std::pair<int,int> >();
             landmarks[landmarkID].push_back(std::make_pair(n+i,j));
@@ -91,9 +98,10 @@ void Optimizer::motionOnlyBA(const cv::Mat& img) {
             if (delta_pose_mask[pair.first] == 0) continue;
             delta_pose_mask[pair.first] = 0;
 
-            const cfsd::Ptr<MapPoint>& mp = _pMap->_frames[pair.first][pair.second];
+            const cfsd::Ptr<Keyframe>& windowFrame = _pMap->_pKeyframes[pair.first];
+            const cfsd::Ptr<MapPoint>& mp = windowFrame->points[pair.second];
 
-            Eigen::Vector3d temp = _pMap->_R[pair.first].inverse() * (mp->position - _pMap->_p[pair.first]);
+            Eigen::Vector3d temp = windowFrame->R.inverse() * (mp->position - windowFrame->p);
             Eigen::Vector3d point_wrt_cam = _pCameraModel->_T_CB * temp;
             double x = point_wrt_cam.x();
             double y = point_wrt_cam.y();
@@ -139,9 +147,11 @@ void Optimizer::motionOnlyBA(const cv::Mat& img) {
 
     #ifdef SHOW_IMG
     // Show pixels and reprojected pixels before optimization.
-    for (int i = actualSize-1, j = 0; j < _pMap->_frames[n+i].size(); j++) {
-        cfsd::Ptr<MapPoint> mp = _pMap->_frames[n+i][j];
-        Eigen::Vector3d pixel_homo = _pCameraModel->_P_L.block<3,3>(0,0) * (_pCameraModel->_T_CB * (_pMap->_R[n+i].inverse() * (mp->position - _pMap->_p[n+i])));
+    const cfsd::Ptr<Keyframe>& latestFrame = _pMap->_pKeyframes.back();
+    const std::vector<cfsd::Ptr<MapPoint>>& points = latestFrame->points;
+    for (int i = 0; i < points.size(); i++) {
+        cfsd::Ptr<MapPoint> mp = points[i];
+        Eigen::Vector3d pixel_homo = _pCameraModel->_P_L.block<3,3>(0,0) * (_pCameraModel->_T_CB * (latestFrame->R.inverse() * (mp->position - latestFrame->p)));
         cv::rectangle(img, cv::Point(mp->pixel.x-4, mp->pixel.y-4), cv::Point(mp->pixel.x+4, mp->pixel.y+4), cv::Scalar(0));
         cv::circle(img, cv::Point(pixel_homo(0)/pixel_homo(2), pixel_homo(1)/pixel_homo(2)), 3, cv::Scalar(0));
     }
@@ -152,11 +162,11 @@ void Optimizer::motionOnlyBA(const cv::Mat& img) {
     // options.trust_region_strategy_type = ceres::DOGLEG;
     // options.linear_solver_type = ceres::DENSE_QR;
     options.linear_solver_type = ceres::DENSE_SCHUR; // bundle adjustment problems have a special sparsity structure that can be solved much more efficiently using Schur-based solvers.
-    options.minimizer_progress_to_stdout = true;
-    options.max_num_iterations = Config::get<int>("max_num_iterations");
-    options.max_solver_time_in_seconds = Config::get<double>("max_solver_time_in_seconds");
-    options.num_threads = Config::get<int>("num_threads");
-    options.check_gradients = Config::get<bool>("check_gradients"); // default: false
+    options.minimizer_progress_to_stdout = _minimizerProgressToStdout;
+    options.max_num_iterations = _maxNumIterations;
+    options.max_solver_time_in_seconds = _maxSolverTimeInSeconds;
+    options.num_threads = _numThreads;
+    options.check_gradients = _checkGradients; // default: false
     // options.gradient_check_relative_precision = 1e-6; // default: 1e-8
     ceres::Solver::Summary summary;
 
@@ -166,7 +176,7 @@ void Optimizer::motionOnlyBA(const cv::Mat& img) {
     // if (_verbose) {
         // Show the report.
         // std::cout << summary.BriefReport() << std::endl;
-        std::cout << summary.FullReport() << std::endl;
+        // std::cout << summary.FullReport() << std::endl;
     // }
 
     _pMap->updateStates(delta_pose, delta_v_dbga);
@@ -175,9 +185,9 @@ void Optimizer::motionOnlyBA(const cv::Mat& img) {
 
     #ifdef SHOW_IMG
     // Show pixels and reprojected pixels after optimization.
-    for (int i = actualSize-1, j = 0; j < _pMap->_frames[n+i].size(); j++) {
-        cfsd::Ptr<MapPoint> mp = _pMap->_frames[n+i][j];
-        Eigen::Vector3d pixel_homo = _pCameraModel->_P_L.block<3,3>(0,0) * (_pCameraModel->_T_CB * (_pMap->_R[n+i].inverse() * (mp->position - _pMap->_p[n+i])));
+    for (int i = 0; i < points.size(); i++) {
+        cfsd::Ptr<MapPoint> mp = points[i];
+        Eigen::Vector3d pixel_homo = _pCameraModel->_P_L.block<3,3>(0,0) * (_pCameraModel->_T_CB * (latestFrame->R.inverse() * (mp->position - latestFrame->p)));
         cv::circle(img, cv::Point(pixel_homo(0)/pixel_homo(2), pixel_homo(1)/pixel_homo(2)), 3, cv::Scalar(255));
     }
     cv::imshow("before vs. after optimization", img);
@@ -191,7 +201,9 @@ void Optimizer::initialGyrBias() {
     ceres::Problem problem;
 
     for (int i = 0; i < WINDOWSIZE-1; i++) {
-        ceres::CostFunction* gyrCost = new BiasGyrCostFunction(_pMap->_imuConstraint[i], _pMap->_R[i], _pMap->_R[i+1]);
+        cfsd::Ptr<Keyframe>& sfmFrame1 = _pMap->_pKeyframes[i];
+        cfsd::Ptr<Keyframe>& sfmFrame2 = _pMap->_pKeyframes[i+1];
+        ceres::CostFunction* gyrCost = new BiasGyrCostFunction(sfmFrame2->pImuConstraint, sfmFrame1->R, sfmFrame2->R);
         // problem.AddResidualBlock(gyrCost, nullptr, delta_dbg);
         problem.AddResidualBlock(gyrCost, new ceres::HuberLoss(1.0), delta_dbg);
     }
@@ -223,7 +235,9 @@ void Optimizer::initialGravityVelocity() {
     ceres::Problem problem;
 
     for (int i = 0; i < WINDOWSIZE-1; i++) {
-        ceres::CostFunction* gravityVelocityCost = new GravityVelocityCostFunction(_pMap->_imuConstraint[i], _pMap->_R[i], _pMap->_p[i], _pMap->_p[i+1]);
+        cfsd::Ptr<Keyframe>& sfmFrame1 = _pMap->_pKeyframes[i];
+        cfsd::Ptr<Keyframe>& sfmFrame2 = _pMap->_pKeyframes[i+1];
+        ceres::CostFunction* gravityVelocityCost = new GravityVelocityCostFunction(sfmFrame2->pImuConstraint, sfmFrame1->R, sfmFrame1->p, sfmFrame2->p);
         // problem.AddResidualBlock(gravityVelocityCost, nullptr, delta_g, delta_v[i], delta_v[i+1]);
         problem.AddResidualBlock(gravityVelocityCost, new ceres::HuberLoss(1.0), delta_g, delta_v[i], delta_v[i+1]);
     }
@@ -314,7 +328,9 @@ void Optimizer::initialAccBias() {
     ceres::Problem problem; // acc initial bias
 
     for (int i = 0; i < WINDOWSIZE-1; i++) {
-        ceres::CostFunction* accCost = new AccCostFunction(_pImuPreintegrator->_ic, _pMap->_R[i], _pMap->_v[i], _pMap->_v[i+1], _pMap->_p[i], _pMap->_p[i+1], _pMap->_gravity);
+        cfsd::Ptr<Keyframe>& sfmFrame1 = _pMap->_pKeyframes[i];
+        cfsd::Ptr<Keyframe>& sfmFrame2 = _pMap->_pKeyframes[i+1];
+        ceres::CostFunction* accCost = new AccCostFunction(sfmFrame2->pImuConstraint, sfmFrame1->R, sfmFrame1->v, sfmFrame2->v, sfmFrame1->p, sfmFrame2->p, _pMap->_gravity);
         // problem.AddResidualBlock(accCost, nullptr, delta_dba);
         problem.AddResidualBlock(accCost, new ceres::HuberLoss(1.0), delta_dba);
     }

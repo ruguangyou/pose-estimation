@@ -15,7 +15,7 @@ namespace cfsd {
 struct PriorCostFunction : public ceres::SizedCostFunction<15, /* residuals */
                                                             6, /* increment of pose (r, p) at time j */
                                                             9  /* increment of velocity, delta_bg and delta_ba at time j */> {
-    PriorCostFunction(const cfsd::Ptr<Map>& pMap, const int& idx, const double& priorFactor) : _pMap(pMap), _idx(idx), _priorFactor(priorFactor) {}
+    PriorCostFunction(const cfsd::Ptr<Map>& pMap, const int& idx, const double& priorWeight) : _pMap(pMap), _idx(idx), _priorWeight(priorWeight) {}
 
     virtual ~PriorCostFunction() {}
 
@@ -28,48 +28,44 @@ struct PriorCostFunction : public ceres::SizedCostFunction<15, /* residuals */
         Eigen::Vector3d delta_dbg_j(parameters[1][3], parameters[1][4], parameters[1][5]);
         Eigen::Vector3d delta_dba_j(parameters[1][6], parameters[1][7], parameters[1][8]);
 
-        cfsd::Ptr<ImuConstraint>& ic = _pMap->_imuConstraint[_idx];
+        cfsd::Ptr<Keyframe>& priorFrame = _pMap->_pKeyframes[_idx];
+        cfsd::Ptr<Keyframe>& windowFrame = _pMap->_pKeyframes[_idx+1];
 
         // Map double* to Eigen Matrix.
         Eigen::Map<Eigen::Matrix<double, 15, 1>> residual(residuals);
 
-        int index_i = _idx;
-        int index_j = _idx + 1;
+        cfsd::Ptr<ImuConstraint>& ic = windowFrame->pImuConstraint;
 
         // Bias estimation update at time i, i.e. bias changes by a small amount delta_b during optimization.
-        Eigen::Vector3d& delta_bg_i = _pMap->_dbg[index_i];
-        Eigen::Vector3d& delta_ba_i = _pMap->_dba[index_i];
+        Eigen::Vector3d& delta_bg_i = priorFrame->dbg;
+        Eigen::Vector3d& delta_ba_i = priorFrame->dba;
 
         // residual(delta_R_ij)
-        Sophus::SO3d R_i = _pMap->_R[index_i];
-        Sophus::SO3d R_j = _pMap->_R[index_j];
+        Sophus::SO3d R_i = priorFrame->R;
+        Sophus::SO3d R_j = windowFrame->R;
         Sophus::SO3d updated_R_j = R_j * Sophus::SO3d::exp(delta_r_j);
         Sophus::SO3d tempR = ic->delta_R_ij * Sophus::SO3d::exp(ic->d_R_bg_ij * delta_bg_i);
         residual.block<3, 1>(0, 0) = (tempR.inverse() * R_i.inverse() * updated_R_j).log();
 
         // residual(delta_v_ij)
-        Eigen::Vector3d& v_i = _pMap->_v[index_i];
-        Eigen::Vector3d updated_v_j = _pMap->_v[index_j] + delta_v_j;
+        Eigen::Vector3d& v_i = priorFrame->v;
+        Eigen::Vector3d updated_v_j = windowFrame->v + delta_v_j;
         Eigen::Vector3d updated_dv = updated_v_j - v_i - _pMap->_gravity * ic->dt;
         residual.block<3, 1>(3, 0) = R_i.inverse() * updated_dv - (ic->delta_v_ij + ic->d_v_bg_ij * delta_bg_i + ic->d_v_ba_ij * delta_ba_i);
 
         // residual(delta_p_ij)
-        Eigen::Vector3d& p_i = _pMap->_p[index_i];
-        Eigen::Vector3d updated_p_j = _pMap->_p[index_j] + R_j * delta_p_j;
+        Eigen::Vector3d& p_i = priorFrame->p;
+        Eigen::Vector3d updated_p_j = windowFrame->p + R_j * delta_p_j;
         Eigen::Vector3d updated_dp = updated_p_j - p_i - v_i * ic->dt - _pMap->_gravity * ic->dt2 / 2;
         residual.block<3, 1>(6, 0) = R_i.inverse() * updated_dp - (ic->delta_p_ij + ic->d_p_bg_ij * delta_bg_i + ic->d_p_ba_ij * delta_ba_i);
 
         // residual(delta_bg_ij)
-        // Eigen::Vector3d bg_i = ic->bg_i + updated_delta_bg_i;
-        // Eigen::Vector3d bg_j = ic->bg_i + _pMap->_dbg[index_j] + delta_dbg_j;
         // residual.block<3, 1>(9, 0) = bg_j - bg_i;
-        residual.block<3, 1>(9, 0) = _pMap->_dbg[index_j] + delta_dbg_j - delta_bg_i;
+        residual.block<3, 1>(9, 0) = windowFrame->dbg + delta_dbg_j - delta_bg_i;
 
         // residual(delta_ba_ij)
-        // Eigen::Vector3d ba_i = ic->ba_i + updated_delta_ba_i;
-        // Eigen::Vector3d ba_j = ic->ba_i + _pMap->_dba[index_j] + delta_dba_j;
         // residual.block<3, 1>(12, 0) = ba_j - ba_i;
-        residual.block<3, 1>(12, 0) = _pMap->_dba[index_j] + delta_dba_j - delta_ba_i;
+        residual.block<3, 1>(12, 0) = windowFrame->dba + delta_dba_j - delta_ba_i;
 
         // |r|^2 is defined as: r' * inv(cov) * r
         // Whereas in ceres, the square of residual is defined as: |x|^2 = x' * x
@@ -78,7 +74,7 @@ struct PriorCostFunction : public ceres::SizedCostFunction<15, /* residuals */
         // Use cholesky decomposition: inv(cov) = L * L'
         // |r|^2 = r' * L * L' * r = (L' * r)' * (L' * r)
         // define x = L' * r (matrix 15x1)
-        Eigen::Matrix<double, 15, 15> Lt = Eigen::LLT<Eigen::Matrix<double, 15, 15>>(ic->invCovPreintegration_ij * _priorFactor).matrixL().transpose();
+        Eigen::Matrix<double, 15, 15> Lt = Eigen::LLT<Eigen::Matrix<double, 15, 15>>(ic->invCovPreintegration_ij * _priorWeight).matrixL().transpose();
         residual = Lt * residual;
 
         // Compute jacobians which are crutial for optimization algorithms like Guass-Newton.
@@ -135,7 +131,7 @@ struct PriorCostFunction : public ceres::SizedCostFunction<15, /* residuals */
   private:
     const cfsd::Ptr<Map>& _pMap;
     int _idx;
-    const double& _priorFactor;
+    const double& _priorWeight;
 };
 
 
@@ -236,49 +232,45 @@ struct ImuCostFunction : public ceres::SizedCostFunction<15, /* residuals */
         Eigen::Vector3d delta_dba_i(parameters[1][6], parameters[1][7], parameters[1][8]);
         Eigen::Vector3d delta_dba_j(parameters[3][6], parameters[3][7], parameters[3][8]);
 
-        cfsd::Ptr<ImuConstraint>& ic = _pMap->_imuConstraint[_idx];
+        cfsd::Ptr<Keyframe>& priorFrame = _pMap->_pKeyframes[_idx];
+        cfsd::Ptr<Keyframe>& windowFrame = _pMap->_pKeyframes[_idx+1];
 
         // Map double* to Eigen Matrix.
         Eigen::Map<Eigen::Matrix<double, 15, 1>> residual(residuals);
 
-        int index_i = _idx;
-        int index_j = _idx + 1;
+        cfsd::Ptr<ImuConstraint>& ic = windowFrame->pImuConstraint;
 
         // Bias estimation update at time i, i.e. bias changes by a small amount delta_b during optimization.
-        Eigen::Vector3d updated_delta_bg_i = _pMap->_dbg[index_i] + delta_dbg_i;
-        Eigen::Vector3d updated_delta_ba_i = _pMap->_dba[index_i] + delta_dba_i;
+        Eigen::Vector3d updated_delta_bg_i = priorFrame->dbg + delta_dbg_i;
+        Eigen::Vector3d updated_delta_ba_i = priorFrame->dba + delta_dba_i;
 
         // residual(delta_R_ij)
-        Sophus::SO3d& R_i = _pMap->_R[index_i];
-        Sophus::SO3d& R_j = _pMap->_R[index_j];
+        Sophus::SO3d& R_i = priorFrame->R;
+        Sophus::SO3d& R_j = windowFrame->R;
         Sophus::SO3d updated_R_i = R_i * Sophus::SO3d::exp(delta_r_i);
         Sophus::SO3d updated_R_j = R_j * Sophus::SO3d::exp(delta_r_j);
         Sophus::SO3d tempR = ic->delta_R_ij * Sophus::SO3d::exp(ic->d_R_bg_ij * updated_delta_bg_i);
         residual.block<3, 1>(0, 0) = (tempR.inverse() * updated_R_i.inverse() * updated_R_j).log();
 
         // residual(delta_v_ij)
-        Eigen::Vector3d updated_v_i = _pMap->_v[index_i] + delta_v_i;
-        Eigen::Vector3d updated_v_j = _pMap->_v[index_j] + delta_v_j;
+        Eigen::Vector3d updated_v_i = priorFrame->v + delta_v_i;
+        Eigen::Vector3d updated_v_j = windowFrame->v + delta_v_j;
         Eigen::Vector3d updated_dv = updated_v_j - updated_v_i - _pMap->_gravity * ic->dt;
         residual.block<3, 1>(3, 0) = updated_R_i.inverse() * updated_dv - (ic->delta_v_ij + ic->d_v_bg_ij * updated_delta_bg_i + ic->d_v_ba_ij * updated_delta_ba_i);
 
         // residual(delta_p_ij)
-        Eigen::Vector3d updated_p_i = _pMap->_p[index_i] + R_i * delta_p_i;
-        Eigen::Vector3d updated_p_j = _pMap->_p[index_j] + R_j * delta_p_j;
+        Eigen::Vector3d updated_p_i = priorFrame->p + R_i * delta_p_i;
+        Eigen::Vector3d updated_p_j = windowFrame->p + R_j * delta_p_j;
         Eigen::Vector3d updated_dp = updated_p_j - updated_p_i - updated_v_i * ic->dt - _pMap->_gravity * ic->dt2 / 2;
         residual.block<3, 1>(6, 0) = updated_R_i.inverse() * updated_dp - (ic->delta_p_ij + ic->d_p_bg_ij * updated_delta_bg_i + ic->d_p_ba_ij * updated_delta_ba_i);
 
         // residual(delta_bg_ij)
-        // Eigen::Vector3d bg_i = ic->bg_i + updated_delta_bg_i;
-        // Eigen::Vector3d bg_j = ic->bg_i + _pMap->_dbg[index_j] + delta_dbg_j;
         // residual.block<3, 1>(9, 0) = bg_j - bg_i;
-        residual.block<3, 1>(9, 0) = _pMap->_dbg[index_j] + delta_dbg_j - updated_delta_bg_i;
+        residual.block<3, 1>(9, 0) = windowFrame->dbg + delta_dbg_j - updated_delta_bg_i;
 
         // residual(delta_ba_ij)
-        // Eigen::Vector3d ba_i = ic->ba_i + updated_delta_ba_i;
-        // Eigen::Vector3d ba_j = ic->ba_i + _pMap->_dba[index_j] + delta_dba_j;
         // residual.block<3, 1>(12, 0) = ba_j - ba_i;
-        residual.block<3, 1>(12, 0) = _pMap->_dba[index_j] + delta_dba_j - updated_delta_ba_i;
+        residual.block<3, 1>(12, 0) = windowFrame->dba + delta_dba_j - updated_delta_ba_i;
 
         // |r|^2 is defined as: r' * inv(cov) * r
         // Whereas in ceres, the square of residual is defined as: |x|^2 = x' * x
@@ -294,7 +286,7 @@ struct ImuCostFunction : public ceres::SizedCostFunction<15, /* residuals */
         if (!jacobians) return true;
 
         // Inverse of right jacobian of residual (delta_R_ij) calculated without adding delta increment.
-        Eigen::Vector3d residual_R = ((ic->delta_R_ij * Sophus::SO3d::exp(ic->d_R_bg_ij * _pMap->_dbg[index_i])).inverse() * R_i.inverse() * R_j).log();
+        Eigen::Vector3d residual_R = ((ic->delta_R_ij * Sophus::SO3d::exp(ic->d_R_bg_ij * priorFrame->dbg)).inverse() * R_i.inverse() * R_j).log();
         Eigen::Matrix3d JrInv = rightJacobianInverseSO3(residual_R);
 
         // Jacobian(15x6) of residual(15x1) w.r.t. ParameterBlock[0](6x1), i.e. delta_pose_i
@@ -308,11 +300,11 @@ struct ImuCostFunction : public ceres::SizedCostFunction<15, /* residuals */
             jacobian_rp_i.block<3, 3>(0, 0) = -JrInv * R_j.matrix().transpose() * R_i.matrix();
 
             // jacobian of residual(delta_v_ij) with respect to delta_r_i
-            Eigen::Vector3d dv = _pMap->_v[index_j] - _pMap->_v[index_i] - _pMap->_gravity * ic->dt;
+            Eigen::Vector3d dv = windowFrame->v - priorFrame->v - _pMap->_gravity * ic->dt;
             jacobian_rp_i.block<3, 3>(3, 0) = Sophus::SO3d::hat(R_i.inverse() * dv);
 
             // jacobian of residual(delta_p_ij) with respect to delta_r_i
-            Eigen::Vector3d dp = _pMap->_p[index_j] - _pMap->_p[index_i] - _pMap->_v[index_i] * ic->dt - _pMap->_gravity * ic->dt2 / 2;
+            Eigen::Vector3d dp = windowFrame->p - priorFrame->p - priorFrame->v * ic->dt - _pMap->_gravity * ic->dt2 / 2;
             jacobian_rp_i.block<3, 3>(6, 0) = Sophus::SO3d::hat(R_i.inverse() * dp);
 
             // jacobian of residual(delta_p_ij) with respect to delta_p_i
@@ -332,7 +324,7 @@ struct ImuCostFunction : public ceres::SizedCostFunction<15, /* residuals */
             jacobian_vb_i.setZero();
 
             // jacobian of residual(delta_R_ij) with respect to delta_dbg_i
-            jacobian_vb_i.block<3, 3>(0, 3) = -JrInv * Sophus::SO3d::exp(residual_R).matrix().transpose() * rightJacobianSO3(ic->d_R_bg_ij * _pMap->_dbg[index_i]) * ic->d_R_bg_ij;
+            jacobian_vb_i.block<3, 3>(0, 3) = -JrInv * Sophus::SO3d::exp(residual_R).matrix().transpose() * rightJacobianSO3(ic->d_R_bg_ij * priorFrame->dbg) * ic->d_R_bg_ij;
             
             // jacobian of residual(delta_v_ij) with respect to delta_v_i
             jacobian_vb_i.block<3, 3>(3, 0) = -R_i.matrix().transpose();

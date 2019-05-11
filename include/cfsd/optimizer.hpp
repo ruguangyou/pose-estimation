@@ -53,9 +53,15 @@ class Optimizer {
     double _fx{0}, _fy{0}, _cx{0}, _cy{0};
     Eigen::Matrix2d _invStdT;
     
-    double _priorFactor{0};
+    double _priorWeight{0.0};
 
     int _delay{0};
+
+    bool _minimizerProgressToStdout{true};
+    int _maxNumIterations{0};
+    double _maxSolverTimeInSeconds{0.0};
+    int _numThreads{0};
+    bool _checkGradients{false};
 
   // public:
   //   std::vector<Eigen::Vector3d> _accs;

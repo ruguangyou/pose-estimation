@@ -156,12 +156,12 @@ void ImuPreintegrator::reset() {
 
 void ImuPreintegrator::setInitialGyrBias(const Eigen::Vector3d& delta_bg) {
     _bg_i = _bg_i + delta_bg;
-    std::cout << "Initial gyr bias:\n" << _bg_i << std::endl;
+    if (_verbose) std::cout << "Initial gyr bias:\n" << _bg_i << std::endl;
 }
 
 void ImuPreintegrator::setInitialAccBias(const Eigen::Vector3d& delta_ba) {
     _ba_i = _ba_i + delta_ba;
-    std::cout << "Initial acc bias:\n" << _ba_i << std::endl;
+    if (_verbose) std::cout << "Initial acc bias:\n" << _ba_i << std::endl;
 }
 
 void ImuPreintegrator::updateBias() {

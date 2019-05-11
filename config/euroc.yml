@@ -1,5 +1,5 @@
 %YAML:1.0
-dataset: /home/ruguang/docker-CFSD/cfsd/2019/euroc/V1_02_medium/mav0/
+dataset: /home/ruguang/docker-CFSD/cfsd/2019/euroc/V1_01_easy/mav0/
 
 # Skip some images
 speedUp: 2
@@ -145,6 +145,7 @@ solvePnP: 0
 
 ################################################################################
 ##### Optimization settings #####
+minimizer_progress_to_stdout: 0
 max_num_iterations: 20 # default: 50
 max_solver_time_in_seconds: 10 # default: 1e6
 num_threads: 4 # default: 1
@@ -154,7 +155,11 @@ check_gradients: 0
 gravity: 9.81734 # [m/s^2] gravitational acceleration (might need slightly modification in case of different location)
 
 # Prior covariance factor
-priorFactor: 1e-5
+priorWeight: 1e-5
+
+################################################################################
+##### Loop closure settings #####
+vocabulary: ../config/vocabulary/ORBvoc.bin
 
 ################################################################################
 ##### Viewer settings #####

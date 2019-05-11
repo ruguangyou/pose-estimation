@@ -4,6 +4,7 @@
 #include "cfsd/common.hpp"
 #include "cfsd/camera-model.hpp"
 #include "cfsd/structs.hpp"
+#include "cfsd/loop-closure.hpp"
 #include "cfsd/map.hpp"
 #include "ORBextractor.h"
 
@@ -16,7 +17,7 @@ namespace cfsd {
 
 class FeatureTracker {
   public:
-    FeatureTracker(const cfsd::Ptr<Map>& pMap, const cfsd::Ptr<CameraModel>& pCameraModel, const bool verbose);
+    FeatureTracker(const cfsd::Ptr<Map>& pMap, const cfsd::Ptr<CameraModel>& pCameraModel, const cfsd::Ptr<LoopClosure>& pLoopClosure, const bool verbose);
 
     FeatureTracker(const FeatureTracker&) = delete; // copy constructor
     FeatureTracker& operator=(const FeatureTracker&) = delete; // copy assignment constructor
@@ -25,13 +26,13 @@ class FeatureTracker {
     // - internal match (current frame's left and right image)
     // - external track (current features and past features)
     // - refinement? (improve the quality of matching)
-    bool processImage(const cv::Mat& imgLeft, const cv::Mat& imgRight);
+    bool processImage(const cv::Mat& imgLeft, const cv::Mat& imgRight, cv::Mat& descriptorsMat);
 
     void orbDetectWithGrid(int flag, const cv::Mat& img, std::vector<cv::KeyPoint>& keypoints, cv::Mat& descriptors);
 
     void extractORB(int flag, const cv::Mat& img, std::vector<cv::KeyPoint>& keypoints, cv::Mat& descriptors);
 
-    void internalMatch(const cv::Mat& imgLeft, const cv::Mat& imgRight, const bool useRANSAC = false);
+    void internalMatch(const cv::Mat& imgLeft, const cv::Mat& imgRight, cv::Mat& descriptorsMat, const bool useRANSAC = false);
 
     void externalTrack(const bool useRANSAC = false);
 
@@ -48,6 +49,8 @@ class FeatureTracker {
 
     // Pinhole camera Model.
     const cfsd::Ptr<CameraModel>& _pCameraModel;
+
+    cfsd::Ptr<LoopClosure> _pLoopClosure;
 
     cfsd::Ptr<Map> _pMap;
 

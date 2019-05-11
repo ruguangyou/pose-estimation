@@ -119,12 +119,14 @@ if(UNIX)
 endif()
 
 # Eigen ("SYSTEM": make it "system headers" and compiler would suppresses warnings against Eigen headers)
-include_directories(SYSTEM "/usr/include/eigen3")
-set(LIBRARIES ${LIBRARIES} ${Eigen3_LIBS}) # maybe unnecessary since Eigen is header-only
+find_package(Eigen3 REQUIRED)
+include_directories(SYSTEM ${EIGEN3_INCLUDE_DIR})
+set(LIBRARIES ${LIBRARIES} Eigen3::Eigen) # maybe unnecessary since Eigen is header-only
 
 # Sophus
 find_package(Sophus REQUIRED)
 include_directories(${Sophus_INCLUDE_DIRS})
+message("Sohpus: " ${Sophus_INCLUDE_DIRS})
 set(LIBRARIES ${LIBRARIES} ${Sophus_LIBS}) # maybe unnecessary since Sophus is header-only
 
 # OpenCV
@@ -136,6 +138,12 @@ set(LIBRARIES ${LIBRARIES} ${OpenCV_LIBS})
 find_package(Ceres REQUIRED)
 include_directories(${CERES_INCLUDE_DIRS})
 set(LIBRARIES ${LIBRARIES} ${CERES_LIBRARIES})
+
+# DBoW2
+find_package(DBoW2 REQUIRED)
+include_directories(SYSTEM ${DBoW2_INCLUDE_DIRS})
+message("DBoW2: " ${DBoW2_INCLUDE_DIRS})
+set(LIBRARIES ${LIBRARIES} ${DBoW2_LIBS})
 
 # Pangolin
 option(WITH_VIEWER "Enable visulization" OFF)
@@ -154,6 +162,7 @@ add_library(state-estimation-core STATIC
     ${CMAKE_SOURCE_DIR}/src/optimizer.cpp
     ${CMAKE_SOURCE_DIR}/src/imu-preintegrator.cpp
     ${CMAKE_SOURCE_DIR}/src/feature-tracker.cpp
+    ${CMAKE_SOURCE_DIR}/src/loop-closure.cpp
     ${CMAKE_SOURCE_DIR}/src/map.cpp
     ${CMAKE_SOURCE_DIR}/src/visual-inertial-slam.cpp
     ${CMAKE_SOURCE_DIR}/src/viewer.cpp

@@ -73,14 +73,16 @@ class Map {
     //   camear: *       *        *        *
     //      imu: * * * * * * * * * * * * * *
     // Store keyframes' states and temperorily store current states.
-    std::vector<Sophus::SO3d> _R;
-    std::vector<Eigen::Vector3d> _p;
-    std::vector<Eigen::Vector3d> _v;
-    std::vector<Eigen::Vector3d> _dbg;
-    std::vector<Eigen::Vector3d> _dba;
-    std::vector<cfsd::Ptr<ImuConstraint>> _imuConstraint;
-    std::vector< std::vector< cfsd::Ptr<MapPoint> > > _frames;
-    std::vector<long> _timestamp;
+    std::vector<cfsd::Ptr<Keyframe>> _pKeyframes;
+
+    // std::vector<Sophus::SO3d> _R;
+    // std::vector<Eigen::Vector3d> _p;
+    // std::vector<Eigen::Vector3d> _v;
+    // std::vector<Eigen::Vector3d> _dbg;
+    // std::vector<Eigen::Vector3d> _dba;
+    // std::vector<cfsd::Ptr<ImuConstraint>> _imuConstraint;
+    // std::vector< std::vector< cfsd::Ptr<MapPoint> > > _frames;
+    // std::vector<long> _timestamp;
 
     bool _isKeyframe{false};
 
