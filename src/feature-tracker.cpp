@@ -2,10 +2,10 @@
 
 namespace cfsd {
 
-FeatureTracker::FeatureTracker(const cfsd::Ptr<Map>& pMap, const cfsd::Ptr<CameraModel>& pCameraModel, const cfsd::Ptr<LoopClosure>& pLoopClosure, const bool verbose) :
-        _pMap(pMap), _pCameraModel(pCameraModel), _pLoopClosure(pLoopClosure), _verbose(verbose), 
+FeatureTracker::FeatureTracker(const cfsd::Ptr<Map>& pMap, const cfsd::Ptr<CameraModel>& pCameraModel, const bool verbose) :
+        _pMap(pMap), _pCameraModel(pCameraModel), _verbose(verbose), 
         _orbLeft(), _orbRight(), _ORBextractorLeft(), _ORBextractorRight(),
-        _mask(), _curPixelsL(), _curPixelsR(), _curDescriptorsL(), _curDescriptorsR(), _curFeatureMask(), 
+        _roi(), _curPixelsL(), _curPixelsR(), _curDescriptorsL(), _curDescriptorsR(), _curFeatureMask(), 
         _histFeatureIDs(), _histDescriptorsL(), _histDescriptorsR(), _refKeypointsL(), _refDescriptorsL(),
         _matchedFeatureIDs(), _features() {
     
@@ -52,40 +52,26 @@ FeatureTracker::FeatureTracker(const cfsd::Ptr<Map>& pMap, const cfsd::Ptr<Camer
 
     _solvePnP = Config::get<int>("solvePnP");
 
-    // int height = Config::get<int>("imageHeight");
-    // int width = Config::get<int>("imageWidth");
-    // _mask = cv::Mat::zeros(height, width, CV_8U);
-    // // Pixel representation.
-    // int h1  = Config::get<int>("h1");
-    // int h2  = Config::get<int>("h2");
-    // for (int i = h1; i < h2; ++i)
-    //     for (int j = 0; j < width; ++j)
-    //         _mask.at<char>(i,j) = 255;
-
-    // // Initialize orb detection (it is found that the first orb detection is very slow).
-    // auto start = std::chrono::steady_clock::now();
-    // std::vector<cv::KeyPoint> keypoints;
-    // cv::Mat descriptors;
-    // _orb->detectAndCompute(_mask, _mask, keypoints, descriptors);
-    // auto end = std::chrono::steady_clock::now();
-    // std::cout << "initial orb detection elapsed time: " << std::chrono::duration<double, std::milli>(end-start).count() << "ms" << std::endl << std::endl;
+    #ifdef CFSD
+    _cropOffset = Config::get<int>("h1");
+    _roi.x = 0;
+    _roi.y = _cropOffset;
+    _roi.width = Config::get<int>("imageWidth");
+    _roi.height = Config::get<int>("h2") - _cropOffset;
+    #endif
 }
 
 bool FeatureTracker::processImage(const cv::Mat& grayLeft, const cv::Mat& grayRight, cv::Mat& descriptorsMat) {
-    // Remap to undistorted and rectified image (detection mask needs to be updated)
-    // cv::remap (about 3~5 ms) takes less time than cv::undistort (about 20~30 ms) method
-    auto start = std::chrono::steady_clock::now();
     cv::Mat imgLeft, imgRight;
-    cv::remap(grayLeft, imgLeft, _pCameraModel->_rmap[0][0], _pCameraModel->_rmap[0][1], cv::INTER_LINEAR);
-    cv::remap(grayRight, imgRight, _pCameraModel->_rmap[1][0], _pCameraModel->_rmap[1][1], cv::INTER_LINEAR);
-    auto end = std::chrono::steady_clock::now();
-    if (_verbose) std::cout << "remap elapsed time: " << std::chrono::duration<double, std::milli>(end-start).count() << "ms" << std::endl << std::endl;
+    #ifdef CFSD
+    imgLeft = grayLeft(_roi);
+    imgRight = grayRight(_roi);
+    #else
+    imgLeft = grayLeft;
+    imgRight = grayRight;
+    #endif
 
-    // std::cout << _mask.size() << std::endl;
-    // std::cout << imgLeft.size() << ", " << imgRight.size() << std::endl;
     // cv::Mat rectified;
-    // cv::line(imgLeft, cv::Point(0,210), cv::Point(672,210), cv::Scalar(0,0,255), 2);
-    // cv::line(imgLeft, cv::Point(0,300), cv::Point(672,300), cv::Scalar(0,0,255), 2);
     // cv::hconcat(imgLeft, imgRight, rectified);
     // cv::imshow("rectified", rectified);
     // cv::waitKey(0);
@@ -95,9 +81,9 @@ bool FeatureTracker::processImage(const cv::Mat& grayLeft, const cv::Mat& grayRi
     _curDescriptorsL = cv::Mat();
     _curDescriptorsR = cv::Mat();
     
-    start = std::chrono::steady_clock::now();
+    auto start = std::chrono::steady_clock::now();
     internalMatch(imgLeft, imgRight, descriptorsMat);
-    end = std::chrono::steady_clock::now();
+    auto end = std::chrono::steady_clock::now();
     if (_verbose) std::cout << "internal match elapsed time: " << std::chrono::duration<double, std::milli>(end-start).count() << "ms" << std::endl << std::endl;
     
     // Record which features in current frame will possibly be viewed as new features, if circular matching is satisfied, it will be false; otherwise, true.
@@ -144,8 +130,6 @@ void FeatureTracker::internalMatch(const cv::Mat& imgLeft, const cv::Mat& imgRig
     std::vector<cv::KeyPoint> keypointsL, keypointsR;
     cv::Mat descriptorsL, descriptorsR;
     if (_cvORB) {
-        // _orb->detectAndCompute(imgLeft,  _mask, keypointsL, descriptorsL);
-        // _orb->detectAndCompute(imgRight, _mask, keypointsR, descriptorsR);
         std::thread orbLeft(&FeatureTracker::orbDetectWithGrid, this, 0, imgLeft, std::ref(keypointsL), std::ref(descriptorsL));
         std::thread orbRight(&FeatureTracker::orbDetectWithGrid, this, 1, imgRight, std::ref(keypointsR), std::ref(descriptorsR));
         orbLeft.join();
@@ -305,7 +289,9 @@ void FeatureTracker::externalTrack(const bool useRANSAC) {
     // Search the correspondence of 'right' matching with 'left' matching.
     _matchedFeatureIDs.clear();
     std::vector<cfsd::Ptr<MapPoint>>& points = _pMap->_pKeyframes.back()->points;
+    cv::Mat& descriptors = _pMap->_pKeyframes.back()->descriptors;
     points.clear();
+    descriptors = cv::Mat();
     // _pMap->_frames.back().clear();
     matcher.match(_curDescriptorsR, _histDescriptorsR, matchesR);
     minDist = std::min_element(matchesR.begin(), matchesR.end(), [] (const cv::DMatch& m1, const cv::DMatch& m2) { return m1.distance < m2.distance; })->distance;
@@ -320,6 +306,7 @@ void FeatureTracker::externalTrack(const bool useRANSAC) {
                 // Satisfy circular matching, i.e. curLeft <=> histLeft <=> histRight <=> curRight <=> curLeft, the age of history features will increase 1.
                 size_t featureID = _histFeatureIDs[m.trainIdx];
                 points.push_back(std::make_shared<MapPoint>(featureID, _curPixelsL[m.queryIdx], _features[featureID]->position));
+                descriptors.push_back(_curDescriptorsL.row(m.queryIdx));
                 _matchedFeatureIDs.push_back(featureID);
                 // Will not be added as new features.
                 _curFeatureMask[m.queryIdx] = false;
@@ -373,13 +360,14 @@ void FeatureTracker::featurePoolUpdate(const long& imgTimestamp) {
     cv::triangulatePoints(_pCameraModel->_P1, _pCameraModel->_P2, _curPixelsL, _curPixelsR, points4D);
     
     std::vector<cfsd::Ptr<MapPoint>>& points = _pMap->_pKeyframes.back()->points;
+    cv::Mat& descriptors = _pMap->_pKeyframes.back()->descriptors;
     
     for (int i = 0; i < _curFeatureMask.size(); i++) {
         // Points4D is in homogeneous coordinates.
         double depth = points4D.at<double>(2,i) / points4D.at<double>(3,i);
 
         // If the feature is matched before or the corresponding 3D point is too far away (i.e. less accuracy) w.r.t current camera, it will not be added.
-        if (!_curFeatureMask[i] || depth > _maxDepth) continue;
+        if (!_curFeatureMask[i] || depth < 0.1 || depth > _maxDepth) continue;
 
         // The triangulated points coordinates are w.r.t current camera frame, should be converted to world frame.
         Eigen::Vector3d point_wrt_cam = Eigen::Vector3d(points4D.at<double>(0,i) / points4D.at<double>(3,i),
@@ -404,6 +392,7 @@ void FeatureTracker::featurePoolUpdate(const long& imgTimestamp) {
 
         // Feature seen by this frame.
         points.push_back(std::make_shared<MapPoint>(_featureID, _curPixelsL[i], position));
+        descriptors.push_back(_curDescriptorsL.row(i));
 
         _featureID++;
         
@@ -414,17 +403,20 @@ void FeatureTracker::featurePoolUpdate(const long& imgTimestamp) {
     // _pMap->_frames.resize(_pMap->_frames.size() + 1);
 
     if (_verbose) std::cout << "# features in pool after updaing: " << _features.size() << " (" << insertCount << " features inserted, " << eraseCount << " too old features erased)" << std::endl;
-
-    _frameID++;
 }
 
 bool FeatureTracker::structFromMotion(const cv::Mat& grayLeft, const cv::Mat& grayRight, Eigen::Vector3d& r, Eigen::Vector3d& p, const bool atBeginning) {
     cv::Mat imgLeft, imgRight;
-    cv::remap(grayLeft, imgLeft, _pCameraModel->_rmap[0][0], _pCameraModel->_rmap[0][1], cv::INTER_LINEAR);
-    cv::remap(grayRight, imgRight, _pCameraModel->_rmap[1][0], _pCameraModel->_rmap[1][1], cv::INTER_LINEAR);
+    #ifdef CFSD
+    imgLeft = grayLeft(_roi);
+    imgRight = grayRight(_roi);
+    #else
+    imgLeft = grayLeft;
+    imgRight = grayRight;
+    #endif
 
     if (atBeginning) { 
-        // _orb->detectAndCompute(imgLeft,  cv::noArray(), _refKeypointsL, _refDescriptorsL);
+        // _orb->detectAndCompute(imgLeft, cv::noArray(), _refKeypointsL, _refDescriptorsL);
         if (_cvORB)
             orbDetectWithGrid(0, imgLeft, _refKeypointsL, _refDescriptorsL);
         else
@@ -435,8 +427,6 @@ bool FeatureTracker::structFromMotion(const cv::Mat& grayLeft, const cv::Mat& gr
     std::vector<cv::KeyPoint> keypointsL, keypointsR;
     cv::Mat descriptorsL, descriptorsR;
     if (_cvORB) {
-        // _orb->detectAndCompute(imgLeft,  _mask, keypointsL, descriptorsL);
-        // _orb->detectAndCompute(imgRight, _mask, keypointsR, descriptorsR);
         std::thread orbLeft(&FeatureTracker::orbDetectWithGrid, this, 0, imgLeft, std::ref(keypointsL), std::ref(descriptorsL));
         std::thread orbRight(&FeatureTracker::orbDetectWithGrid, this, 1, imgRight, std::ref(keypointsR), std::ref(descriptorsR));
         orbLeft.join();
@@ -533,8 +523,8 @@ bool FeatureTracker::structFromMotion(const cv::Mat& grayLeft, const cv::Mat& gr
         case 4:
             cv::solvePnPRansac(objectPoints, imagePoints, _pCameraModel->_K_L, cv::noArray(), rvec, tvec, false, 100, 8.0, 0.99, cv::noArray(), cv::SOLVEPNP_UPNP);
             break;
-        // case 5: // not available in OpenCV 3.2.0
-        //     cv::solvePnPRansac(objectPoints, imagePoints, _pCameraModel->_K_L, cv::noArray(), rvec, tvec, false, 100, 8.0, 0.99, cv::noArray(), cv::SOLVEPNP_AP3P);
+        case 5:
+            cv::solvePnPRansac(objectPoints, imagePoints, _pCameraModel->_K_L, cv::noArray(), rvec, tvec, false, 100, 8.0, 0.99, cv::noArray(), cv::SOLVEPNP_AP3P);
     }
     cv::cv2eigen(rvec, r);
     cv::cv2eigen(tvec, p);
@@ -549,6 +539,76 @@ bool FeatureTracker::structFromMotion(const cv::Mat& grayLeft, const cv::Mat& gr
         return true;
     }
     return false;
+}
+
+bool FeatureTracker::computeLoopInfo(const int& refFrameID, const int& curFrameID, Eigen::Vector3d& r, Eigen::Vector3d& p) {
+    cfsd::Ptr<Keyframe>& keyframe1 = _pMap->_pKeyframes[refFrameID];
+    cfsd::Ptr<Keyframe>& keyframe2 = _pMap->_pKeyframes[curFrameID];
+    
+    cv::BFMatcher matcher(cv::NORM_HAMMING); // Brute Force Mathcer
+    std::vector<cv::DMatch> matches;
+    matcher.match(keyframe1->descriptors, keyframe2->descriptors, matches);
+
+    if (matches.size() < 40) {
+        std::cout << "Too few matches" << std::endl;
+        return false;
+    }
+
+    float minDist = std::min_element(matches.begin(), matches.end(), [] (const cv::DMatch& m1, const cv::DMatch& m2) { return m1.distance < m2.distance; })->distance;
+
+    // Only keep good matches.
+    std::vector<cv::Point2d> imagePoints;
+    std::vector<cv::Point3d> objectPoints;
+    for (auto& m : matches) {
+        if (m.distance < std::max(_matchRatio * minDist, _minMatchDist)) {
+            // Eigen::Vector3d position = (keyframe1->points[m.queryIdx]->position + keyframe2->points[m.trainIdx]->position) / 2;
+            Eigen::Vector3d position = keyframe1->points[m.queryIdx]->position;
+            objectPoints.push_back(cv::Point3d(position(0), position(1), position(2)));
+            imagePoints.push_back(keyframe2->points[m.trainIdx]->pixel);
+        }
+    }
+
+    if (imagePoints.size() < 20) {
+        std::cout << "Too few points" << std::endl;
+        return false;
+    }
+
+    cv::Mat rvec, tvec, inliers;
+    switch (_solvePnP) {
+        case 0:
+            cv::solvePnPRansac(objectPoints, imagePoints, _pCameraModel->_K_L, cv::noArray(), rvec, tvec, false, 100, 8.0, 0.99, inliers, cv::SOLVEPNP_ITERATIVE);
+            break;
+        case 1:
+            cv::solvePnPRansac(objectPoints, imagePoints, _pCameraModel->_K_L, cv::noArray(), rvec, tvec, false, 100, 8.0, 0.99, inliers, cv::SOLVEPNP_EPNP);
+            break;
+        case 2:
+            cv::solvePnPRansac(objectPoints, imagePoints, _pCameraModel->_K_L, cv::noArray(), rvec, tvec, false, 100, 8.0, 0.99, inliers, cv::SOLVEPNP_P3P);
+            break;
+        case 3:
+            cv::solvePnPRansac(objectPoints, imagePoints, _pCameraModel->_K_L, cv::noArray(), rvec, tvec, false, 100, 8.0, 0.99, inliers, cv::SOLVEPNP_DLS);
+            break;
+        case 4:
+            cv::solvePnPRansac(objectPoints, imagePoints, _pCameraModel->_K_L, cv::noArray(), rvec, tvec, false, 100, 8.0, 0.99, inliers, cv::SOLVEPNP_UPNP);
+            break;
+        case 5:
+            cv::solvePnPRansac(objectPoints, imagePoints, _pCameraModel->_K_L, cv::noArray(), rvec, tvec, false, 100, 8.0, 0.99, inliers, cv::SOLVEPNP_AP3P);
+    }
+
+    if (inliers.rows < 10) {
+        std::cout << "Too few inliers" << std::endl;
+        return false;
+    }
+    std::cout << "Number of inliers: " << inliers.rows << std::endl;
+
+    cv::cv2eigen(rvec, r);
+    cv::cv2eigen(tvec, p);
+    
+    return true;
+
+    // for (int i = 0; i < inliers.rows; i++) {
+    //     int idx = inliers.at<int>(i, 0);
+    //     cv::cv2eigen(objectPoints[idx], ...)
+    // }
 }
 
 } // namespace cfsd

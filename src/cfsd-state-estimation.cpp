@@ -120,12 +120,17 @@ int main(int argc, char** argv) {
             }
             pSharedMemory->unlock();
 
-            cv::Mat gray;
-            cv::cvtColor(img, gray, CV_BGR2GRAY);
             // Split image into left and right.
-            cv::Mat grayL = gray(cv::Rect(0, 0, gray.cols/2, gray.rows));
-            cv::Mat grayR = gray(cv::Rect(gray.cols/2, 0, gray.cols/2, gray.rows));
-            
+            cv::Mat grayL, grayR;
+            if (grayL.channels() == 3) {
+                cv::cvtColor(img(cv::Rect(0, 0, img.cols/2, img.rows)), grayL, CV_BGR2GRAY);
+                cv::cvtColor(img(cv::Rect(img.cols/2, 0, img.cols/2, img.rows)), grayR, CV_BGR2GRAY);
+            }
+            else if (grayL.channels() == 4) {
+                cv::cvtColor(img(cv::Rect(0, 0, img.cols/2, img.rows)), grayL, CV_BGRA2GRAY);
+                cv::cvtColor(img(cv::Rect(img.cols/2, 0, img.cols/2, img.rows)), grayR, CV_BGRA2GRAY);
+            }
+                        
             if (!pVISLAM->process(grayL, grayR, imgTimestamp)) {
                 std::cerr << "Error occurs in processing!" << std::endl;
                 return 1;

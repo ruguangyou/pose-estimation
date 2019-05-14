@@ -18,10 +18,13 @@ class LoopClosure {
 
     void addImage(const cv::Mat& descriptorsMat);
 
-    void detectLoop(const cv::Mat& descriptorsMat);
+    int detectLoop(const cv::Mat& descriptorsMat, const int& frameID);
 
   private:
     OrbDatabase _db;
+
+    int _minFrameInterval{0};
+    double _minScore{0};
 };
 
 } // namespace cfsd

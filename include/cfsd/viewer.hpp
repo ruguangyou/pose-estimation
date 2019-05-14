@@ -31,15 +31,16 @@ class Viewer {
     void pushPosition(const Eigen::Vector3d& p, const int& offset);
     void pushPose(const Eigen::Matrix3d& R);
     void pushLandmark(const double& x, const double& y, const double& z);
+    void pushLoopConnection(const int& refFrameID, const int& curFrameID);
     
     void drawCoordinate();
     void drawRawPosition();
     void drawPosition();
     void drawPose(pangolin::OpenGlMatrix &M);
     void drawLandmark();
+    void drawLoopConnection();
 
-
-    void setStop();
+    void resetIdx();
 
   private:
     // Viewer settings (refer to ORB-SLAM2).
@@ -50,19 +51,21 @@ class Viewer {
     int background{0};
 
     // States.
-    std::vector<float> xs, ys, zs;
-    std::vector<float> xsRaw, ysRaw, zsRaw;
-    std::vector<float> pointsX, pointsY, pointsZ;
+    std::vector<float> xs{}, ys{}, zs{};
+    std::vector<float> xsRaw{}, ysRaw{}, zsRaw{};
+    std::vector<float> pointsX{}, pointsY{}, pointsZ{};
+    std::vector<std::pair<int,int>> loopConnection{};
 
-    Eigen::Matrix3f pose;
-    pangolin::OpenGlMatrix T_WB;
+    Eigen::Matrix3f pose{};
+    pangolin::OpenGlMatrix T_WB{};
 
     // Set true if Optimizer pass parameters to this Viewer.
     bool readyToDrawPosition{false}, readyToDrawRawPosition{false};
     bool readyToDrawPose{false}, readyToDrawRawPose{false};
     bool readyToDrawLandmark{false};
+    bool readyToDrawLoop{false};
 
-    std::mutex positionMutex, rawPositionMutex, poseMutex, landmarkMutex;
+    std::mutex positionMutex{}, rawPositionMutex{}, poseMutex{}, landmarkMutex{}, loopMutex{};
 
     int idx{0};
 };

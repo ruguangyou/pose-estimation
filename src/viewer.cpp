@@ -45,6 +45,7 @@ void Viewer::run() {
     pangolin::Var<bool> menuShowPosition("menu.Show Position", true, true);
     pangolin::Var<bool> menuShowPose("menu.Show Pose", true, true);
     pangolin::Var<bool> menuShowLandmark("menu.Show Landmark", true, true);
+    pangolin::Var<bool> menuShowLoopConnection("menu.Show Loop Connection", true, true);
     // ...
     pangolin::Var<bool> menuReset("menu.Reset", false, false);
     pangolin::Var<bool> menuExit("menu.Exit", false, false);
@@ -136,6 +137,9 @@ void Viewer::run() {
 
         if (menuShowLandmark)
             drawLandmark();
+
+        if (menuShowLoopConnection)
+            drawLoopConnection();
         
         if (pangolin::Pushed(menuReset)) {
             std::lock_guard<std::mutex> lockPosition(positionMutex);
@@ -255,6 +259,14 @@ void Viewer::pushLandmark(const double& x, const double& y, const double& z) {
     readyToDrawLandmark = true;
 }
 
+void Viewer::pushLoopConnection(const int& refFrameID, const int& curFrameID) {
+    std::lock_guard<std::mutex> lockLoop(loopMutex);
+
+    loopConnection.push_back(std::make_pair(refFrameID, curFrameID));
+
+    readyToDrawLoop = true;
+}
+
 void Viewer::drawRawPosition() {
     std::lock_guard<std::mutex> lockRawPosition(rawPositionMutex);
 
@@ -283,14 +295,25 @@ void Viewer::drawPosition() {
 
     if (!readyToDrawPosition) return;
 
+    int n = xs.size()-WINDOWSIZE;
+    if (n < 0) n = xs.size();
+
     glPointSize(pointSize);
-    glBegin(GL_POINTS);
     glColor3f(0.2f, 0.6f, 0.2f);
-    for (int i = 0; i < xs.size(); i++)
+    glBegin(GL_POINTS);
+    for (int i = 0; i < n; i++)
+        glVertex3f(xs[i], ys[i], zs[i]);
+    glEnd();
+
+    glPointSize(pointSize+4);
+    glColor3f(0.8f, 0.1f, 0.1f);
+    glBegin(GL_POINTS);
+    for (int i = n; i < xs.size(); i++)
         glVertex3f(xs[i], ys[i], zs[i]);
     glEnd();
 
     glLineWidth(lineWidth);
+    glColor3f(0.2f, 0.6f, 0.2f);
     glBegin(GL_LINES);
     glVertex3f(xs[0], ys[0], zs[0]);
     for (int i = 1; i < xsRaw.size() - 1; i++) {
@@ -357,6 +380,27 @@ void Viewer::drawLandmark() {
     for (int i = 0; i < pointsX.size(); i++)
         glVertex3f(pointsX[i], pointsY[i], pointsZ[i]);
     glEnd();
+}
+
+void Viewer::drawLoopConnection() {
+    std::lock_guard<std::mutex> lockLoop(loopMutex);
+
+    if (!readyToDrawLoop) return;
+
+    glLineWidth(lineWidth);
+    glBegin(GL_LINES);
+    glColor3f(0.2f, 0.4f, 0.4f);
+    for (int i = 0; i < loopConnection.size(); i++) {
+        int idx1 = loopConnection[i].first;
+        int idx2 = loopConnection[i].second;
+        glVertex3f(xs[idx1], ys[idx1], zs[idx1]);
+        glVertex3f(xs[idx2], ys[idx2], zs[idx2]);
+    }
+    glEnd();
+}
+
+void Viewer::resetIdx() {
+    idx = 0;
 }
 
 } // namespace cfsd

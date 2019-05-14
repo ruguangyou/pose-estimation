@@ -18,6 +18,9 @@ LoopClosure::LoopClosure(const bool verbose) : _db() {
     std::cout << "Creating vocabulary database..." << std::endl;
     _db.setVocabulary(voc, false, 0);
     std::cout << "... done! " << _db << std::endl << std::endl;
+
+    _minFrameInterval = Config::get<int>("minFrameInterval");
+    _minScore = Config::get<double>("minScore");
 }
 
 void LoopClosure::changeStructure(const cv::Mat& mat, std::vector<cv::Mat>& vec) {
@@ -34,17 +37,42 @@ void LoopClosure::addImage(const cv::Mat& descriptorsMat) {
     _db.add(descriptorsVec);
 }
 
-void LoopClosure::detectLoop(const cv::Mat& descriptorsMat) {
+int LoopClosure::detectLoop(const cv::Mat& descriptorsMat, const int& frameID) {
     std::vector<cv::Mat> descriptorsVec;
 
     changeStructure(descriptorsMat, descriptorsVec);
 
     DBoW2::QueryResults ret;
 
-    // ret[0] is always the same image in this case, because we added it to the database. ret[1] is the second best match.
-    _db.query(descriptorsVec, ret, 4);
+    // The last parameter is max_id, means only querying entries with id <= max_id are returned in ret. < 0 means all
+    _db.query(descriptorsVec, ret, 4, frameID-_minFrameInterval);
 
     std::cout << "Searching for current frame. " << ret << std::endl;
+
+    bool findLoop = false;
+    // ret[0] is the most similar image, so should set a higher score limit for it.
+    if (frameID > _minFrameInterval && ret.size() > 0 && ret[0].Score > 3*_minScore) {
+        // The rest are possible loop candidates.
+        for (int i = 1; i < ret.size(); i++) {
+            if (ret[i].Score > _minScore) {
+                // Loop is found only if ret[0] and at least one ret[i] have scores higher than threshold.
+                findLoop = true;
+            }
+        }
+    }
+
+    // Search the earliest keyframe that makes loop if there is any.
+    // (earliest makes it more frames in between to optimize)
+    int minFrameID = frameID;
+    if (findLoop) {
+        for (int i = 0; i < ret.size(); i++)
+            if (ret[i].Id < minFrameID) 
+                minFrameID = ret[i].Id;
+
+        std::cout << "loop closure candidate, frame id: " << minFrameID << "\n\n\n\n\n\n\n\n\n\n\n\n" << std::endl;
+    }
+
+    return (minFrameID == frameID) ? -1 : minFrameID;
 }
 
 } // namespace cfsd

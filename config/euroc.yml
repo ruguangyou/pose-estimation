@@ -1,5 +1,8 @@
 %YAML:1.0
 dataset: /home/ruguang/docker-CFSD/cfsd/2019/euroc/V1_01_easy/mav0/
+# dataset: /home/ruguang/docker-CFSD/cfsd/2019/euroc/V1_02_medium/mav0/
+# dataset: /home/ruguang/docker-CFSD/cfsd/2019/euroc/V1_03_difficult/mav0/
+# dataset: /home/ruguang/docker-CFSD/cfsd/2019/euroc/MH_03_medium/mav0/
 
 # Skip some images
 speedUp: 2
@@ -68,6 +71,10 @@ gyroscope_random_walk: 1.9393e-05       # [ rad / s^2 / sqrt(Hz) ] ( gyro bias d
 accelerometer_noise_density: 2.0000e-3  # [ m / s^2 / sqrt(Hz) ]   ( accel "white noise" )
 accelerometer_random_walk: 3.0000e-3    # [ m / s^3 / sqrt(Hz) ].  ( accel bias diffusion )
 
+# Need to estimate extrinsics or not:
+# 0 - the given extrinsics below is good enough, will be kept fixed
+# 1 - the given extrinsics below is just an initial guess, need to be optimized
+estimateExtrinsics: 0
 # Camera (left) and imu extrinsics
 rotationImuToCamera: !!opencv-matrix
     rows: 3
@@ -82,13 +89,13 @@ translationImuToCamera: !!opencv-matrix
 
 ################################################################################
 ##### Feature detection settings #####
-delay: 0
+delay: 10
 
 # Use ORB of OpenCV or ORB_SLAM2
 cvORB: 0 # default: not use OpenCV ORB
 
 # ORB feature detector parameters
-numberOfFeatures: 800
+numberOfFeatures: 1000
 scaleFactor: 1.2
 levelPyramid: 8
 
@@ -112,7 +119,7 @@ minThFAST: 7
 matchRatio: 2    # the distance of a good match should be smaller than minDist*matchRatio
 minMatchDist: 30.0 # another number for selecting good matches, from experience
 maxVerticalPixelDist: 0.1 # selecting good matching by the vertical coordinates since image have been rectified
-maxFeatureAge: 8  # Max age of a feature
+maxFeatureAge: 8 # Max age of a feature
 maxDepth: 10 # Max depth or distance w.r.t camera
 
 ################################################################################
@@ -124,7 +131,7 @@ maxDepth: 10 # Max depth or distance w.r.t camera
 keyframeRotation: 0.2
 keyframeTranslation: 0.1
 # nearPointThres:
-maxImuTime: 4
+maxImuTime: 10
 
 # Reinitialization if bias is corrupted
 maxGyrBias: 0.1
@@ -154,19 +161,28 @@ check_gradients: 0
 # Gravity magnitude for initial accelerometer correction.
 gravity: 9.81734 # [m/s^2] gravitational acceleration (might need slightly modification in case of different location)
 
+# Marginalize prior pose information or not
+useMarginalize: 1
+marginalizeWeight: 1
+
 # Prior covariance factor
 priorWeight: 1e-5
+
+# Global optimization
+doGlobalOptimize: 0
 
 ################################################################################
 ##### Loop closure settings #####
 vocabulary: ../config/vocabulary/ORBvoc.bin
+minFrameInterval: 40
+minScore: 0.01
 
 ################################################################################
 ##### Viewer settings #####
 viewScale: 1
 pointSize: 4
 landmarkSize: 2
-cameraSize: 0.08
+cameraSize: 0.4
 cameraLineWidth: 3
 lineWidth: 2
 viewpointX: 10

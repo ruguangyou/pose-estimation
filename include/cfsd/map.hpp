@@ -7,7 +7,6 @@
 #include "cfsd/camera-model.hpp"
 
 // Local sliding-window size.
-// the first spot is for prior information
 #define WINDOWSIZE 4
 
 #ifdef USE_VIEWER
@@ -40,8 +39,14 @@ class Map {
 
     void updateImuBias(Eigen::Vector3d& bg_i, Eigen::Vector3d& ba_i);
 
+    void updateAllStates(double** delta_pose, double** delta_v_dbga);
+
     // TODO................
     Sophus::SE3d getBodyPose();
+
+    #ifdef USE_VIEWER
+    void pushLoopInfo(const int& refFrameID, const int& curFrameID);
+    #endif
   
   private:
     const bool _verbose;
@@ -89,7 +94,7 @@ class Map {
     bool _needReinitialize{false};
 
     #ifdef USE_VIEWER
-    cfsd::Ptr<Viewer> _pViewer;
+    cfsd::Ptr<Viewer> _pViewer{};
     #endif
 };
 

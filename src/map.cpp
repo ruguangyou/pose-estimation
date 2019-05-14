@@ -224,8 +224,39 @@ void Map::updateImuBias(Eigen::Vector3d& bg_i, Eigen::Vector3d& ba_i) {
     }
 }
 
+void Map::updateAllStates(double** delta_pose, double** delta_v_dbga) {
+    for (int i = 0; i < _pKeyframes.size()-1; i++) {
+        cfsd::Ptr<Keyframe>& keyframe = _pKeyframes[1+i];
+
+        keyframe->dba = keyframe->dba + Eigen::Vector3d(delta_v_dbga[i][6], delta_v_dbga[i][7], delta_v_dbga[i][8]);
+
+        keyframe->dbg = keyframe->dbg + Eigen::Vector3d(delta_v_dbga[i][3], delta_v_dbga[i][4], delta_v_dbga[i][5]);
+        
+        keyframe->v = keyframe->v + Eigen::Vector3d(delta_v_dbga[i][0], delta_v_dbga[i][1], delta_v_dbga[i][2]);
+
+        keyframe->p = keyframe->p + keyframe->R * Eigen::Vector3d(delta_pose[i][3], delta_pose[i][4], delta_pose[i][5]);
+
+        keyframe->R = keyframe->R * Sophus::SO3d::exp(Eigen::Vector3d(delta_pose[i][0], delta_pose[i][1], delta_pose[i][2]));
+
+        #ifdef USE_VIEWER
+        _pViewer->resetIdx();
+        _pViewer->pushPosition(keyframe->p, i);
+        #endif
+    }
+
+    // #ifdef USE_VIEWER
+    // _pViewer->pushPose(_pKeyframes.back()->R.matrix());
+    // #endif
+}
+
 Sophus::SE3d Map::getBodyPose() {
     return Sophus::SE3d(_pKeyframes.back()->R, _pKeyframes.back()->p);
 }
+
+#ifdef USE_VIEWER
+void Map::pushLoopInfo(const int& refFrameID, const int& curFrameID) {
+    _pViewer->pushLoopConnection(refFrameID, curFrameID);
+}
+#endif
 
 } // namespace cfsd

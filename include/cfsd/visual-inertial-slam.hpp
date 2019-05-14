@@ -43,6 +43,8 @@ class VisualInertialSLAM {
 
     void collectImuData(const cfsd::SensorType& st, const long& timestamp, const float& x, const float& y, const float& z);
 
+    void loopClosure();
+
     void saveResults();
 
   private:
@@ -65,14 +67,14 @@ class VisualInertialSLAM {
     Eigen::Vector3d _gyr, _acc;
     bool _gyrGot{false}, _accGot{false};
 
-    // bool _readyToAlign{false};
-
-    // bool _gyrInitialized{false};
-    // bool _poseInitialized{false};
-    // bool _accInitialized{false};
-
     int _sfmCount{0};
-    
+
+    // Frame ID.
+    size_t _frameID{0};
+
+    std::mutex _loopMutex{};
+    int _loopFrameID{0};
+    bool _toCloseLoop{false};
 };
 
 } // namespace cfsd

@@ -4,7 +4,6 @@
 #include "cfsd/common.hpp"
 #include "cfsd/camera-model.hpp"
 #include "cfsd/structs.hpp"
-#include "cfsd/loop-closure.hpp"
 #include "cfsd/map.hpp"
 #include "ORBextractor.h"
 
@@ -17,7 +16,7 @@ namespace cfsd {
 
 class FeatureTracker {
   public:
-    FeatureTracker(const cfsd::Ptr<Map>& pMap, const cfsd::Ptr<CameraModel>& pCameraModel, const cfsd::Ptr<LoopClosure>& pLoopClosure, const bool verbose);
+    FeatureTracker(const cfsd::Ptr<Map>& pMap, const cfsd::Ptr<CameraModel>& pCameraModel, const bool verbose);
 
     FeatureTracker(const FeatureTracker&) = delete; // copy constructor
     FeatureTracker& operator=(const FeatureTracker&) = delete; // copy assignment constructor
@@ -44,21 +43,18 @@ class FeatureTracker {
     // This is used in initialization.
     bool structFromMotion(const cv::Mat& grayLeft, const cv::Mat& grayRight, Eigen::Vector3d& r, Eigen::Vector3d& p, const bool atBeginning = false);
 
+    bool computeLoopInfo(const int& refFrameID, const int& curFrameID, Eigen::Vector3d& r, Eigen::Vector3d& p);
+
   private:
     const bool _verbose;
 
     // Pinhole camera Model.
     const cfsd::Ptr<CameraModel>& _pCameraModel;
 
-    cfsd::Ptr<LoopClosure> _pLoopClosure;
-
     cfsd::Ptr<Map> _pMap;
 
     // Feature ID.
     size_t _featureID{0};
-    
-    // Frame ID.
-    size_t _frameID{0};
 
     // Detector to be used.
     bool _cvORB{false};
@@ -74,11 +70,8 @@ class FeatureTracker {
     // std::vector<cv::Point2d> _matchedCurPixelsL, _matchedCurPixelsR;
 
     // Only part of the image is considered to be useful (e.g. the upper half of the image containing sky contributes little to useful features)
-    cv::Mat _mask;
-    // If the image is cropped, the pixel coordinate of keypoints would be different with the uncropped ones,
-    // it would cause dismatching between 3D points and 2D pixels when doing projection.
-    // int _cropOffset;
-
+    cv::Rect _roi;
+    
     // Match distance should be less than max(_matchRatio*minDist, _minMatchDist)
     // Ratio for selecting good matches.
     float _matchRatio{0};  
@@ -128,6 +121,9 @@ class FeatureTracker {
     // - old features that are not useful anymore would be removed
     // so std::map container is choosed due to the efficient access, insert and erase operation.
     std::unordered_map<size_t, cfsd::Ptr<Feature>> _features;
+
+    // If the image is cropped, the pixel coordinate would be different with the uncropped ones.
+    int _cropOffset{0};
 };
 
 } // namespace cfsd

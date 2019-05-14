@@ -36,7 +36,12 @@ WORKDIR /opt/sources
 RUN mkdir build && \
     cd build && \
     cmake -D CMAKE_BUILD_TYPE=Release -D CMAKE_INSTALL_PREFIX=/tmp -D WITH_VIEWER=OFF -D WITH_IMSHOW=ON -D FOR_EUROC=ON .. && \
+<<<<<<< HEAD
     make -j4 && make install
+=======
+    make -j4 && make install && \
+    cd ../bin && ldd euroc-state-estimation
+>>>>>>> 4d3948d79aae54deec6484bffec116e1ccc8e8e0
 
 
 FROM chrberger/cluon-amd64:latest
@@ -53,7 +58,12 @@ RUN echo http://dl-4.alpinelinux.org/alpine/v3.8/main > /etc/apk/repositories &&
         glog \
         gflags \
         libgomp \
+<<<<<<< HEAD
         gtk+2.0     
+=======
+        gtk+2.0
+        
+>>>>>>> 4d3948d79aae54deec6484bffec116e1ccc8e8e0
 
 WORKDIR /usr/bin
 COPY --from=builder /usr/local/lib64 /usr/lib

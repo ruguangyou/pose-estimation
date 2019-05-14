@@ -146,7 +146,7 @@ message("DBoW2: " ${DBoW2_INCLUDE_DIRS})
 set(LIBRARIES ${LIBRARIES} ${DBoW2_LIBS})
 
 # Pangolin
-option(WITH_VIEWER "Enable visulization" OFF)
+option(WITH_VIEWER "Enable visulization" ON)
 if (WITH_VIEWER)
     add_definitions(-DUSE_VIEWER)
     find_package(Pangolin 0.4 REQUIRED)
