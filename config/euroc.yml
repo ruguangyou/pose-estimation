@@ -1,8 +1,8 @@
 %YAML:1.0
-dataset: /home/ruguang/docker-CFSD/cfsd/2019/euroc/V1_01_easy/mav0/
+# dataset: /home/ruguang/docker-CFSD/cfsd/2019/euroc/V1_01_easy/mav0/
 # dataset: /home/ruguang/docker-CFSD/cfsd/2019/euroc/V1_02_medium/mav0/
 # dataset: /home/ruguang/docker-CFSD/cfsd/2019/euroc/V1_03_difficult/mav0/
-# dataset: /home/ruguang/docker-CFSD/cfsd/2019/euroc/MH_03_medium/mav0/
+dataset: /home/ruguang/docker-CFSD/cfsd/2019/euroc/MH_03_medium/mav0/
 
 # Skip some images
 speedUp: 2
@@ -95,7 +95,7 @@ delay: 10
 cvORB: 0 # default: not use OpenCV ORB
 
 # ORB feature detector parameters
-numberOfFeatures: 1000
+numberOfFeatures: 1200
 scaleFactor: 1.2
 levelPyramid: 8
 
@@ -147,7 +147,7 @@ sfmTranslation: 0
 # 2-SOLVEPNP_P3P (Complete Solution Classification for the Perspective-Three-Point Problem)
 # 3-SOLVEPNP_DLS (A Direct Least-Squares (DLS) Method for PnP)
 # 4-SOLVEPNP_UPNP (Exhaustive Linearization for Robust Camera Pose and Focal Length Estimation)
-# [not available in OpenCV 3.2.0] 5-SOLVEPNP_AP3P (An Efficient Algebraic Solution to the Perspective-Three-Point Problem)
+# 5-SOLVEPNP_AP3P (An Efficient Algebraic Solution to the Perspective-Three-Point Problem) [not available in OpenCV 3.2.0]
 solvePnP: 0
 
 ################################################################################

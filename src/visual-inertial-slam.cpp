@@ -1,4 +1,3 @@
-#include "cfsd/config.hpp"
 #include "cfsd/visual-inertial-slam.hpp"
 
 namespace cfsd {
@@ -89,6 +88,9 @@ bool VisualInertialSLAM::process(const cv::Mat& grayL, const cv::Mat& grayR, con
                 if (minFrameID > 0) {
                     _loopFrameID = minFrameID;
                     _toCloseLoop = true;
+                    #ifdef USE_VIEWER
+                    _pMap->pushLoopInfo(_loopFrameID, _frameID);
+                    #endif
                 }
             }
 
@@ -135,6 +137,10 @@ bool VisualInertialSLAM::process(const cv::Mat& grayL, const cv::Mat& grayR, con
 
             // Add the initial frame as keyframe.
             _pFeatureTracker->featurePoolUpdate(imgTimestamp);
+
+            #ifdef USE_VIEWER
+            _pMap->_pViewer->pushLandmark(_pMap->_frameAndPoints[0], 0);
+            #endif
 
             _pLoopClosure->addImage(descriptorsMat);
             
@@ -209,10 +215,10 @@ void VisualInertialSLAM::loopClosure() {
             end = std::chrono::steady_clock::now();
             std::cout << "Compute PnP for loop elapsed time: " << std::chrono::duration<double, std::milli>(end-start).count() << "ms" << std::endl << std::endl;
 
-            // _pOptimizer->optimizeLoop(refFrameID, curFrameID, r, p);
-            #ifdef USE_VIEWER
-            _pMap->pushLoopInfo(refFrameID, curFrameID);
-            #endif
+            // // _pOptimizer->optimizeLoop(refFrameID, curFrameID, r, p);
+            // #ifdef USE_VIEWER
+            // _pMap->pushLoopInfo(refFrameID, curFrameID);
+            // #endif
         }
         std::this_thread::sleep_for(std::chrono::milliseconds(1000));
     }

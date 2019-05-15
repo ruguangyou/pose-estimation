@@ -53,7 +53,7 @@ class FeatureTracker {
 
     cfsd::Ptr<Map> _pMap;
 
-    // Feature ID.
+    int _frameID{0};
     size_t _featureID{0};
 
     // Detector to be used.

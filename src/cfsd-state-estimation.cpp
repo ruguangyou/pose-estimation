@@ -122,11 +122,11 @@ int main(int argc, char** argv) {
 
             // Split image into left and right.
             cv::Mat grayL, grayR;
-            if (grayL.channels() == 3) {
+            if (img.channels() == 3) {
                 cv::cvtColor(img(cv::Rect(0, 0, img.cols/2, img.rows)), grayL, CV_BGR2GRAY);
                 cv::cvtColor(img(cv::Rect(img.cols/2, 0, img.cols/2, img.rows)), grayR, CV_BGR2GRAY);
             }
-            else if (grayL.channels() == 4) {
+            else if (img.channels() == 4) {
                 cv::cvtColor(img(cv::Rect(0, 0, img.cols/2, img.rows)), grayL, CV_BGRA2GRAY);
                 cv::cvtColor(img(cv::Rect(img.cols/2, 0, img.cols/2, img.rows)), grayR, CV_BGRA2GRAY);
             }

@@ -69,27 +69,20 @@ class Map {
     
   public:
     // Gravity vector.
-    Eigen::Vector3d _gravity;
+    Eigen::Vector3d _gravity{};
 
-    Eigen::Vector3d _init_gravity;
+    Eigen::Vector3d _init_gravity{};
 
     // State (R, v, p) and bias (bg, ba) from time i to j
     // keyframe: *                         *
     //   camear: *       *        *        *
     //      imu: * * * * * * * * * * * * * *
     // Store keyframes' states and temperorily store current states.
-    std::vector<cfsd::Ptr<Keyframe>> _pKeyframes;
+    std::vector<cfsd::Ptr<Keyframe>> _pKeyframes{};
 
-    // std::vector<Sophus::SO3d> _R;
-    // std::vector<Eigen::Vector3d> _p;
-    // std::vector<Eigen::Vector3d> _v;
-    // std::vector<Eigen::Vector3d> _dbg;
-    // std::vector<Eigen::Vector3d> _dba;
-    // std::vector<cfsd::Ptr<ImuConstraint>> _imuConstraint;
-    // std::vector< std::vector< cfsd::Ptr<MapPoint> > > _frames;
-    // std::vector<long> _timestamp;
+    std::vector<std::vector<Eigen::Vector3d>> _frameAndPoints{};
 
-    bool _isKeyframe{false};
+    bool _isKeyframe{false}, _imuTimeOut{false};
 
     bool _needReinitialize{false};
 

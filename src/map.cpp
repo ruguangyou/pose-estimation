@@ -2,10 +2,10 @@
 
 namespace cfsd {
 
-Map::Map(const cfsd::Ptr<CameraModel>& pCameraModel, const bool verbose) : 
-    _pCameraModel(pCameraModel), _verbose(verbose), _gravity(), _init_gravity(), _pKeyframes() {
+Map::Map(const cfsd::Ptr<CameraModel>& pCameraModel, const bool verbose) : _pCameraModel(pCameraModel), _verbose(verbose) {
     
     _pKeyframes.push_back(std::make_shared<Keyframe>());
+    _frameAndPoints.push_back(std::vector<Eigen::Vector3d>());
 
     _minRotation = Config::get<double>("keyframeRotation");
     _minTranslation = Config::get<double>("keyframeTranslation");
@@ -112,11 +112,9 @@ void Map::updateInitialRotation(const int& start, const Eigen::Vector3d& delta_r
 }
 
 void Map::reset(const int& start) {
-    // Keep the last two sfm frames.
-    _pKeyframes[start] = _pKeyframes[start+WINDOWSIZE-2]; // keep a sfm frame for prior
-    _pKeyframes[start+1] = _pKeyframes[start+WINDOWSIZE-1]; // initial keyframe
-
-    int n = _pKeyframes.size()-WINDOWSIZE+2;
+    // Keep the last sfm frame.
+    _pKeyframes[start] = _pKeyframes[start+WINDOWSIZE-1]; // initial keyframe
+    int n = _pKeyframes.size()-WINDOWSIZE+1;
     _pKeyframes.resize(n);
 }
 
@@ -134,6 +132,8 @@ void Map::pushImuConstraint(const cfsd::Ptr<ImuConstraint>& ic) {
         newFrame->p = p_j;
         newFrame->pImuConstraint = ic;
         _pKeyframes.push_back(newFrame);
+        
+        _frameAndPoints.push_back(std::vector<Eigen::Vector3d>());
 
         _notPushed = false;
     }
@@ -163,6 +163,7 @@ void Map::checkKeyframe() {
     Eigen::Vector3d dp = T_ji.translation();
 
     _isKeyframe = (dr.norm() > _minRotation || dp.norm() > _minTranslation || _sumImuTime > _maxImuTime);
+    _imuTimeOut = _sumImuTime > _maxImuTime;
 
     if (_isKeyframe) {
         _sumImuTime = 0;
@@ -178,19 +179,28 @@ void Map::updateStates(double delta_pose[WINDOWSIZE][6], double delta_v_dbga[WIN
 
     for (int i = 0 ; i < actualSize; i++) {
         cfsd::Ptr<Keyframe>& windowFrame = _pKeyframes[n+i];
+        Sophus::SE3d T_WB1(windowFrame->R, windowFrame->p);
+
         #ifdef USE_VIEWER
         _pViewer->pushRawPosition(windowFrame->p, i);
         #endif
 
         windowFrame->dba = windowFrame->dba + Eigen::Vector3d(delta_v_dbga[i][6], delta_v_dbga[i][7], delta_v_dbga[i][8]);
-
         windowFrame->dbg = windowFrame->dbg + Eigen::Vector3d(delta_v_dbga[i][3], delta_v_dbga[i][4], delta_v_dbga[i][5]);
-        
         windowFrame->v = windowFrame->v + Eigen::Vector3d(delta_v_dbga[i][0], delta_v_dbga[i][1], delta_v_dbga[i][2]);
-
         windowFrame->p = windowFrame->p + windowFrame->R * Eigen::Vector3d(delta_pose[i][3], delta_pose[i][4], delta_pose[i][5]);
-
         windowFrame->R = windowFrame->R * Sophus::SO3d::exp(Eigen::Vector3d(delta_pose[i][0], delta_pose[i][1], delta_pose[i][2]));
+
+        if (!_imuTimeOut) {
+            Sophus::SE3d T_WB2(windowFrame->R, windowFrame->p);
+            // Update landmarks' 3D position.
+            std::vector<Eigen::Vector3d>& points = _frameAndPoints[n+i];
+            for (int j = 0; j < points.size(); j++)
+                points[j] = T_WB2 * T_WB1.inverse() * points[j];
+            #ifdef USE_VIEWER
+            _pViewer->pushLandmark(points, i);
+            #endif
+        }
 
         #ifdef USE_VIEWER
         _pViewer->pushPosition(windowFrame->p, i);

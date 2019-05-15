@@ -146,7 +146,7 @@ void Viewer::run() {
             std::lock_guard<std::mutex> lockRawPosition(rawPositionMutex);
             xs.clear(); ys.clear(); zs.clear();
             xsRaw.clear(); ysRaw.clear(); zsRaw.clear();
-            pointsX.clear(); pointsY.clear(); pointsZ.clear();
+            frameAndPoints.clear();
             readyToDrawPosition = false; readyToDrawRawPosition = false;
         }
 
@@ -249,12 +249,14 @@ void Viewer::pushPose(const Eigen::Matrix3d& R) {
     readyToDrawPose = true;
 }
 
-void Viewer::pushLandmark(const double& x, const double& y, const double& z) {
+void Viewer::pushLandmark(const std::vector<Eigen::Vector3d>& points,  const int& offset) {
     std::lock_guard<std::mutex> lockLandmark(landmarkMutex);
 
-    pointsX.push_back(x);
-    pointsY.push_back(y);
-    pointsZ.push_back(z);
+    int i = idx + offset;
+    if (frameAndPoints.size() <= i)
+        frameAndPoints.push_back(points);
+    else
+        frameAndPoints[i] = points;
 
     readyToDrawLandmark = true;
 }
@@ -374,11 +376,27 @@ void Viewer::drawLandmark() {
 
     if (!readyToDrawLandmark) return;
 
+    int n = frameAndPoints.size()-WINDOWSIZE;
+    if (n < 0) n = frameAndPoints.size();
+
     glPointSize(landmarkSize);
     glBegin(GL_POINTS);
     glColor3f(0.2f, 0.2f, 0.6f);
-    for (int i = 0; i < pointsX.size(); i++)
-        glVertex3f(pointsX[i], pointsY[i], pointsZ[i]);
+    for (int i = 0; i < n; i++) {
+        std::vector<Eigen::Vector3d>& points = frameAndPoints[i];
+        for (int j = 0; j < points.size(); j++)
+            glVertex3f(points[j].x(), points[j].y(), points[j].z());
+    }
+    glEnd();
+
+    glPointSize(landmarkSize+2);
+    glBegin(GL_POINTS);
+    glColor3f(0.8f, 0.1f, 0.1f);
+    for (int i = n; i < frameAndPoints.size(); i++){
+        std::vector<Eigen::Vector3d>& points = frameAndPoints[i];
+        for (int j = 0; j < points.size(); j++)
+            glVertex3f(points[j].x(), points[j].y(), points[j].z());
+    }
     glEnd();
 }
 

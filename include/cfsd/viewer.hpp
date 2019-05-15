@@ -30,7 +30,7 @@ class Viewer {
     void pushRawPosition(const Eigen::Vector3d& p, const int& offset);
     void pushPosition(const Eigen::Vector3d& p, const int& offset);
     void pushPose(const Eigen::Matrix3d& R);
-    void pushLandmark(const double& x, const double& y, const double& z);
+    void pushLandmark(const std::vector<Eigen::Vector3d>& points,  const int& offset);
     void pushLoopConnection(const int& refFrameID, const int& curFrameID);
     
     void drawCoordinate();
@@ -53,7 +53,7 @@ class Viewer {
     // States.
     std::vector<float> xs{}, ys{}, zs{};
     std::vector<float> xsRaw{}, ysRaw{}, zsRaw{};
-    std::vector<float> pointsX{}, pointsY{}, pointsZ{};
+    std::vector<std::vector<Eigen::Vector3d>> frameAndPoints{};
     std::vector<std::pair<int,int>> loopConnection{};
 
     Eigen::Matrix3f pose{};

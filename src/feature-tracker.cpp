@@ -213,7 +213,7 @@ void FeatureTracker::internalMatch(const cv::Mat& imgLeft, const cv::Mat& imgRig
 
     // Use all descriptors in bag-of-words model.
     // descriptorsMat = descriptorsL;
-    // Use selected descriptors in bag-of-words model.
+    // Use well matched descriptors in bag-of-words model.
     descriptorsMat = _curDescriptorsL;
 }
 
@@ -292,7 +292,6 @@ void FeatureTracker::externalTrack(const bool useRANSAC) {
     cv::Mat& descriptors = _pMap->_pKeyframes.back()->descriptors;
     points.clear();
     descriptors = cv::Mat();
-    // _pMap->_frames.back().clear();
     matcher.match(_curDescriptorsR, _histDescriptorsR, matchesR);
     minDist = std::min_element(matchesR.begin(), matchesR.end(), [] (const cv::DMatch& m1, const cv::DMatch& m2) { return m1.distance < m2.distance; })->distance;
     for (auto& m : matchesR) {
@@ -305,7 +304,7 @@ void FeatureTracker::externalTrack(const bool useRANSAC) {
             if (search != mapCurHist.end() && search->second == m.trainIdx) {
                 // Satisfy circular matching, i.e. curLeft <=> histLeft <=> histRight <=> curRight <=> curLeft, the age of history features will increase 1.
                 size_t featureID = _histFeatureIDs[m.trainIdx];
-                points.push_back(std::make_shared<MapPoint>(featureID, _curPixelsL[m.queryIdx], _features[featureID]->position));
+                points.push_back(std::make_shared<MapPoint>(featureID, _curPixelsL[m.queryIdx], _features[featureID]->frameID, _features[featureID]->positionIdx));
                 descriptors.push_back(_curDescriptorsL.row(m.queryIdx));
                 _matchedFeatureIDs.push_back(featureID);
                 // Will not be added as new features.
@@ -350,8 +349,7 @@ void FeatureTracker::featurePoolUpdate(const long& imgTimestamp) {
             _histFeatureIDs.push_back(f->first);
             _histDescriptorsL.push_back(f->second->descriptorL);
             _histDescriptorsR.push_back(f->second->descriptorR);
-            // DON'T increment after erasing.
-            f++;
+            f++; // DON'T increment after erasing
         }
     }
 
@@ -377,32 +375,31 @@ void FeatureTracker::featurePoolUpdate(const long& imgTimestamp) {
         // _pMap->getBodyPose() gives the transformation from current body frame to world frame, T_WB.
         // _pCameraModel->_T_BC gives the pre-calibrated transformation from camera to body/imu frame.
         Eigen::Vector3d position = _pMap->getBodyPose() * _pCameraModel->_T_BC * point_wrt_cam;
+        
+        _pMap->_frameAndPoints[_frameID].push_back(position);
 
-        #ifdef USE_VIEWER
-        _pMap->_pViewer->pushLandmark(position(0), position(1), position(2));
-        #endif
+        // The map point is triangulated from this frame.
+        points.push_back(std::make_shared<MapPoint>(_featureID, _curPixelsL[i], _frameID, insertCount));
+        descriptors.push_back(_curDescriptorsL.row(i));
 
         // Insert new features.
-        _features[_featureID] = std::make_shared<Feature>(_curPixelsL[i], _curDescriptorsL.row(i), _curDescriptorsR.row(i), position, 0);
+        _features[_featureID] = std::make_shared<Feature>(_curPixelsL[i], _curDescriptorsL.row(i), _curDescriptorsR.row(i), _frameID, insertCount, 0);
         
         // Add these new features' descriptors to _hist for the convenience of next external matching.
         _histFeatureIDs.push_back(_featureID);
         _histDescriptorsL.push_back(_curDescriptorsL.row(i));
         _histDescriptorsR.push_back(_curDescriptorsR.row(i));
 
-        // Feature seen by this frame.
-        points.push_back(std::make_shared<MapPoint>(_featureID, _curPixelsL[i], position));
-        descriptors.push_back(_curDescriptorsL.row(i));
-
         _featureID++;
         
         insertCount++;
     }
-    if (_verbose) std::cout << "# 3D points within 20 meters: " << insertCount++ << std::endl;
+    _frameID++;
 
-    // _pMap->_frames.resize(_pMap->_frames.size() + 1);
-
-    if (_verbose) std::cout << "# features in pool after updaing: " << _features.size() << " (" << insertCount << " features inserted, " << eraseCount << " too old features erased)" << std::endl;
+    if (_verbose) {
+        std::cout << "# 3D points within 20 meters: " << insertCount++ << std::endl;
+        std::cout << "# features in pool after updaing: " << _features.size() << " (" << insertCount << " features inserted, " << eraseCount << " too old features erased)" << std::endl;
+    }
 }
 
 bool FeatureTracker::structFromMotion(const cv::Mat& grayLeft, const cv::Mat& grayRight, Eigen::Vector3d& r, Eigen::Vector3d& p, const bool atBeginning) {
@@ -507,25 +504,7 @@ bool FeatureTracker::structFromMotion(const cv::Mat& grayLeft, const cv::Mat& gr
 
     auto start = std::chrono::steady_clock::now();
     cv::Mat rvec, tvec;
-    switch (_solvePnP) {
-        case 0:
-            cv::solvePnPRansac(objectPoints, imagePoints, _pCameraModel->_K_L, cv::noArray(), rvec, tvec, false, 100, 8.0, 0.99, cv::noArray(), cv::SOLVEPNP_ITERATIVE);
-            break;
-        case 1:
-            cv::solvePnPRansac(objectPoints, imagePoints, _pCameraModel->_K_L, cv::noArray(), rvec, tvec, false, 100, 8.0, 0.99, cv::noArray(), cv::SOLVEPNP_EPNP);
-            break;
-        case 2:
-            cv::solvePnPRansac(objectPoints, imagePoints, _pCameraModel->_K_L, cv::noArray(), rvec, tvec, false, 100, 8.0, 0.99, cv::noArray(), cv::SOLVEPNP_P3P);
-            break;
-        case 3:
-            cv::solvePnPRansac(objectPoints, imagePoints, _pCameraModel->_K_L, cv::noArray(), rvec, tvec, false, 100, 8.0, 0.99, cv::noArray(), cv::SOLVEPNP_DLS);
-            break;
-        case 4:
-            cv::solvePnPRansac(objectPoints, imagePoints, _pCameraModel->_K_L, cv::noArray(), rvec, tvec, false, 100, 8.0, 0.99, cv::noArray(), cv::SOLVEPNP_UPNP);
-            break;
-        case 5:
-            cv::solvePnPRansac(objectPoints, imagePoints, _pCameraModel->_K_L, cv::noArray(), rvec, tvec, false, 100, 8.0, 0.99, cv::noArray(), cv::SOLVEPNP_AP3P);
-    }
+    cv::solvePnPRansac(objectPoints, imagePoints, _pCameraModel->_K_L, cv::noArray(), rvec, tvec, false, 100, 8.0, 0.99, cv::noArray(), _solvePnP);
     cv::cv2eigen(rvec, r);
     cv::cv2eigen(tvec, p);
     auto end = std::chrono::steady_clock::now();
@@ -561,8 +540,10 @@ bool FeatureTracker::computeLoopInfo(const int& refFrameID, const int& curFrameI
     std::vector<cv::Point3d> objectPoints;
     for (auto& m : matches) {
         if (m.distance < std::max(_matchRatio * minDist, _minMatchDist)) {
-            // Eigen::Vector3d position = (keyframe1->points[m.queryIdx]->position + keyframe2->points[m.trainIdx]->position) / 2;
-            Eigen::Vector3d position = keyframe1->points[m.queryIdx]->position;
+            cfsd::Ptr<MapPoint>& point1 = keyframe1->points[m.queryIdx];
+            // cfsd::Ptr<MapPoint>& point2 = keyframe2->points[m.trainIdx];
+            // Eigen::Vector3d position = (_pMap->_frameAndPoints[point1->frameID][point1->positionIdx] + _pMap->_frameAndPoints[point2->frameID][point2->positionIdx]) / 2;
+            Eigen::Vector3d position = _pMap->_frameAndPoints[point1->frameID][point1->positionIdx];
             objectPoints.push_back(cv::Point3d(position(0), position(1), position(2)));
             imagePoints.push_back(keyframe2->points[m.trainIdx]->pixel);
         }
@@ -574,25 +555,7 @@ bool FeatureTracker::computeLoopInfo(const int& refFrameID, const int& curFrameI
     }
 
     cv::Mat rvec, tvec, inliers;
-    switch (_solvePnP) {
-        case 0:
-            cv::solvePnPRansac(objectPoints, imagePoints, _pCameraModel->_K_L, cv::noArray(), rvec, tvec, false, 100, 8.0, 0.99, inliers, cv::SOLVEPNP_ITERATIVE);
-            break;
-        case 1:
-            cv::solvePnPRansac(objectPoints, imagePoints, _pCameraModel->_K_L, cv::noArray(), rvec, tvec, false, 100, 8.0, 0.99, inliers, cv::SOLVEPNP_EPNP);
-            break;
-        case 2:
-            cv::solvePnPRansac(objectPoints, imagePoints, _pCameraModel->_K_L, cv::noArray(), rvec, tvec, false, 100, 8.0, 0.99, inliers, cv::SOLVEPNP_P3P);
-            break;
-        case 3:
-            cv::solvePnPRansac(objectPoints, imagePoints, _pCameraModel->_K_L, cv::noArray(), rvec, tvec, false, 100, 8.0, 0.99, inliers, cv::SOLVEPNP_DLS);
-            break;
-        case 4:
-            cv::solvePnPRansac(objectPoints, imagePoints, _pCameraModel->_K_L, cv::noArray(), rvec, tvec, false, 100, 8.0, 0.99, inliers, cv::SOLVEPNP_UPNP);
-            break;
-        case 5:
-            cv::solvePnPRansac(objectPoints, imagePoints, _pCameraModel->_K_L, cv::noArray(), rvec, tvec, false, 100, 8.0, 0.99, inliers, cv::SOLVEPNP_AP3P);
-    }
+    cv::solvePnPRansac(objectPoints, imagePoints, _pCameraModel->_K_L, cv::noArray(), rvec, tvec, false, 100, 8.0, 0.99, inliers, _solvePnP);
 
     if (inliers.rows < 10) {
         std::cout << "Too few inliers" << std::endl;
@@ -604,11 +567,6 @@ bool FeatureTracker::computeLoopInfo(const int& refFrameID, const int& curFrameI
     cv::cv2eigen(tvec, p);
     
     return true;
-
-    // for (int i = 0; i < inliers.rows; i++) {
-    //     int idx = inliers.at<int>(i, 0);
-    //     cv::cv2eigen(objectPoints[idx], ...)
-    // }
 }
 
 } // namespace cfsd

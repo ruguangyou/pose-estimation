@@ -32,7 +32,7 @@ void Optimizer::motionOnlyBA(const cv::Mat& img) {
             delta_v_dbga[i][j] = 0;
     }
 
-    int actualSize = (_pMap->_pKeyframes.size() > WINDOWSIZE) ? WINDOWSIZE : _pMap->_pKeyframes.size()-1;
+    int actualSize = (_pMap->_pKeyframes.size() > WINDOWSIZE) ? WINDOWSIZE : _pMap->_pKeyframes.size();
     
     std::vector<double*> delta_pose_img;
     
@@ -56,37 +56,41 @@ void Optimizer::motionOnlyBA(const cv::Mat& img) {
         problem.AddResidualBlock(preintegrationCost, NULL, delta_pose[i], delta_v_dbga[i], delta_pose[i+1], delta_v_dbga[i+1]);
     }
 
-    // (landmark : frame)
+    // landmark : (std::vector of keyframeIdx and pointsIdx)
     std::unordered_map< size_t, std::vector< std::pair<int,int> > > landmarks;
     size_t landmarkID;
-    // If number of keyframes is bigger than windowsize, it means there is frame needed marginalization.
-    for (int i = (_useMarginalize && _pMap->_pKeyframes.size() > WINDOWSIZE+1) ? -1 : 0; i < actualSize; i++) {
+    for (int i = (_useMarginalize && _pMap->_pKeyframes.size() > WINDOWSIZE) ? -1 : 0; i < actualSize; i++) {
+        // If number of keyframes is bigger than windowsize, it means there is frame needed marginalization, i starts from -1.
         const std::vector<cfsd::Ptr<MapPoint>>& points = _pMap->_pKeyframes[n+i]->points;
         for (int j = 0; j < points.size(); j++) {
             landmarkID =points[j]->id;
+
+            // The purpose of this step is to repeated elements, it's due to one orb keypoint can be matched more than one time during matching.
             if (landmarks.find(landmarkID) == landmarks.end())
                 landmarks[landmarkID] = std::vector< std::pair<int,int> >();
-            landmarks[landmarkID].push_back(std::make_pair(n+i,j));
+            
+            landmarks[landmarkID].push_back(std::make_pair(n+i,j)); // n+i is the index for _pKeyframes, j is the index for _pKeyframes[n+i]->points
         }
     }
 
     // Set up image cost.
     for (const auto& l : landmarks) {
-        // Don't consider landmarks that are not seen by all frames in the sliding window.
-        // if (l.second.size() != actualSize) continue;
-
+        // l.first is landmarkID
+        // l.second is std::vector of keyframeIdx and pointsIdx
         int errorTerms = 0;
         delta_pose_img.clear();
-        std::unordered_map<int, int> delta_pose_mask;
+        std::unordered_map<int, int> poseMask;
         bool needMarginalize = false;
         for (int i = 0; i < l.second.size(); i++) {
             const auto& pair = l.second[i];
-            if (delta_pose_mask.find(pair.first) == delta_pose_mask.end()) {
-                if (pair.first < n)
+            // pair.first is index for _pKeyframes
+            // pair.second is the index for _pKeyframes[pair.first]->points
+            if (poseMask.find(pair.first) == poseMask.end()) {
+                if (pair.first < n) // the index of the frame to be marginalized is n-1
                     needMarginalize = true;
                 else
                     delta_pose_img.push_back(delta_pose[pair.first - n]);
-                delta_pose_mask[pair.first] = 1;
+                poseMask[pair.first] = 1;
                 errorTerms++;
             }
         }
@@ -104,13 +108,13 @@ void Optimizer::motionOnlyBA(const cv::Mat& img) {
         for (int i = 0, j = 0; i < l.second.size(); i++) {
             const auto& pair = l.second[i];
             
-            if (delta_pose_mask[pair.first] == 0) continue;
-            delta_pose_mask[pair.first] = 0;
+            if (poseMask[pair.first] == 0) continue;
+            poseMask[pair.first] = 0;
 
             const cfsd::Ptr<Keyframe>& windowFrame = _pMap->_pKeyframes[pair.first];
             const cfsd::Ptr<MapPoint>& mp = windowFrame->points[pair.second];
 
-            Eigen::Vector3d temp = windowFrame->R.inverse() * (mp->position - windowFrame->p);
+            Eigen::Vector3d temp = windowFrame->R.inverse() * (_pMap->_frameAndPoints[mp->frameID][mp->positionIdx] - windowFrame->p);
             Eigen::Vector3d point_wrt_cam = _pCameraModel->_T_CB * temp;
             double x = point_wrt_cam.x();
             double y = point_wrt_cam.y();
@@ -142,22 +146,20 @@ void Optimizer::motionOnlyBA(const cv::Mat& img) {
             Eigen::MatrixXd F0 = F.leftCols<6>();
             Eigen::MatrixXd F1 = F.rightCols(F.cols()-6);
 
-            Eigen::MatrixXd D = _marginalizeWeight * F1.transpose() * (Eigen::MatrixXd::Identity(F0.rows(), F0.rows()) - F0 * (F0.transpose() * F0).inverse() * F0.transpose());
-            error = D * error;
-            if (std::isnan(error(0))) continue;
-            
-            double norm = D.norm();
-            error = error / norm;
-            F = D * F1 / norm;
-            errorTerms = D.rows() / 6;
-        }
+            Eigen::MatrixXd D = F1.transpose() * (Eigen::MatrixXd::Identity(F0.rows(), F0.rows()) - F0 * (F0.transpose() * F0).inverse() * F0.transpose());
+            Eigen::VectorXd tempError = D * error;
 
-        // // Marginalize landmark. (failed)
-        // // Calculate D = F' * (I - E * inv(E'*E) * E')
-        // auto start = std::chrono::steady_clock::now();
-        // Eigen::MatrixXd D = F.transpose() * (Eigen::MatrixXd::Identity(E.rows(), E.rows()) - E * (E.transpose() * E).inverse() * E.transpose());
-        // auto end = std::chrono::steady_clock::now();
-        // std::cout << "Calculate I - E * inv(E'*E) * E' elapsed time: " << std::chrono::duration<double, std::milli>(end-start).count() << "ms" << std::endl;
+            if (std::isnan(tempError(0))) {
+                F = F1;
+                errorTerms--;
+            }
+            else {
+                double norm = D.norm() / _marginalizeWeight;
+                error = tempError / norm;
+                F = D * F1 / norm;
+                errorTerms = D.rows() / 6;
+            }
+        }
 
         // // Structure-less formlization. (failed)
         // // Use svd to calculate the unitary basis of the null space of E.
@@ -181,7 +183,7 @@ void Optimizer::motionOnlyBA(const cv::Mat& img) {
     const std::vector<cfsd::Ptr<MapPoint>>& points = latestFrame->points;
     for (int i = 0; i < points.size(); i++) {
         cfsd::Ptr<MapPoint> mp = points[i];
-        Eigen::Vector3d pixel_homo = _pCameraModel->_P_L.block<3,3>(0,0) * (_pCameraModel->_T_CB * (latestFrame->R.inverse() * (mp->position - latestFrame->p)));
+        Eigen::Vector3d pixel_homo = _pCameraModel->_P_L.block<3,3>(0,0) * (_pCameraModel->_T_CB * (latestFrame->R.inverse() * (_pMap->_frameAndPoints[mp->frameID][mp->positionIdx] - latestFrame->p)));
         #ifdef CFSD
         cv::rectangle(img, cv::Point(mp->pixel.x-4, mp->pixel.y-4 + yOffset), cv::Point(mp->pixel.x+4, mp->pixel.y+4 + yOffset), cv::Scalar(0));
         cv::circle(img, cv::Point(pixel_homo(0)/pixel_homo(2), pixel_homo(1)/pixel_homo(2) + yOffset), 3, cv::Scalar(0));
@@ -211,7 +213,7 @@ void Optimizer::motionOnlyBA(const cv::Mat& img) {
     // if (_verbose) {
         // Show the report.
         // std::cout << summary.BriefReport() << std::endl;
-        // std::cout << summary.FullReport() << std::endl;
+        std::cout << summary.FullReport() << std::endl;
     // }
 
     _pMap->updateStates(delta_pose, delta_v_dbga);
@@ -222,7 +224,7 @@ void Optimizer::motionOnlyBA(const cv::Mat& img) {
     // Show pixels and reprojected pixels after optimization.
     for (int i = 0; i < points.size(); i++) {
         cfsd::Ptr<MapPoint> mp = points[i];
-        Eigen::Vector3d pixel_homo = _pCameraModel->_P_L.block<3,3>(0,0) * (_pCameraModel->_T_CB * (latestFrame->R.inverse() * (mp->position - latestFrame->p)));
+        Eigen::Vector3d pixel_homo = _pCameraModel->_P_L.block<3,3>(0,0) * (_pCameraModel->_T_CB * (latestFrame->R.inverse() * (_pMap->_frameAndPoints[mp->frameID][mp->positionIdx] - latestFrame->p)));
         
         #ifdef CFSD
         cv::circle(img, cv::Point(pixel_homo(0)/pixel_homo(2), pixel_homo(1)/pixel_homo(2) + yOffset), 3, cv::Scalar(255));
@@ -236,9 +238,7 @@ void Optimizer::motionOnlyBA(const cv::Mat& img) {
 }
 
 void Optimizer::globalOptimize() {
-    // The first frame is not a keyframe, is just for providing prior infromation.
-    int n = 1;
-    int numKeyframes = _pMap->_pKeyframes.size() - n;
+    int numKeyframes = _pMap->_pKeyframes.size() - 1;
     double** delta_pose = new double*[numKeyframes];
     double** delta_v_dbga = new double*[numKeyframes];
     for (int i = 0; i < numKeyframes; i++) {
@@ -264,7 +264,7 @@ void Optimizer::globalOptimize() {
 
     // Set up imu cost function.
     for (int i = 0; i < numKeyframes-1; i++) {
-        ceres::CostFunction* preintegrationCost = new ImuCostFunction(_pMap, n+i);
+        ceres::CostFunction* preintegrationCost = new ImuCostFunction(_pMap, i);
         // problem.AddResidualBlock(preintegrationCost, lossFunction, delta_pose[i], delta_v_dbga[i], delta_pose[i+1], delta_v_dbga[i+1]);
         problem.AddResidualBlock(preintegrationCost, NULL, delta_pose[i], delta_v_dbga[i], delta_pose[i+1], delta_v_dbga[i+1]);
     }
@@ -273,12 +273,12 @@ void Optimizer::globalOptimize() {
     std::unordered_map< size_t, std::vector< std::pair<int,int> > > landmarks;
     size_t landmarkID;
     for (int i = 0; i < numKeyframes; i++) {
-        const std::vector<cfsd::Ptr<MapPoint>>& points = _pMap->_pKeyframes[n+i]->points;
+        const std::vector<cfsd::Ptr<MapPoint>>& points = _pMap->_pKeyframes[i]->points;
         for (int j = 0; j < points.size(); j++) {
             landmarkID =points[j]->id;
             if (landmarks.find(landmarkID) == landmarks.end())
                 landmarks[landmarkID] = std::vector< std::pair<int,int> >();
-            landmarks[landmarkID].push_back(std::make_pair(n+i,j));
+            landmarks[landmarkID].push_back(std::make_pair(i,j));
         }
     }
 
@@ -302,7 +302,7 @@ void Optimizer::globalOptimize() {
         for (int i = 0; i < l.second.size(); i++) {
             const auto& pair = l.second[i];
             if (delta_pose_mask.find(pair.first) == delta_pose_mask.end()) {
-                delta.push_back(delta_pose[pair.first-n]);
+                delta.push_back(delta_pose[pair.first]);
                 delta_pose_mask[pair.first] = 1;
                 errorTerms++;
             }
@@ -327,7 +327,7 @@ void Optimizer::globalOptimize() {
             const cfsd::Ptr<Keyframe>& windowFrame = _pMap->_pKeyframes[pair.first];
             const cfsd::Ptr<MapPoint>& mp = windowFrame->points[pair.second];
 
-            Eigen::Vector3d temp = windowFrame->R.inverse() * (mp->position - windowFrame->p);
+            Eigen::Vector3d temp = windowFrame->R.inverse() * (_pMap->_frameAndPoints[mp->frameID][mp->positionIdx] - windowFrame->p);
             Eigen::Vector3d point_wrt_cam = _pCameraModel->_T_CB * temp;
             double x = point_wrt_cam.x();
             double y = point_wrt_cam.y();

@@ -1,12 +1,13 @@
 #ifndef VISUAL_INERTIAL_SLAM_HPP
 #define VISUAL_INERTIAL_SLAM_HPP
 
+#include "cfsd/config.hpp"
 #include "cfsd/camera-model.hpp"
 #include "cfsd/loop-closure.hpp"
 #include "cfsd/feature-tracker.hpp"
 #include "cfsd/imu-preintegrator.hpp"
 #include "cfsd/optimizer.hpp"
-// #include "cfsd/map.hpp"
+#include "cfsd/map.hpp"
 
 #ifdef USE_VIEWER
 #include "cfsd/viewer.hpp"

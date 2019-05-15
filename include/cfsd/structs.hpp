@@ -6,9 +6,9 @@
 namespace cfsd {
 
 struct Feature {
-    Feature() : pixelL(), descriptorL(), descriptorR(), position() {}
-    Feature(const cv::Point2d& pixelL, const cv::Mat& descriptorL, const cv::Mat& descriptorR, const Eigen::Vector3d& position, const int& age)
-      : pixelL(pixelL), descriptorL(descriptorL), descriptorR(descriptorR), position(position), age(age) {}
+    Feature() : pixelL(), descriptorL(), descriptorR() {}
+    Feature(const cv::Point2d& pixelL, const cv::Mat& descriptorL, const cv::Mat& descriptorR, const int& frameID, const int& positionIdx, const int& age)
+      : pixelL(pixelL), descriptorL(descriptorL), descriptorR(descriptorR), frameID(frameID), positionIdx(positionIdx), age(age) {}
 
     // Pixel coordinate of this feature in each frame.
     cv::Point2d pixelL;
@@ -17,8 +17,9 @@ struct Feature {
     cv::Mat descriptorL;
     cv::Mat descriptorR;
 
-    // 3D landmark position w.r.t world frame.
-    Eigen::Vector3d position;
+    // Where the 3D landmark position w.r.t world frame is stored in _pMap->_frameAndPoints
+    int frameID{0};
+    int positionIdx{0};
 
     int age{0};
 };
@@ -55,14 +56,16 @@ struct ImuConstraint {
 };
 
 struct MapPoint {
-    MapPoint() : pixel(), position() {}
-    MapPoint(const size_t id, const cv::Point2d& pixel, const Eigen::Vector3d& position) : id(id), pixel(pixel), position(position) {}
+    MapPoint() {}
+    MapPoint(const size_t& id, const cv::Point2d& pixel, const int& frameID, const int& positionIdx) : id(id), pixel(pixel), frameID(frameID), positionIdx(positionIdx) {}
 
     size_t id{0};
     
-    cv::Point2d pixel;
+    cv::Point2d pixel{};
     
-    Eigen::Vector3d position;
+    int frameID{0};
+
+    int positionIdx{0};
 };
 
 struct Keyframe {
