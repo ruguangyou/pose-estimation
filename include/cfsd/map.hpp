@@ -82,7 +82,9 @@ class Map {
 
     std::vector<std::vector<Eigen::Vector3d>> _frameAndPoints{};
 
-    bool _isKeyframe{false}, _imuTimeOut{false};
+    bool _isKeyframe{false};
+
+    int _numLandmarks{0};
 
     bool _needReinitialize{false};
 

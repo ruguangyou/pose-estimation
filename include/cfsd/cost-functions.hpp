@@ -195,10 +195,6 @@ struct PriorCostFunction : public ceres::SizedCostFunction<15, /* residuals */
 
 
 struct ImageCostFunction : public ceres::CostFunction {
-    // ImageCostFunction(const int& n, const Eigen::MatrixXd& error, const Eigen::MatrixXd& H)
-    //     : _numResiduals(6*n), _numParameterBlocks(n), _error(error), _H(H) {
-    // ImageCostFunction(const int& n, const Eigen::MatrixXd& error, const Eigen::MatrixXd& F, const Eigen::MatrixXd& E_b_ns)
-    //     : _numResiduals(2*n-3), _numParameterBlocks(n), _error(error), _F(F), _E_b_nullspace(E_b_ns) {
     ImageCostFunction(const int& n, const Eigen::MatrixXd& error, const Eigen::MatrixXd& F)
         : _numResiduals(error.size()), _numParameterBlocks(n), _error(error), _F(F){
 
@@ -224,11 +220,6 @@ struct ImageCostFunction : public ceres::CostFunction {
 
         Eigen::Map<Eigen::VectorXd> residual(residuals, _numResiduals);
 
-        // residual = _error + _H * delta;
-
-        // Eigen::MatrixXd J = _E_b_nullspace.transpose() * _F;
-        // residual = _E_b_nullspace.transpose() * _error + J * delta;
-
         residual = _error + _F * delta;
 
         // Compute jacobians which are crutial for optimization algorithms like Guass-Newton.
@@ -238,10 +229,6 @@ struct ImageCostFunction : public ceres::CostFunction {
             if (jacobians[i]) {
                 Eigen::Map<Eigen::Matrix<double,Eigen::Dynamic,Eigen::Dynamic,Eigen::RowMajor>> jacobian_pose(jacobians[i], _numResiduals, 6);
 
-                // jacobian_pose = _H.block(0,6*i, _numResiduals,6);
-                
-                // jacobian_pose = J.block(0,6*i, _numResiduals,6);
-                
                 jacobian_pose = _F.block(0,6*i, _numResiduals,6);
             }
         }
@@ -253,8 +240,6 @@ struct ImageCostFunction : public ceres::CostFunction {
     int _numResiduals{0};
     int _numParameterBlocks{0};
     Eigen::MatrixXd _error;
-    // Eigen::MatrixXd _H;
-    // Eigen::MatrixXd _E_b_nullspace;
     Eigen::MatrixXd _F;
 };
 

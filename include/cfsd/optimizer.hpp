@@ -55,7 +55,7 @@ class Optimizer {
     double _fx{0}, _fy{0}, _cx{0}, _cy{0};
     Eigen::Matrix2d _invStdT;
 
-    bool _useMarginalize{false};
+    int _marginalizeFrames{0};
     double _marginalizeWeight{0.0};
     
     double _priorWeight{0.0};

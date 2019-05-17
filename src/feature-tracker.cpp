@@ -294,6 +294,7 @@ void FeatureTracker::externalTrack(const bool useRANSAC) {
     descriptors = cv::Mat();
     matcher.match(_curDescriptorsR, _histDescriptorsR, matchesR);
     minDist = std::min_element(matchesR.begin(), matchesR.end(), [] (const cv::DMatch& m1, const cv::DMatch& m2) { return m1.distance < m2.distance; })->distance;
+    std::unordered_map<size_t, bool> uniqueFeature;
     for (auto& m : matchesR) {
         // Only consider those good matches.
         if (m.distance < std::max(_matchRatio * minDist, _minMatchDist)) {
@@ -304,6 +305,11 @@ void FeatureTracker::externalTrack(const bool useRANSAC) {
             if (search != mapCurHist.end() && search->second == m.trainIdx) {
                 // Satisfy circular matching, i.e. curLeft <=> histLeft <=> histRight <=> curRight <=> curLeft, the age of history features will increase 1.
                 size_t featureID = _histFeatureIDs[m.trainIdx];
+                
+                // Avoid adding repeated elements, which is due to one orb keypoint can be matched more than one time during matching.
+                if (uniqueFeature.find(featureID) != uniqueFeature.end()) continue;
+                uniqueFeature[featureID] = true;
+                
                 points.push_back(std::make_shared<MapPoint>(featureID, _curPixelsL[m.queryIdx], _features[featureID]->frameID, _features[featureID]->positionIdx));
                 descriptors.push_back(_curDescriptorsL.row(m.queryIdx));
                 _matchedFeatureIDs.push_back(featureID);
@@ -394,10 +400,16 @@ void FeatureTracker::featurePoolUpdate(const long& imgTimestamp) {
         
         insertCount++;
     }
+
+   _pMap-> _numLandmarks += _pMap->_frameAndPoints[_frameID].size();
+    #ifdef USE_VIEWER
+    _pMap->_pViewer->pushLandmark(_pMap->_frameAndPoints[_frameID], _frameID);
+    #endif
+
     _frameID++;
 
     if (_verbose) {
-        std::cout << "# 3D points within 20 meters: " << insertCount++ << std::endl;
+        std::cout << "# 3D points within 20 meters: " << insertCount << std::endl;
         std::cout << "# features in pool after updaing: " << _features.size() << " (" << insertCount << " features inserted, " << eraseCount << " too old features erased)" << std::endl;
     }
 }

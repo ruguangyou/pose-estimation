@@ -96,6 +96,43 @@ bool VisualInertialSLAM::process(const cv::Mat& grayL, const cv::Mat& grayR, con
 
             break;
         }
+        case SYNCHRONIZING:
+        {
+            if (_pImuPreintegrator->processImu(imgTimestamp)) {
+                Eigen::Vector3d r, p;
+                _pFeatureTracker->structFromMotion(imgL, imgR, r, p, true);
+                _sfmCount++;
+                _state = SFM;
+            }
+            break;
+        }
+        case SFM:
+        {
+            // Relative transformation from current frame to preveious frame.
+            Eigen::Vector3d r, p;
+
+            if(!_pImuPreintegrator->processImu(imgTimestamp)) {
+                std::cerr << "Error occurs in imu-preintegration!" << std::endl;
+                return false;
+            }
+            
+            // If sfm return true, it means this frame has significant pose change; otherwise, ignore this frame.
+            start = std::chrono::steady_clock::now();
+            if (_pFeatureTracker->structFromMotion(imgL, imgR, r, p)) {
+                _pMap->pushSfm(r, p, _pImuPreintegrator->_ic);
+                _pImuPreintegrator->reset();
+                _sfmCount++;
+            }
+            end = std::chrono::steady_clock::now();
+            std::cout << "SfM elapsed time: " << std::chrono::duration<double, std::milli>(end-start).count() << "ms" << std::endl << std::endl;
+
+            if (_sfmCount == WINDOWSIZE) {
+                _sfmCount = 0;
+                _state = INITIALIZING;
+            }
+            else 
+                break;
+        }
         case INITIALIZING:
         {
             std::cout << "Initializing gyroscope bias..." << std::endl;
@@ -126,61 +163,26 @@ bool VisualInertialSLAM::process(const cv::Mat& grayL, const cv::Mat& grayR, con
             std::cout << "elapsed time: " << std::chrono::duration<double, std::milli>(end-start).count() << "ms" << std::endl;
             std::cout << "Acc bias initialization Done!" << std::endl << std::endl;
 
+            // if(!_pImuPreintegrator->processImu(imgTimestamp)) {
+            //     std::cerr << "Error occurs in imu-preintegration!" << std::endl;
+            //     return false;
+            // }
+
             _pImuPreintegrator->reset();
             _pMap->reset(0);
             
             cv::Mat descriptorsMat;
             // Initial stereo pair matching.
-            std::cout << "Initializing stereo pair matching..." << std::endl;
+            std::cout << std::endl << "Initializing stereo pair matching..." << std::endl;
             _pFeatureTracker->processImage(imgL, imgR, descriptorsMat);
             std::cout << "Initial matching Done!" << std::endl << std::endl;
 
             // Add the initial frame as keyframe.
             _pFeatureTracker->featurePoolUpdate(imgTimestamp);
 
-            #ifdef USE_VIEWER
-            _pMap->_pViewer->pushLandmark(_pMap->_frameAndPoints[0], 0);
-            #endif
-
             _pLoopClosure->addImage(descriptorsMat);
             
             _state = OK;
-            break;
-        }
-        case SFM:
-        {
-            if (_sfmCount < WINDOWSIZE-1) {
-                // Relative transformation from current frame to preveious frame.
-                Eigen::Vector3d r, p;
-
-                if(!_pImuPreintegrator->processImu(imgTimestamp)) {
-                    std::cerr << "Error occurs in imu-preintegration!" << std::endl;
-                    return false;
-                }
-                
-                // If sfm return true, it means this frame has significant pose change; otherwise, ignore this frame.
-                start = std::chrono::steady_clock::now();
-                if (_pFeatureTracker->structFromMotion(imgL, imgR, r, p)) {
-                    _pMap->pushSfm(r, p, _pImuPreintegrator->_ic);
-                    _pImuPreintegrator->reset();
-                    _sfmCount++;
-                }
-                end = std::chrono::steady_clock::now();
-                std::cout << "SfM elapsed time: " << std::chrono::duration<double, std::milli>(end-start).count() << "ms" << std::endl << std::endl;
-            }
-            else {
-                _sfmCount = 0;
-                _state = INITIALIZING;
-            }
-            break;
-        }
-        case SYNCHRONIZING:
-        {
-            if (_pImuPreintegrator->processImu(imgTimestamp)) {
-                Eigen::Vector3d r, p;
-                _pFeatureTracker->structFromMotion(imgL, imgR, r, p, true);
-                _state = SFM;
-            }
             break;
         }
         case LOST:

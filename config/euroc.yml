@@ -5,7 +5,7 @@
 dataset: /home/ruguang/docker-CFSD/cfsd/2019/euroc/MH_03_medium/mav0/
 
 # Skip some images
-speedUp: 2
+speedUp: 1
 
 ################################################################################
 ##### Sensor settings #####
@@ -89,7 +89,7 @@ translationImuToCamera: !!opencv-matrix
 
 ################################################################################
 ##### Feature detection settings #####
-delay: 10
+delay: 0
 
 # Use ORB of OpenCV or ORB_SLAM2
 cvORB: 0 # default: not use OpenCV ORB
@@ -131,7 +131,7 @@ maxDepth: 10 # Max depth or distance w.r.t camera
 keyframeRotation: 0.2
 keyframeTranslation: 0.1
 # nearPointThres:
-maxImuTime: 10
+maxImuTime: 4
 
 # Reinitialization if bias is corrupted
 maxGyrBias: 0.1
@@ -155,14 +155,14 @@ solvePnP: 0
 minimizer_progress_to_stdout: 0
 max_num_iterations: 20 # default: 50
 max_solver_time_in_seconds: 10 # default: 1e6
-num_threads: 4 # default: 1
+num_threads: 2 # default: 1
 check_gradients: 0
 
 # Gravity magnitude for initial accelerometer correction.
 gravity: 9.81734 # [m/s^2] gravitational acceleration (might need slightly modification in case of different location)
 
 # Marginalize prior pose information or not
-useMarginalize: 1
+marginalizeFrames: 0
 marginalizeWeight: 1
 
 # Prior covariance factor

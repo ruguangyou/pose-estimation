@@ -163,7 +163,6 @@ void Map::checkKeyframe() {
     Eigen::Vector3d dp = T_ji.translation();
 
     _isKeyframe = (dr.norm() > _minRotation || dp.norm() > _minTranslation || _sumImuTime > _maxImuTime);
-    _imuTimeOut = _sumImuTime > _maxImuTime;
 
     if (_isKeyframe) {
         _sumImuTime = 0;
@@ -174,7 +173,7 @@ void Map::checkKeyframe() {
 }
 
 void Map::updateStates(double delta_pose[WINDOWSIZE][6], double delta_v_dbga[WINDOWSIZE][9]) {
-    int actualSize = (_pKeyframes.size() > WINDOWSIZE) ? WINDOWSIZE : _pKeyframes.size()-1;
+    int actualSize = (_pKeyframes.size() > WINDOWSIZE) ? WINDOWSIZE : _pKeyframes.size();
     int n = _pKeyframes.size() - actualSize;
 
     for (int i = 0 ; i < actualSize; i++) {
@@ -191,16 +190,16 @@ void Map::updateStates(double delta_pose[WINDOWSIZE][6], double delta_v_dbga[WIN
         windowFrame->p = windowFrame->p + windowFrame->R * Eigen::Vector3d(delta_pose[i][3], delta_pose[i][4], delta_pose[i][5]);
         windowFrame->R = windowFrame->R * Sophus::SO3d::exp(Eigen::Vector3d(delta_pose[i][0], delta_pose[i][1], delta_pose[i][2]));
 
-        if (!_imuTimeOut) {
-            Sophus::SE3d T_WB2(windowFrame->R, windowFrame->p);
-            // Update landmarks' 3D position.
-            std::vector<Eigen::Vector3d>& points = _frameAndPoints[n+i];
-            for (int j = 0; j < points.size(); j++)
-                points[j] = T_WB2 * T_WB1.inverse() * points[j];
-            #ifdef USE_VIEWER
-            _pViewer->pushLandmark(points, i);
-            #endif
-        }
+        // if (Eigen::Vector3d(delta_pose[i][3], delta_pose[i][4], delta_pose[i][5]).norm() > 0.1 || Eigen::Vector3d(delta_pose[i][0], delta_pose[i][1], delta_pose[i][2]).norm() > 0.1) {
+        //     Sophus::SE3d T_WB2(windowFrame->R, windowFrame->p);
+        //     // Update landmarks' 3D position.
+        //     std::vector<Eigen::Vector3d>& points = _frameAndPoints[n+i];
+        //     for (int j = 0; j < points.size(); j++)
+        //         points[j] = T_WB2 * T_WB1.inverse() * points[j];
+        //     #ifdef USE_VIEWER
+        //     _pViewer->pushLandmark(points, i);
+        //     #endif
+        // }
 
         #ifdef USE_VIEWER
         _pViewer->pushPosition(windowFrame->p, i);
