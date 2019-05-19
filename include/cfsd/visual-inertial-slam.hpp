@@ -68,10 +68,12 @@ class VisualInertialSLAM {
     Eigen::Vector3d _gyr, _acc;
     bool _gyrGot{false}, _accGot{false};
 
+    int _numNoMatch{0};
+
     int _sfmCount{0};
 
     // Frame ID.
-    size_t _frameID{0};
+    size_t _keyframeID{0};
 
     std::mutex _loopMutex{};
     int _loopFrameID{0};

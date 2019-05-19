@@ -41,33 +41,68 @@ bool VisualInertialSLAM::process(const cv::Mat& grayL, const cv::Mat& grayR, con
                 std::cerr << "Error occurs in imu-preintegration!" << std::endl;
                 return false;
             }
-            _pMap->pushImuConstraint(_pImuPreintegrator->_ic);
             end = std::chrono::steady_clock::now();
             std::cout << "Imu-preintegration elapsed time: " << std::chrono::duration<double, std::milli>(end-start).count() << "ms" << std::endl << std::endl;
-            // ........... integration time between two keyframes should not be too large because of the drifting nature of imu.
+            _pMap->pushImuConstraint(_pImuPreintegrator->_ic);
 
-            cv::Mat descriptorsMat;
             // Do feature tracking.
+            cv::Mat descriptorsMat;
             start = std::chrono::steady_clock::now();
             bool emptyMatch = _pFeatureTracker->processImage(imgL, imgR, descriptorsMat);
             end = std::chrono::steady_clock::now();
             std::cout << "Feature-tracking elapsed time: " << std::chrono::duration<double, std::milli>(end-start).count() << "ms" << std::endl << std::endl;
 
-            // Perform motion-only BA.
-            if (!emptyMatch) {
-                start = std::chrono::steady_clock::now();
-                _pOptimizer->motionOnlyBA(imgL);
-                end = std::chrono::steady_clock::now();
-                std::cout << "Motion-only BA elapsed time: " << std::chrono::duration<double, std::milli>(end-start).count() << "ms" << std::endl << std::endl;
-                if (_pMap->_needReinitialize) {
-                    std::cout << "Bias corrupted, need reintialization." << std::endl << std::endl;
-                    // _state = INITIALIZING;
-                    // break;
-                }
+            if (emptyMatch) {
+                std::cout << "Current image frame has no match with history frames!" << std::endl << std::endl;
+                // if (++_noMatch > 3)
+                //     _state = LOST;
+                break;
             }
 
+            // Perform motion-only BA.
+            start = std::chrono::steady_clock::now();
+            _pOptimizer->motionOnlyBA();
+            end = std::chrono::steady_clock::now();
+            std::cout << "Motion-only BA elapsed time: " << std::chrono::duration<double, std::milli>(end-start).count() << "ms" << std::endl << std::endl;
+  
+            // TODO................................
+            if (_pMap->_needReinitialize) {
+                std::cout << "Bias corrupted, need reintialization." << std::endl << std::endl;
+                // _state = INITIALIZING;
+                // break;
+            }
+
+            #ifdef SHOW_IMG
+            // Show pixels and reprojected pixels after optimization.
+            int yOffset = _pFeatureTracker->_cropOffset;
+            const cfsd::Ptr<Keyframe>& latestFrame = _pMap->_pKeyframes.back();
+            for (auto mapPointID : latestFrame->mapPointIDs) {
+                cfsd::Ptr<MapPoint> mp = _pMap->_pMapPoints[mapPointID];
+                Eigen::Vector3d pixel_homo = _pCameraModel->_P_L.block<3,3>(0,0) * (_pCameraModel->_T_CB * (latestFrame->R.inverse() * (mp->position - latestFrame->p)));
+                cv::Point2d& pixel = mp->pixels[_pMap->_pKeyframes.size()-1];
+                #ifdef CFSD
+                cv::rectangle(imgL, cv::Point(pixel.x-4, pixel.y-4 + yOffset), cv::Point(pixel.x+4, pixel.y+4 + yOffset), cv::Scalar(0));
+                cv::circle(imgL, cv::Point(pixel_homo(0)/pixel_homo(2), pixel_homo(1)/pixel_homo(2) + yOffset), 3, cv::Scalar(255));
+                #else
+                cv::rectangle(imgL, cv::Point(pixel.x-4, pixel.y-4), cv::Point(pixel.x+4, pixel.y+4), cv::Scalar(0));
+                cv::circle(imgL, cv::Point(pixel_homo(0)/pixel_homo(2), pixel_homo(1)/pixel_homo(2)), 3, cv::Scalar(255));
+                #endif
+            }
+            cv::Mat out;
+            cv::vconcat(imgL, cv::Mat::zeros(25, imgL.cols, CV_8U), out);
+            std::stringstream text;
+            text << "#keyframes: " << _pMap->_pKeyframes.size()-1 << ", #map points: " << _pMap->_pMapPoints.size() << ", #points in current frame: " << latestFrame->mapPointIDs.size();
+            cv::putText(out, text.str(), cv::Point(4, out.rows-8), cv::FONT_HERSHEY_PLAIN, 1, cv::Scalar(255), 1);
+            cv::imshow("pixel (black square) vs. reprojected pixel (white circle)", out);
+            cv::waitKey(Config::get<int>("delay"));
+            #endif
+
             // This step should be after the motion-only BA, s.t. we can know if current frame is keyframe and also the current camera pose.
+            _pMap->checkKeyframe();
             if (_pMap->_isKeyframe) {
+                _pImuPreintegrator->updateBias();
+                _pImuPreintegrator->reset();
+
                 start = std::chrono::steady_clock::now();
                 _pFeatureTracker->featurePoolUpdate(imgTimestamp);
                 end = std::chrono::steady_clock::now();
@@ -79,28 +114,32 @@ bool VisualInertialSLAM::process(const cv::Mat& grayL, const cv::Mat& grayR, con
                 end = std::chrono::steady_clock::now();
                 std::cout << "Add image to database elapsed time: " << std::chrono::duration<double, std::milli>(end-start).count() << "ms" << std::endl << std::endl;
 
-                std::lock_guard<std::mutex> loopLock(_loopMutex);
                 // Detect loop for the newly inserted keyframe.
+                std::lock_guard<std::mutex> loopLock(_loopMutex);
                 start = std::chrono::steady_clock::now();
-                int minFrameID = _pLoopClosure->detectLoop(descriptorsMat, ++_frameID);
+                int minFrameID = _pLoopClosure->detectLoop(descriptorsMat, ++_keyframeID);
                 end = std::chrono::steady_clock::now();
                 std::cout << "Query database elapsed time: " << std::chrono::duration<double, std::milli>(end-start).count() << "ms" << std::endl << std::endl;
                 if (minFrameID > 0) {
                     _loopFrameID = minFrameID;
                     _toCloseLoop = true;
                     #ifdef USE_VIEWER
-                    _pMap->pushLoopInfo(_loopFrameID, _frameID);
+                    _pMap->pushLoopInfo(_loopFrameID, _keyframeID);
                     #endif
                 }
             }
+
+            _pMap->manageMapPoints();
 
             break;
         }
         case SYNCHRONIZING:
         {
             if (_pImuPreintegrator->processImu(imgTimestamp)) {
-                Eigen::Vector3d r, p;
-                _pFeatureTracker->structFromMotion(imgL, imgR, r, p, true);
+                if (Config::get<bool>("initializeWithSfm")) {
+                    Eigen::Vector3d r, p;
+                    _pFeatureTracker->structFromMotion(imgL, imgR, r, p, true);
+                }
                 _sfmCount++;
                 _state = SFM;
             }
@@ -116,17 +155,27 @@ bool VisualInertialSLAM::process(const cv::Mat& grayL, const cv::Mat& grayR, con
                 return false;
             }
             
-            // If sfm return true, it means this frame has significant pose change; otherwise, ignore this frame.
-            start = std::chrono::steady_clock::now();
-            if (_pFeatureTracker->structFromMotion(imgL, imgR, r, p)) {
+            if (Config::get<bool>("initializeWithSfm")) {
+                // If sfm return true, it means this frame has significant pose change; otherwise, ignore this frame.
+                start = std::chrono::steady_clock::now();
+                if (_pFeatureTracker->structFromMotion(imgL, imgR, r, p)) {
+                    _pMap->pushSfm(r, p, _pImuPreintegrator->_ic);
+                    _pImuPreintegrator->reset();
+                    _sfmCount++;
+                }
+                end = std::chrono::steady_clock::now();
+                std::cout << "SfM elapsed time: " << std::chrono::duration<double, std::milli>(end-start).count() << "ms" << std::endl << std::endl;
+            }
+            else {
+                // Assume the vehicle doesn't move during initialization.
+                r << 0.0, 0.0, 0.0;
+                p << 0.0, 0.0, 0.0;
                 _pMap->pushSfm(r, p, _pImuPreintegrator->_ic);
                 _pImuPreintegrator->reset();
                 _sfmCount++;
             }
-            end = std::chrono::steady_clock::now();
-            std::cout << "SfM elapsed time: " << std::chrono::duration<double, std::milli>(end-start).count() << "ms" << std::endl << std::endl;
 
-            if (_sfmCount == WINDOWSIZE) {
+            if (_sfmCount == INITWINDOWSIZE) {
                 _sfmCount = 0;
                 _state = INITIALIZING;
             }
@@ -173,7 +222,7 @@ bool VisualInertialSLAM::process(const cv::Mat& grayL, const cv::Mat& grayR, con
             
             cv::Mat descriptorsMat;
             // Initial stereo pair matching.
-            std::cout << std::endl << "Initializing stereo pair matching..." << std::endl;
+            std::cout << "Initializing stereo pair matching..." << std::endl;
             _pFeatureTracker->processImage(imgL, imgR, descriptorsMat);
             std::cout << "Initial matching Done!" << std::endl << std::endl;
 
@@ -205,7 +254,7 @@ void VisualInertialSLAM::loopClosure() {
             std::lock_guard<std::mutex> loopLock(_loopMutex);
             ready = _toCloseLoop;
             refFrameID = _loopFrameID;
-            curFrameID = _frameID;
+            curFrameID = _keyframeID;
             _toCloseLoop = false;
         }
         

@@ -249,14 +249,12 @@ void Viewer::pushPose(const Eigen::Matrix3d& R) {
     readyToDrawPose = true;
 }
 
-void Viewer::pushLandmark(const std::vector<Eigen::Vector3d>& points,  const int& offset) {
+void Viewer::pushLandmark(const int& frameID, const Eigen::Vector3d& point) {
     std::lock_guard<std::mutex> lockLandmark(landmarkMutex);
 
-    int i = idx + offset;
-    if (frameAndPoints.size() <= i)
-        frameAndPoints.push_back(points);
-    else
-        frameAndPoints[i] = points;
+    if (frameAndPoints.size() < frameID+1)
+        frameAndPoints.push_back(std::vector<Eigen::Vector3d>());
+    frameAndPoints[frameID].push_back(point);
 
     readyToDrawLandmark = true;
 }

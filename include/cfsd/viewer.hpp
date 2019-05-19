@@ -30,7 +30,7 @@ class Viewer {
     void pushRawPosition(const Eigen::Vector3d& p, const int& offset);
     void pushPosition(const Eigen::Vector3d& p, const int& offset);
     void pushPose(const Eigen::Matrix3d& R);
-    void pushLandmark(const std::vector<Eigen::Vector3d>& points,  const int& offset);
+    void pushLandmark(const int& frameID, const Eigen::Vector3d& point);
     void pushLoopConnection(const int& refFrameID, const int& curFrameID);
     
     void drawCoordinate();

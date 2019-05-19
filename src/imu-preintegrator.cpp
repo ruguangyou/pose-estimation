@@ -166,8 +166,6 @@ void ImuPreintegrator::setInitialAccBias(const Eigen::Vector3d& delta_ba) {
 
 void ImuPreintegrator::updateBias() {
     _pMap->updateImuBias(_bg_i, _ba_i);
-
-    if (_pMap->_isKeyframe) reset();
 }
 
 bool ImuPreintegrator::processImu(const long& imgTimestamp) {

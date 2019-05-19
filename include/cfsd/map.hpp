@@ -8,6 +8,8 @@
 
 // Local sliding-window size.
 #define WINDOWSIZE 4
+// Initialization window size.
+#define INITWINDOWSIZE 4
 
 #ifdef USE_VIEWER
 #include "cfsd/viewer.hpp"
@@ -34,6 +36,8 @@ class Map {
     void pushImuConstraint(const cfsd::Ptr<ImuConstraint>& ic);
 
     void checkKeyframe();
+
+    void manageMapPoints();
 
     void updateStates(double delta_pose[WINDOWSIZE][6], double delta_v_dbga[WINDOWSIZE][9]);
 
@@ -65,7 +69,7 @@ class Map {
     double _maxGyrBias{0};
     double _maxAccBias{0};
 
-    bool _notPushed{true};
+    bool _atBeginning{true};
     
   public:
     // Gravity vector.
@@ -80,11 +84,9 @@ class Map {
     // Store keyframes' states and temperorily store current states.
     std::vector<cfsd::Ptr<Keyframe>> _pKeyframes{};
 
-    std::vector<std::vector<Eigen::Vector3d>> _frameAndPoints{};
+    std::map<size_t, cfsd::Ptr<MapPoint>> _pMapPoints{};
 
     bool _isKeyframe{false};
-
-    int _numLandmarks{0};
 
     bool _needReinitialize{false};
 

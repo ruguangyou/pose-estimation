@@ -7,7 +7,7 @@ FeatureTracker::FeatureTracker(const cfsd::Ptr<Map>& pMap, const cfsd::Ptr<Camer
         _orbLeft(), _orbRight(), _ORBextractorLeft(), _ORBextractorRight(),
         _roi(), _curPixelsL(), _curPixelsR(), _curDescriptorsL(), _curDescriptorsR(), _curFeatureMask(), 
         _histFeatureIDs(), _histDescriptorsL(), _histDescriptorsR(), _refKeypointsL(), _refDescriptorsL(),
-        _matchedFeatureIDs(), _features() {
+        _matchedFeatureIDs(), _pFeatures() {
     
     _matchRatio = Config::get<float>("matchRatio");
 
@@ -61,6 +61,33 @@ FeatureTracker::FeatureTracker(const cfsd::Ptr<Map>& pMap, const cfsd::Ptr<Camer
     #endif
 }
 
+void FeatureTracker::orbDetectWithGrid(int flag, const cv::Mat& img, std::vector<cv::KeyPoint>& keypoints, cv::Mat& descriptors) {
+    cv::Ptr<cv::ORB> orb = (flag == 0) ? _orbLeft : _orbRight;
+    int gridRow = Config::get<int>("gridRow");
+    int gridCol = Config::get<int>("gridCol");
+    for (int r = 0; r < gridRow; r++) {
+        for (int c = 0; c < gridCol; c++) {
+            cv::Mat mask = cv::Mat::zeros(img.rows, img.cols, CV_8U);
+            for (int i = 0; i < img.rows / gridRow; i++)
+                for (int j = 0; j < img.cols / gridCol; j++)
+                    mask.at<char>(img.rows/gridRow * r + i, img.cols/gridCol * c + j) = (char)255;
+            std::vector<cv::KeyPoint> ks;
+            cv::Mat ds;
+            orb->detectAndCompute(img, mask, ks, ds);
+            keypoints.insert(keypoints.end(), ks.begin(), ks.end());
+            if (descriptors.empty()) descriptors = ds;
+            else cv::vconcat(descriptors, ds, descriptors);
+        }
+    }
+}
+
+void FeatureTracker::extractORB(int flag, const cv::Mat& img, std::vector<cv::KeyPoint>& keypoints, cv::Mat& descriptors) {
+    if (flag == 0)
+        (*_ORBextractorLeft)(img, cv::Mat(), keypoints, descriptors);
+    else
+        (*_ORBextractorRight)(img, cv::Mat(), keypoints, descriptors);
+}
+
 bool FeatureTracker::processImage(const cv::Mat& grayLeft, const cv::Mat& grayRight, cv::Mat& descriptorsMat) {
     cv::Mat imgLeft, imgRight;
     #ifdef CFSD
@@ -96,33 +123,6 @@ bool FeatureTracker::processImage(const cv::Mat& grayLeft, const cv::Mat& grayRi
     if (_verbose) std::cout << "external match elapsed time: " << std::chrono::duration<double, std::milli>(end-start).count() << "ms" << std::endl << std::endl;
 
     return _matchedFeatureIDs.empty();
-}
-
-void FeatureTracker::orbDetectWithGrid(int flag, const cv::Mat& img, std::vector<cv::KeyPoint>& keypoints, cv::Mat& descriptors) {
-    cv::Ptr<cv::ORB> orb = (flag == 0) ? _orbLeft : _orbRight;
-    int gridRow = Config::get<int>("gridRow");
-    int gridCol = Config::get<int>("gridCol");
-    for (int r = 0; r < gridRow; r++) {
-        for (int c = 0; c < gridCol; c++) {
-            cv::Mat mask = cv::Mat::zeros(img.rows, img.cols, CV_8U);
-            for (int i = 0; i < img.rows / gridRow; i++)
-                for (int j = 0; j < img.cols / gridCol; j++)
-                    mask.at<char>(img.rows/gridRow * r + i, img.cols/gridCol * c + j) = (char)255;
-            std::vector<cv::KeyPoint> ks;
-            cv::Mat ds;
-            orb->detectAndCompute(img, mask, ks, ds);
-            keypoints.insert(keypoints.end(), ks.begin(), ks.end());
-            if (descriptors.empty()) descriptors = ds;
-            else cv::vconcat(descriptors, ds, descriptors);
-        }
-    }
-}
-
-void FeatureTracker::extractORB(int flag, const cv::Mat& img, std::vector<cv::KeyPoint>& keypoints, cv::Mat& descriptors) {
-    if (flag == 0)
-        (*_ORBextractorLeft)(img, cv::Mat(), keypoints, descriptors);
-    else
-        (*_ORBextractorRight)(img, cv::Mat(), keypoints, descriptors);
 }
 
 void FeatureTracker::internalMatch(const cv::Mat& imgLeft, const cv::Mat& imgRight, cv::Mat& descriptorsMat, const bool useRANSAC) {
@@ -223,7 +223,7 @@ void FeatureTracker::externalTrack(const bool useRANSAC) {
     
     // At initializing step, there is no available features in the list yet, so all features detected in the first frame will be added to the list.
     // The first frame will be set as keyframe as well.
-    if (_features.empty()) {
+    if (_pFeatures.empty()) {
         // curFeatureMask all true.
         return;
     }
@@ -254,7 +254,7 @@ void FeatureTracker::externalTrack(const bool useRANSAC) {
             // Only consider those good matches.
             if (m.distance < std::max(_matchRatio * minDist, _minMatchDist)) {
                 pixelsCur.push_back(_curPixelsL[m.queryIdx]);
-                pixelsHist.push_back(_features[_histFeatureIDs[m.trainIdx]]->pixelL);
+                pixelsHist.push_back(_pFeatures[_histFeatureIDs[m.trainIdx]]->pixelL);
                 indexCur.push_back(m.queryIdx);
                 indexHist.push_back(m.trainIdx);
             }
@@ -288,9 +288,9 @@ void FeatureTracker::externalTrack(const bool useRANSAC) {
     
     // Search the correspondence of 'right' matching with 'left' matching.
     _matchedFeatureIDs.clear();
-    std::vector<cfsd::Ptr<MapPoint>>& points = _pMap->_pKeyframes.back()->points;
+    std::vector<size_t>& mapPointIDs = _pMap->_pKeyframes.back()->mapPointIDs;
     cv::Mat& descriptors = _pMap->_pKeyframes.back()->descriptors;
-    points.clear();
+    mapPointIDs.clear();
     descriptors = cv::Mat();
     matcher.match(_curDescriptorsR, _histDescriptorsR, matchesR);
     minDist = std::min_element(matchesR.begin(), matchesR.end(), [] (const cv::DMatch& m1, const cv::DMatch& m2) { return m1.distance < m2.distance; })->distance;
@@ -310,7 +310,8 @@ void FeatureTracker::externalTrack(const bool useRANSAC) {
                 if (uniqueFeature.find(featureID) != uniqueFeature.end()) continue;
                 uniqueFeature[featureID] = true;
                 
-                points.push_back(std::make_shared<MapPoint>(featureID, _curPixelsL[m.queryIdx], _features[featureID]->frameID, _features[featureID]->positionIdx));
+                _pMap->_pMapPoints[featureID]->addPixel(_frameID, _curPixelsL[m.queryIdx]);
+                mapPointIDs.push_back(featureID);
                 descriptors.push_back(_curDescriptorsL.row(m.queryIdx));
                 _matchedFeatureIDs.push_back(featureID);
                 // Will not be added as new features.
@@ -333,22 +334,22 @@ void FeatureTracker::featurePoolUpdate(const long& imgTimestamp) {
     // The number of new and old features in the pool should be well balanced.
     int eraseCount = 0;
     int insertCount = 0;
-    if (_verbose) std::cout << "# features in pool before updating: " << _features.size() << std::endl;
+    if (_verbose) std::cout << "# features in pool before updating: " << _pFeatures.size() << std::endl;
 
     // _age minus 1, will add 2 later.
     for (int i = 0; i < _matchedFeatureIDs.size(); i++) {
-        _features[_matchedFeatureIDs[i]]->age -= 1;
+        _pFeatures[_matchedFeatureIDs[i]]->age -= 1;
     }
 
     // age add 2 for all features, then erase too old features, and put the rest into _histDescriptors.
     _histFeatureIDs.clear();
     _histDescriptorsL = cv::Mat();
     _histDescriptorsR = cv::Mat();
-    auto f = _features.begin();
-    while (f != _features.end()) {
+    auto f = _pFeatures.begin();
+    while (f != _pFeatures.end()) {
         f->second->age += 2;
         if (f->second->age > _maxFeatureAge) {
-            f = _features.erase(f);
+            f = _pFeatures.erase(f);
             eraseCount++;
         }
         else {
@@ -363,8 +364,11 @@ void FeatureTracker::featurePoolUpdate(const long& imgTimestamp) {
     cv::Mat points4D;
     cv::triangulatePoints(_pCameraModel->_P1, _pCameraModel->_P2, _curPixelsL, _curPixelsR, points4D);
     
-    std::vector<cfsd::Ptr<MapPoint>>& points = _pMap->_pKeyframes.back()->points;
+    std::vector<size_t>& mapPointIDs = _pMap->_pKeyframes.back()->mapPointIDs;
     cv::Mat& descriptors = _pMap->_pKeyframes.back()->descriptors;
+
+    // _pMap->getBodyPose() gives the transformation from current body frame to world frame, T_WB.
+    Sophus::SE3d T_WB = _pMap->getBodyPose();
     
     for (int i = 0; i < _curFeatureMask.size(); i++) {
         // Points4D is in homogeneous coordinates.
@@ -378,39 +382,34 @@ void FeatureTracker::featurePoolUpdate(const long& imgTimestamp) {
                                                         points4D.at<double>(1,i) / points4D.at<double>(3,i),
                                                         depth);
 
-        // _pMap->getBodyPose() gives the transformation from current body frame to world frame, T_WB.
         // _pCameraModel->_T_BC gives the pre-calibrated transformation from camera to body/imu frame.
-        Eigen::Vector3d position = _pMap->getBodyPose() * _pCameraModel->_T_BC * point_wrt_cam;
+        Eigen::Vector3d position = T_WB * _pCameraModel->_T_BC * point_wrt_cam;
         
-        _pMap->_frameAndPoints[_frameID].push_back(position);
-
         // The map point is triangulated from this frame.
-        points.push_back(std::make_shared<MapPoint>(_featureID, _curPixelsL[i], _frameID, insertCount));
+        _pMap->_pMapPoints[_featureID] = std::make_shared<MapPoint>(position, _frameID, _curPixelsL[i]);
+        mapPointIDs.push_back(_featureID);
         descriptors.push_back(_curDescriptorsL.row(i));
 
         // Insert new features.
-        _features[_featureID] = std::make_shared<Feature>(_curPixelsL[i], _curDescriptorsL.row(i), _curDescriptorsR.row(i), _frameID, insertCount, 0);
+        _pFeatures[_featureID] = std::make_shared<Feature>(_frameID, _curPixelsL[i], _curDescriptorsL.row(i), _curDescriptorsR.row(i), 0);
         
         // Add these new features' descriptors to _hist for the convenience of next external matching.
         _histFeatureIDs.push_back(_featureID);
         _histDescriptorsL.push_back(_curDescriptorsL.row(i));
         _histDescriptorsR.push_back(_curDescriptorsR.row(i));
 
+        #ifdef USE_VIEWER
+        _pMap->_pViewer->pushLandmark(_frameID, position);
+        #endif
+
         _featureID++;
-        
         insertCount++;
     }
-
-   _pMap-> _numLandmarks += _pMap->_frameAndPoints[_frameID].size();
-    #ifdef USE_VIEWER
-    _pMap->_pViewer->pushLandmark(_pMap->_frameAndPoints[_frameID], _frameID);
-    #endif
-
     _frameID++;
 
     if (_verbose) {
-        std::cout << "# 3D points within 20 meters: " << insertCount << std::endl;
-        std::cout << "# features in pool after updaing: " << _features.size() << " (" << insertCount << " features inserted, " << eraseCount << " too old features erased)" << std::endl;
+        std::cout << "# 3D points within " << _maxDepth << " meters: " << insertCount << std::endl;
+        std::cout << "# features in pool after updaing: " << _pFeatures.size() << " (" << insertCount << " features inserted, " << eraseCount << " too old features erased)" << std::endl;
     }
 }
 
@@ -552,12 +551,11 @@ bool FeatureTracker::computeLoopInfo(const int& refFrameID, const int& curFrameI
     std::vector<cv::Point3d> objectPoints;
     for (auto& m : matches) {
         if (m.distance < std::max(_matchRatio * minDist, _minMatchDist)) {
-            cfsd::Ptr<MapPoint>& point1 = keyframe1->points[m.queryIdx];
-            // cfsd::Ptr<MapPoint>& point2 = keyframe2->points[m.trainIdx];
-            // Eigen::Vector3d position = (_pMap->_frameAndPoints[point1->frameID][point1->positionIdx] + _pMap->_frameAndPoints[point2->frameID][point2->positionIdx]) / 2;
-            Eigen::Vector3d position = _pMap->_frameAndPoints[point1->frameID][point1->positionIdx];
+            const size_t& mapPointID1 = keyframe1->mapPointIDs[m.queryIdx];
+            const Eigen::Vector3d& position = _pMap->_pMapPoints[mapPointID1]->position;
             objectPoints.push_back(cv::Point3d(position(0), position(1), position(2)));
-            imagePoints.push_back(keyframe2->points[m.trainIdx]->pixel);
+            const size_t& mapPointID2 = keyframe2->mapPointIDs[m.trainIdx];
+            imagePoints.push_back(_pMap->_pMapPoints[mapPointID2]->pixels[curFrameID]);
         }
     }
 

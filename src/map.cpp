@@ -5,7 +5,6 @@ namespace cfsd {
 Map::Map(const cfsd::Ptr<CameraModel>& pCameraModel, const bool verbose) : _pCameraModel(pCameraModel), _verbose(verbose) {
     
     _pKeyframes.push_back(std::make_shared<Keyframe>());
-    _frameAndPoints.push_back(std::vector<Eigen::Vector3d>());
 
     _minRotation = Config::get<double>("keyframeRotation");
     _minTranslation = Config::get<double>("keyframeTranslation");
@@ -66,7 +65,7 @@ void Map::pushSfm(const Eigen::Vector3d& r, const Eigen::Vector3d& p, const cfsd
 }
 
 void Map::repropagate(const int& start, const Eigen::Vector3d& delta_dbg, const Eigen::Vector3d& delta_dba) {
-    for (int i = 1; i < WINDOWSIZE; i++) {
+    for (int i = 1; i < INITWINDOWSIZE; i++) {
         cfsd::Ptr<ImuConstraint>& ic = _pKeyframes[start+i]->pImuConstraint;
         ic->bg_i = ic->bg_i + delta_dbg;
         ic->ba_i = ic->ba_i + delta_dba;
@@ -87,8 +86,8 @@ void Map::setInitialGravity(const Eigen::Vector3d& g) {
     }
 }
 
-void Map::updateInitialVelocity(const int& start, double delta_v[WINDOWSIZE][3]) {
-    for (int i = 0; i < WINDOWSIZE; i++)
+void Map::updateInitialVelocity(const int& start, double delta_v[INITWINDOWSIZE][3]) {
+    for (int i = 0; i < INITWINDOWSIZE; i++)
         _pKeyframes[start+i]->v = _pKeyframes[start+i]->v + Eigen::Vector3d(delta_v[i][0], delta_v[i][1], delta_v[i][2]);
         // _v[start+i] = _v[start+i] + Eigen::Vector3d(delta_v[i][0], delta_v[i][1], delta_v[i][2]);
 }
@@ -102,7 +101,7 @@ void Map::updateInitialRotation(const int& start, const Eigen::Vector3d& delta_r
         std::cout << "Rotate initial gravity (unit vector):\n" << dR * _init_gravity << std::endl;
     }
 
-    for (int i = 0; i < WINDOWSIZE; i++) {
+    for (int i = 0; i < INITWINDOWSIZE; i++) {
         // (world <- body) = (world <- initial body) * (initial body <- body)
         cfsd::Ptr<Keyframe>& sfmFrame = _pKeyframes[start+i];
         sfmFrame->R = dR * sfmFrame->R;
@@ -113,13 +112,13 @@ void Map::updateInitialRotation(const int& start, const Eigen::Vector3d& delta_r
 
 void Map::reset(const int& start) {
     // Keep the last sfm frame.
-    _pKeyframes[start] = _pKeyframes[start+WINDOWSIZE-1]; // initial keyframe
-    int n = _pKeyframes.size()-WINDOWSIZE+1;
+    _pKeyframes[start] = _pKeyframes[start+INITWINDOWSIZE-1]; // initial keyframe
+    int n = _pKeyframes.size()-INITWINDOWSIZE+1;
     _pKeyframes.resize(n);
 }
 
 void Map::pushImuConstraint(const cfsd::Ptr<ImuConstraint>& ic) {
-    if (_notPushed || _isKeyframe) {
+    if (_isKeyframe || _atBeginning) {
         // This is provided as initial value for ceres optimization.
         cfsd::Ptr<Keyframe>& latestKeyframe = _pKeyframes.back();
         Sophus::SO3d R_j = latestKeyframe->R * ic->delta_R_ij;
@@ -132,10 +131,8 @@ void Map::pushImuConstraint(const cfsd::Ptr<ImuConstraint>& ic) {
         newFrame->p = p_j;
         newFrame->pImuConstraint = ic;
         _pKeyframes.push_back(newFrame);
-        
-        _frameAndPoints.push_back(std::vector<Eigen::Vector3d>());
 
-        _notPushed = false;
+        _atBeginning = false;
     }
     else {
         cfsd::Ptr<Keyframe>& latestFrame = _pKeyframes.back();
@@ -162,6 +159,7 @@ void Map::checkKeyframe() {
     Eigen::Vector3d dr = T_ji.so3().log();
     Eigen::Vector3d dp = T_ji.translation();
 
+    // Integration time between two keyframes should not be too large because of the drifting nature of imu.
     _isKeyframe = (dr.norm() > _minRotation || dp.norm() > _minTranslation || _sumImuTime > _maxImuTime);
 
     if (_isKeyframe) {
@@ -170,6 +168,16 @@ void Map::checkKeyframe() {
     }
     else
         std::cout << "=> this frame NOT a keyframe" << std::endl;
+}
+
+void Map::manageMapPoints() {
+    if (!_isKeyframe) {
+        // The last frame is not a keyframe, so the relative recording in map points should be removed.
+        int frameID = _pKeyframes.size()-1;
+        for (auto& pair : _pMapPoints) {
+            pair.second->pixels.erase(frameID);
+        }
+    }
 }
 
 void Map::updateStates(double delta_pose[WINDOWSIZE][6], double delta_v_dbga[WINDOWSIZE][9]) {
@@ -223,13 +231,11 @@ void Map::updateStates(double delta_pose[WINDOWSIZE][6], double delta_v_dbga[WIN
 }
 
 void Map::updateImuBias(Eigen::Vector3d& bg_i, Eigen::Vector3d& ba_i) {
-    if (_isKeyframe) {
-        bg_i = _pKeyframes.back()->pImuConstraint->bg_i + _pKeyframes.back()->dbg;
-        ba_i = _pKeyframes.back()->pImuConstraint->ba_i + _pKeyframes.back()->dba;
-        if (_verbose) {
-            std::cout << "updated gyr bias:\n" << bg_i << std::endl;
-            std::cout << "updated acc bias:\n" << ba_i << std::endl;
-        }
+    bg_i = _pKeyframes.back()->pImuConstraint->bg_i + _pKeyframes.back()->dbg;
+    ba_i = _pKeyframes.back()->pImuConstraint->ba_i + _pKeyframes.back()->dba;
+    if (_verbose) {
+        std::cout << "updated gyr bias:\n" << bg_i << std::endl;
+        std::cout << "updated acc bias:\n" << ba_i << std::endl;
     }
 }
 

@@ -10,7 +10,9 @@
 #include <opencv2/features2d/features2d.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
 
-// #include <opencv2/highgui/highgui.hpp>
+#ifdef SHOW_IMG
+#include <opencv2/highgui/highgui.hpp>
+#endif
 
 namespace cfsd {
 
@@ -120,7 +122,7 @@ class FeatureTracker {
     // - matched features' _age will be updated
     // - old features that are not useful anymore would be removed
     // so std::map container is choosed due to the efficient access, insert and erase operation.
-    std::unordered_map<size_t, cfsd::Ptr<Feature>> _features;
+    std::unordered_map<size_t, cfsd::Ptr<Feature>> _pFeatures;
 
     // If the image is cropped, the pixel coordinate would be different with the uncropped ones.
     int _cropOffset{0};

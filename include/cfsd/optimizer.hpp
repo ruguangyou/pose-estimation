@@ -4,11 +4,6 @@
 #include "cfsd/cost-functions.hpp"
 #include "cfsd/config.hpp"
 
-#ifdef SHOW_IMG
-#include <opencv2/highgui/highgui.hpp>
-#endif
-#include <opencv2/imgproc/imgproc.hpp>
-
 namespace cfsd {
 
 class Optimizer {
@@ -23,7 +18,7 @@ class Optimizer {
            frames: #  #  #  #  #  #  #  $    (# is keyframe, $ is latest frame)
                    | <=fixed=> |  | <=> | <- local-window to be optimizer
     */
-    void motionOnlyBA(const cv::Mat& img);
+    void motionOnlyBA();
 
     void globalOptimize();
 
@@ -54,13 +49,8 @@ class Optimizer {
 
     double _fx{0}, _fy{0}, _cx{0}, _cy{0};
     Eigen::Matrix2d _invStdT;
-
-    int _marginalizeFrames{0};
-    double _marginalizeWeight{0.0};
     
     double _priorWeight{0.0};
-
-    int _delay{0};
 
     bool _minimizerProgressToStdout{true};
     int _maxNumIterations{0};
