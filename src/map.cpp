@@ -164,18 +164,18 @@ void Map::checkKeyframe() {
 
     if (_isKeyframe) {
         _sumImuTime = 0;
-        std::cout << "=> this frame IS a keyframe" << std::endl;
+        if (_verbose) std::cout << "=> this frame IS a keyframe" << std::endl << std::endl;
     }
     else
-        std::cout << "=> this frame NOT a keyframe" << std::endl;
+        if (_verbose) std::cout << "=> this frame NOT a keyframe" << std::endl << std::endl;
 }
 
 void Map::manageMapPoints() {
     // If there are too many map points, erase those only seen by few frames.
     int minFrames = 0;
-    if (_pMapPoints.size() > 9000) minFrames = 3;
-    else if (_pMapPoints.size() > 6000) minFrames = 2;
-    else if (_pMapPoints.size() > 3000) minFrames = 1;
+    if (_pMapPoints.size() > 10000) minFrames = 3;
+    else if (_pMapPoints.size() > 8000) minFrames = 2;
+    else if (_pMapPoints.size() > 5000) minFrames = 1;
 
     if (minFrames > 0) {
         auto iter = _pMapPoints.begin();

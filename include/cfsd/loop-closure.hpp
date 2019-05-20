@@ -51,6 +51,8 @@ class LoopClosure {
 
     bool _toCloseLoop{false};
 
+    int _wait{0}; // wait until the "current frame" goes out the sliding window, to avoid concurrent updating against motion-only BA.
+
     int _loopFrameID{-1}, _lastLoopFrameID{-1}, _curFrameID{-1};
 
     std::mutex _dataMutex{};

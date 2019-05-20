@@ -212,9 +212,9 @@ void FeatureTracker::internalMatch(const cv::Mat& imgLeft, const cv::Mat& imgRig
     }
 
     // Use all descriptors in bag-of-words model.
-    // descriptorsMat = descriptorsL;
+    descriptorsMat = descriptorsL;
     // Use well matched descriptors in bag-of-words model.
-    descriptorsMat = _curDescriptorsL;
+    // descriptorsMat = _curDescriptorsL;
 }
 
 void FeatureTracker::externalTrack(const bool useRANSAC) {

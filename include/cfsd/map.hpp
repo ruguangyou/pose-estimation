@@ -9,7 +9,7 @@
 // Local sliding-window size.
 #define WINDOWSIZE 4
 // Initialization window size.
-#define INITWINDOWSIZE 6
+#define INITWINDOWSIZE 4
 
 #ifdef USE_VIEWER
 #include "cfsd/viewer.hpp"

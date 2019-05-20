@@ -50,7 +50,7 @@ bool VisualInertialSLAM::process(const cv::Mat& grayL, const cv::Mat& grayR, con
                 return false;
             }
             end = std::chrono::steady_clock::now();
-            std::cout << "Imu-preintegration elapsed time: " << std::chrono::duration<double, std::milli>(end-start).count() << "ms" << std::endl << std::endl;
+            if(_verbose) std::cout << "Imu-preintegration elapsed time: " << std::chrono::duration<double, std::milli>(end-start).count() << "ms" << std::endl << std::endl;
             _pMap->pushImuConstraint(_pImuPreintegrator->_ic);
 
             // Do feature tracking.
@@ -58,10 +58,10 @@ bool VisualInertialSLAM::process(const cv::Mat& grayL, const cv::Mat& grayR, con
             start = std::chrono::steady_clock::now();
             bool emptyMatch = _pFeatureTracker->processImage(imgL, imgR, descriptorsMat);
             end = std::chrono::steady_clock::now();
-            std::cout << "Feature-tracking elapsed time: " << std::chrono::duration<double, std::milli>(end-start).count() << "ms" << std::endl << std::endl;
+            if(_verbose) std::cout << "Feature-tracking elapsed time: " << std::chrono::duration<double, std::milli>(end-start).count() << "ms" << std::endl << std::endl;
 
             if (emptyMatch) {
-                std::cout << "Current image frame has no match with history frames!" << std::endl << std::endl;
+                if(_verbose) std::cout << "Current image frame has no match with history frames!" << std::endl << std::endl;
                 // if (++_noMatch > 3)
                 //     _state = LOST;
                 break;
@@ -71,11 +71,11 @@ bool VisualInertialSLAM::process(const cv::Mat& grayL, const cv::Mat& grayR, con
             start = std::chrono::steady_clock::now();
             _pOptimizer->motionOnlyBA();
             end = std::chrono::steady_clock::now();
-            std::cout << "Motion-only BA elapsed time: " << std::chrono::duration<double, std::milli>(end-start).count() << "ms" << std::endl << std::endl;
+            if(_verbose) std::cout << "Motion-only BA elapsed time: " << std::chrono::duration<double, std::milli>(end-start).count() << "ms" << std::endl << std::endl;
   
             // TODO................................
             if (_pMap->_needReinitialize) {
-                std::cout << "Bias corrupted, need reintialization." << std::endl << std::endl;
+                if(_verbose) std::cout << "Bias corrupted, need reintialization." << std::endl << std::endl;
                 // _state = INITIALIZING;
                 // break;
             }
@@ -97,20 +97,20 @@ bool VisualInertialSLAM::process(const cv::Mat& grayL, const cv::Mat& grayR, con
                 start = std::chrono::steady_clock::now();
                 _pFeatureTracker->featurePoolUpdate(imgTimestamp);
                 end = std::chrono::steady_clock::now();
-                std::cout << "Feature pool update elapsed time: " << std::chrono::duration<double, std::milli>(end-start).count() << "ms" << std::endl << std::endl;
+                if(_verbose) std::cout << "Feature pool update elapsed time: " << std::chrono::duration<double, std::milli>(end-start).count() << "ms" << std::endl << std::endl;
 
                 // Add left image (in the form of descriptors) to the bag-of-words database.
                 start = std::chrono::steady_clock::now();
                 _pLoopClosure->addImage(descriptorsMat);
                 end = std::chrono::steady_clock::now();
-                std::cout << "Add image to database elapsed time: " << std::chrono::duration<double, std::milli>(end-start).count() << "ms" << std::endl << std::endl;
+                if(_verbose) std::cout << "Add image to database elapsed time: " << std::chrono::duration<double, std::milli>(end-start).count() << "ms" << std::endl << std::endl;
 
                 // Detect loop for the newly inserted keyframe.
                 start = std::chrono::steady_clock::now();
                 int curFrameID = _pMap->_pKeyframes.size()-1;
                 int minLoopFrameID = _pLoopClosure->detectLoop(descriptorsMat, curFrameID);
                 end = std::chrono::steady_clock::now();
-                std::cout << "Query database elapsed time: " << std::chrono::duration<double, std::milli>(end-start).count() << "ms" << std::endl << std::endl;
+                if(_verbose) std::cout << "Query database elapsed time: " << std::chrono::duration<double, std::milli>(end-start).count() << "ms" << std::endl << std::endl;
                 
                 if (minLoopFrameID >= 0) {
                     // A possible loop candidate, set the flag for further processing.
@@ -154,7 +154,7 @@ bool VisualInertialSLAM::process(const cv::Mat& grayL, const cv::Mat& grayR, con
                     _sfmCount++;
                 }
                 end = std::chrono::steady_clock::now();
-                std::cout << "SfM elapsed time: " << std::chrono::duration<double, std::milli>(end-start).count() << "ms" << std::endl << std::endl;
+                if (_verbose) std::cout << "SfM elapsed time: " << std::chrono::duration<double, std::milli>(end-start).count() << "ms" << std::endl << std::endl;
             }
             else {
                 // Assume the vehicle doesn't move during initialization.

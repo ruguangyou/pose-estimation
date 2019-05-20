@@ -702,7 +702,7 @@ struct ImuCostFunction4DOF : public ceres::SizedCostFunction<9, /* residuals */
         }
 
         // Jacobian(9x4) of residuals(9x1) w.r.t. ParameterBlock[1](4x1), i.e. delta_yaw_p_j
-        if (jacobians[2]) {
+        if (jacobians[1]) {
             Eigen::Map<Eigen::Matrix<double, 9, 4, Eigen::RowMajor>> jacobian_yaw_p_j(jacobians[1]);
 
             jacobian_yaw_p_j.setZero();

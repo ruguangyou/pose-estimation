@@ -32,16 +32,17 @@ void LoopClosure::run() {
     
     while(true) {
         bool toCloseLoop;
-        int loopFrameID;
-        int curFrameID;
+        int wait, loopFrameID, curFrameID;
         {
             std::lock_guard<std::mutex> dataLock(_dataMutex);
             toCloseLoop = _toCloseLoop;
+            wait = _wait;
             loopFrameID = _loopFrameID;
             curFrameID = _curFrameID;
         }
-        
-        if (toCloseLoop) {
+
+        if (toCloseLoop && wait == WINDOWSIZE) {
+            std::cout << "Try to close loop with frame " << loopFrameID << " and frame " << curFrameID << std::endl << std::endl;
             Eigen::Vector3d r, p;
             start = std::chrono::steady_clock::now();
             if (computeLoopInfo(loopFrameID, curFrameID, r, p)) {
@@ -59,9 +60,12 @@ void LoopClosure::run() {
                 _pMap->_pViewer->pushLoopConnection(loopFrameID, curFrameID);
                 #endif
             }
+
+            std::lock_guard<std::mutex> dataLock(_dataMutex);
+            _toCloseLoop = false;
         }
 
-        std::this_thread::sleep_for(std::chrono::milliseconds(5));
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
     }
 }
 
@@ -90,7 +94,7 @@ int LoopClosure::detectLoop(const cv::Mat& descriptorsMat, const int& frameID) {
         _db.query(descriptorsVec, ret, 4, frameID-_minFrameInterval);
     }
 
-    std::cout << "Searching for current frame. " << ret << std::endl;
+    if (_verbose) std::cout << "Searching for current frame. " << ret << std::endl;
 
     bool findLoop = false;
     // ret[0] is the most similar image, so should set a higher score limit for it.
@@ -112,7 +116,7 @@ int LoopClosure::detectLoop(const cv::Mat& descriptorsMat, const int& frameID) {
             if (ret[i].Id < minFrameID) 
                 minFrameID = ret[i].Id;
 
-        std::cout << "loop closure candidate, frame id: " << minFrameID << std::endl << std::endl;
+        std::cout << "loop closure candidate frame id: " << minFrameID << ", current frame id: " << frameID << std::endl << std::endl;
     }
 
     return (minFrameID == frameID) ? -1 : minFrameID;
@@ -120,6 +124,7 @@ int LoopClosure::detectLoop(const cv::Mat& descriptorsMat, const int& frameID) {
 
 void LoopClosure::setToCloseLoop(const int& minLoopFrameID, const int& curFrameID) {
     std::lock_guard<std::mutex> dataLock(_dataMutex);
+    _wait = 0;
     _toCloseLoop = true;
     _loopFrameID = minLoopFrameID;
     _curFrameID = curFrameID;
@@ -127,7 +132,7 @@ void LoopClosure::setToCloseLoop(const int& minLoopFrameID, const int& curFrameI
 
 void LoopClosure::setToCloseLoop() {
     std::lock_guard<std::mutex> dataLock(_dataMutex);
-    _toCloseLoop = false;
+    _wait++;
 }
 
 bool LoopClosure::computeLoopInfo(const int& loopFrameID, const int& curFrameID, Eigen::Vector3d& r, Eigen::Vector3d& p) {
@@ -139,7 +144,7 @@ bool LoopClosure::computeLoopInfo(const int& loopFrameID, const int& curFrameID,
     matcher.match(loopFrame->descriptors, curFrame->descriptors, matches);
 
     if (matches.size() < 40) {
-        std::cout << "Too few matches" << std::endl;
+        std::cout << "Too few matches: " << matches.size() << std::endl;
         return false;
     }
 
@@ -165,8 +170,8 @@ bool LoopClosure::computeLoopInfo(const int& loopFrameID, const int& curFrameID,
         }
     }
 
-    if (imagePoints.size() < 20) {
-        std::cout << "Too few points" << std::endl;
+    if (imagePoints.size() < 15) {
+        std::cout << "Too few points: " << imagePoints.size() << std::endl;
         return false;
     }
 
