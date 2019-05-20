@@ -171,12 +171,33 @@ void Map::checkKeyframe() {
 }
 
 void Map::manageMapPoints() {
+    // If there are too many map points, erase those only seen by few frames.
+    int minFrames = 0;
+    if (_pMapPoints.size() > 6000) minFrames = 2;
+    else if (_pMapPoints.size() > 3000) minFrames = 1;
+
+    if (minFrames > 0) {
+        auto iter = _pMapPoints.begin();
+        // Keep the latest map points untouched.    
+        for (int i = 0; i < _pMapPoints.size() - 500; i++) {
+            if (iter->second->pixels.size() <= minFrames)
+                iter = _pMapPoints.erase(iter);
+            else
+                iter++;
+        }
+    }
+
     if (!_isKeyframe) {
         // The last frame is not a keyframe, so the relative recording in map points should be removed.
         int frameID = _pKeyframes.size()-1;
-        for (auto& pair : _pMapPoints) {
-            pair.second->pixels.erase(frameID);
+        for (auto mapPointID : _pKeyframes.back()->mapPointIDs) {
+            // Some unnecessary map points might have been erased.
+            if (_pMapPoints.find(mapPointID) == _pMapPoints.end())
+                continue;
+            _pMapPoints[mapPointID]->pixels.erase(frameID);
         }
+        _pKeyframes.back()->mapPointIDs.clear();
+        _pKeyframes.back()->descriptors = cv::Mat();
     }
 }
 
@@ -264,7 +285,27 @@ void Map::updateAllStates(double** delta_pose, double** delta_v_dbga) {
     // #endif
 }
 
+void Map::pushLoopInfo(const int& curFrameID, const int& loopFrameID, const Eigen::Vector3d& rLoopToCur, const Eigen::Vector3d& pLoopToCur) {
+    Sophus::SO3d R = Sophus::SO3d::exp(rLoopToCur);
+
+    std::lock_guard<std::mutex> loopLock(_loopMutex);
+    _pLoopInfos[curFrameID] = std::make_shared<LoopInfo>(loopFrameID, R, pLoopToCur);
+}
+
+bool Map::getLoopInfo(const int& curFrameID, int& loopFrameID, Sophus::SO3d& R, Eigen::Vector3d& p) {
+    std::lock_guard<std::mutex> loopLock(_loopMutex);
+    
+    if (_pLoopInfos.find(curFrameID) == _pLoopInfos.end())
+        return false;
+    
+    loopFrameID = _pLoopInfos[curFrameID]->loopFrameID;
+    R = _pLoopInfos[curFrameID]->R;
+    p = _pLoopInfos[curFrameID]->p;
+    return true;
+}
+
 Sophus::SE3d Map::getBodyPose() {
+    // Return the latest frame's pose, i.e. T_WB.
     return Sophus::SE3d(_pKeyframes.back()->R, _pKeyframes.back()->p);
 }
 

@@ -7,9 +7,6 @@
 #include "cfsd/map.hpp"
 #include "ORBextractor.h"
 
-#include <opencv2/features2d/features2d.hpp>
-#include <opencv2/imgproc/imgproc.hpp>
-
 #ifdef SHOW_IMG
 #include <opencv2/highgui/highgui.hpp>
 #endif
@@ -44,8 +41,6 @@ class FeatureTracker {
     // SfM: use RANSAC scheme for outlier rejection, and solve 3D-2D PnP problem (in particular, P3P problem).
     // This is used in initialization.
     bool structFromMotion(const cv::Mat& grayLeft, const cv::Mat& grayRight, Eigen::Vector3d& r, Eigen::Vector3d& p, const bool atBeginning = false);
-
-    bool computeLoopInfo(const int& refFrameID, const int& curFrameID, Eigen::Vector3d& r, Eigen::Vector3d& p);
 
   private:
     const bool _verbose;

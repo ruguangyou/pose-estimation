@@ -44,9 +44,11 @@ class VisualInertialSLAM {
 
     void collectImuData(const cfsd::SensorType& st, const long& timestamp, const float& x, const float& y, const float& z);
 
-    void loopClosure();
-
     void saveResults();
+
+    #ifdef SHOW_IMG
+    void showImage(cv::Mat& imgL);
+    #endif
 
   private:
     const bool _verbose;
@@ -72,12 +74,12 @@ class VisualInertialSLAM {
 
     int _sfmCount{0};
 
-    // Frame ID.
-    size_t _keyframeID{0};
+    std::thread _loopThread{};
 
-    std::mutex _loopMutex{};
-    int _loopFrameID{0};
-    bool _toCloseLoop{false};
+    #ifdef USE_VIEWER
+    cfsd::Ptr<Viewer> _pViewer{};
+    std::thread _viewerThread{};
+    #endif
 };
 
 } // namespace cfsd

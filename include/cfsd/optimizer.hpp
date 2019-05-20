@@ -20,8 +20,6 @@ class Optimizer {
     */
     void motionOnlyBA();
 
-    void globalOptimize();
-
     // Estimate initial IMU bias, align initial IMU acceleration to gravity.
     void initialGravityVelocity();
     
@@ -31,7 +29,11 @@ class Optimizer {
 
     void initialAccBias();
 
-    // void localOptimize();
+    void loopCorrection(const int& curFrameID);
+
+    void fullBA();
+
+    bool linearizeReprojection(const size_t& mapPointID, const int& startFrameID, std::vector<double*>& delta_pose_img, int& errorTerms, Eigen::VectorXd& error, Eigen::MatrixXd F);
 
   private:
     const bool _verbose;
@@ -58,9 +60,7 @@ class Optimizer {
     int _numThreads{0};
     bool _checkGradients{false};
 
-  // public:
-  //   std::vector<Eigen::Vector3d> _accs;
-  //   std::vector<Eigen::Vector3d> _gyrs;
+    // std::mutex _loopMutex{};
 };
 
 } // namespace cfsd

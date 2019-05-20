@@ -45,7 +45,10 @@ class Map {
 
     void updateAllStates(double** delta_pose, double** delta_v_dbga);
 
-    // TODO................
+    void pushLoopInfo(const int& curFrameID, const int& loopFrameID, const Eigen::Vector3d& rLoopToCur, const Eigen::Vector3d& pLoopToCur);
+
+    bool getLoopInfo(const int& curFrameID, int& loopFrameID, Sophus::SO3d& R, Eigen::Vector3d& p);
+
     Sophus::SE3d getBodyPose();
 
     #ifdef USE_VIEWER
@@ -70,6 +73,8 @@ class Map {
     double _maxAccBias{0};
 
     bool _atBeginning{true};
+
+    std::mutex _loopMutex{};
     
   public:
     // Gravity vector.
@@ -84,7 +89,12 @@ class Map {
     // Store keyframes' states and temperorily store current states.
     std::vector<cfsd::Ptr<Keyframe>> _pKeyframes{};
 
+    // MapPoint ID : MapPoint pointer
     std::map<size_t, cfsd::Ptr<MapPoint>> _pMapPoints{};
+
+    // Current frame ID : LoopInfo pointer
+    std::unordered_map<int, cfsd::Ptr<LoopInfo>> _pLoopInfos{};
+
 
     bool _isKeyframe{false};
 

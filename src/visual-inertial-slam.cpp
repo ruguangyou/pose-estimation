@@ -15,10 +15,17 @@ VisualInertialSLAM::VisualInertialSLAM(const bool verbose) :
 
     _pOptimizer = std::make_shared<Optimizer>(_pMap, _pFeatureTracker, _pImuPreintegrator, _pCameraModel, verbose);
 
-    _pLoopClosure = std::make_shared<LoopClosure>(verbose);
+    _pLoopClosure = std::make_shared<LoopClosure>(_pMap, _pOptimizer, _pCameraModel, verbose);
 
-    std::thread loopThread(&VisualInertialSLAM::loopClosure, this);
-    loopThread.detach();
+    if (Config::get<bool>("loopClosure"))
+        _loopThread = std::thread(&LoopClosure::run, _pLoopClosure);
+
+    #ifdef USE_VIEWER
+    // A thread for visulizing.
+    _pViewer = std::make_shared<Viewer>();
+    _pMap->_pViewer = _pViewer;
+    _viewerThread = std::thread(&Viewer::run, _pViewer); // no need to detach, since there is a while loop in Viewer::run()
+    #endif
 }
 
 bool VisualInertialSLAM::process(const cv::Mat& grayL, const cv::Mat& grayR, const long& imgTimestamp) {
@@ -73,32 +80,14 @@ bool VisualInertialSLAM::process(const cv::Mat& grayL, const cv::Mat& grayR, con
             }
 
             #ifdef SHOW_IMG
-            // Show pixels and reprojected pixels after optimization.
-            int yOffset = _pFeatureTracker->_cropOffset;
-            const cfsd::Ptr<Keyframe>& latestFrame = _pMap->_pKeyframes.back();
-            for (auto mapPointID : latestFrame->mapPointIDs) {
-                cfsd::Ptr<MapPoint> mp = _pMap->_pMapPoints[mapPointID];
-                Eigen::Vector3d pixel_homo = _pCameraModel->_P_L.block<3,3>(0,0) * (_pCameraModel->_T_CB * (latestFrame->R.inverse() * (mp->position - latestFrame->p)));
-                cv::Point2d& pixel = mp->pixels[_pMap->_pKeyframes.size()-1];
-                #ifdef CFSD
-                cv::rectangle(imgL, cv::Point(pixel.x-4, pixel.y-4 + yOffset), cv::Point(pixel.x+4, pixel.y+4 + yOffset), cv::Scalar(0));
-                cv::circle(imgL, cv::Point(pixel_homo(0)/pixel_homo(2), pixel_homo(1)/pixel_homo(2) + yOffset), 3, cv::Scalar(255));
-                #else
-                cv::rectangle(imgL, cv::Point(pixel.x-4, pixel.y-4), cv::Point(pixel.x+4, pixel.y+4), cv::Scalar(0));
-                cv::circle(imgL, cv::Point(pixel_homo(0)/pixel_homo(2), pixel_homo(1)/pixel_homo(2)), 3, cv::Scalar(255));
-                #endif
-            }
-            cv::Mat out;
-            cv::vconcat(imgL, cv::Mat::zeros(25, imgL.cols, CV_8U), out);
-            std::stringstream text;
-            text << "#keyframes: " << _pMap->_pKeyframes.size()-1 << ", #map points: " << _pMap->_pMapPoints.size() << ", #points in current frame: " << latestFrame->mapPointIDs.size();
-            cv::putText(out, text.str(), cv::Point(4, out.rows-8), cv::FONT_HERSHEY_PLAIN, 1, cv::Scalar(255), 1);
-            cv::imshow("pixel (black square) vs. reprojected pixel (white circle)", out);
-            cv::waitKey(Config::get<int>("delay"));
+            showImage(imgL);
             #endif
 
             // This step should be after the motion-only BA, s.t. we can know if current frame is keyframe and also the current camera pose.
             _pMap->checkKeyframe();
+
+            _pMap->manageMapPoints();
+
             if (_pMap->_isKeyframe) {
                 _pImuPreintegrator->updateBias();
                 _pImuPreintegrator->reset();
@@ -108,29 +97,28 @@ bool VisualInertialSLAM::process(const cv::Mat& grayL, const cv::Mat& grayR, con
                 end = std::chrono::steady_clock::now();
                 std::cout << "Feature pool update elapsed time: " << std::chrono::duration<double, std::milli>(end-start).count() << "ms" << std::endl << std::endl;
 
-                // Add left images (in the form of descriptors) to the bag-of-words database.
+                // Add left image (in the form of descriptors) to the bag-of-words database.
                 start = std::chrono::steady_clock::now();
                 _pLoopClosure->addImage(descriptorsMat);
                 end = std::chrono::steady_clock::now();
                 std::cout << "Add image to database elapsed time: " << std::chrono::duration<double, std::milli>(end-start).count() << "ms" << std::endl << std::endl;
 
                 // Detect loop for the newly inserted keyframe.
-                std::lock_guard<std::mutex> loopLock(_loopMutex);
                 start = std::chrono::steady_clock::now();
-                int minFrameID = _pLoopClosure->detectLoop(descriptorsMat, ++_keyframeID);
+                int curFrameID = _pMap->_pKeyframes.size()-1;
+                int minLoopFrameID = _pLoopClosure->detectLoop(descriptorsMat, curFrameID);
                 end = std::chrono::steady_clock::now();
                 std::cout << "Query database elapsed time: " << std::chrono::duration<double, std::milli>(end-start).count() << "ms" << std::endl << std::endl;
-                if (minFrameID > 0) {
-                    _loopFrameID = minFrameID;
-                    _toCloseLoop = true;
-                    #ifdef USE_VIEWER
-                    _pMap->pushLoopInfo(_loopFrameID, _keyframeID);
-                    #endif
+                
+                if (minLoopFrameID >= 0) {
+                    // A possible loop candidate, set the flag for further processing.
+                    _pLoopClosure->setToCloseLoop(minLoopFrameID, curFrameID);
+                }
+                else {
+                    // No loop candidate, set _toCloseLoop to false via overloading function.
+                    _pLoopClosure->setToCloseLoop();
                 }
             }
-
-            _pMap->manageMapPoints();
-
             break;
         }
         case SYNCHRONIZING:
@@ -244,37 +232,6 @@ bool VisualInertialSLAM::process(const cv::Mat& grayL, const cv::Mat& grayR, con
     return true;
 }
 
-void VisualInertialSLAM::loopClosure() {
-    auto start = std::chrono::steady_clock::now();
-    auto end = std::chrono::steady_clock::now();
-    bool ready;
-    int refFrameID, curFrameID;
-    while(true) {
-        {
-            std::lock_guard<std::mutex> loopLock(_loopMutex);
-            ready = _toCloseLoop;
-            refFrameID = _loopFrameID;
-            curFrameID = _keyframeID;
-            _toCloseLoop = false;
-        }
-        
-        if (ready) {
-            Eigen::Vector3d r, p;
-            start = std::chrono::steady_clock::now();
-            if (!_pFeatureTracker->computeLoopInfo(refFrameID, curFrameID, r, p))
-                continue;
-            end = std::chrono::steady_clock::now();
-            std::cout << "Compute PnP for loop elapsed time: " << std::chrono::duration<double, std::milli>(end-start).count() << "ms" << std::endl << std::endl;
-
-            // // _pOptimizer->optimizeLoop(refFrameID, curFrameID, r, p);
-            // #ifdef USE_VIEWER
-            // _pMap->pushLoopInfo(refFrameID, curFrameID);
-            // #endif
-        }
-        std::this_thread::sleep_for(std::chrono::milliseconds(1000));
-    }
-}
-
 void VisualInertialSLAM::collectImuData(const cfsd::SensorType& st, const long& timestamp, const float& x, const float& y, const float& z) {
     switch (st) {
         case ACCELEROMETER:
@@ -322,10 +279,10 @@ void VisualInertialSLAM::saveResults() {
     }
     ofs.close();
     
-    if (Config::get<bool>("doGlobalOptimize")) {
+    if (Config::get<bool>("globalOptimize")) {
         std::cout << std::endl << "Perfrom global optimization..." << std::endl;
         auto start = std::chrono::steady_clock::now();
-        _pOptimizer->globalOptimize();
+        _pOptimizer->fullBA();
         auto end = std::chrono::steady_clock::now();
         std::cout << "Global optimization done! elapsed time: " << std::chrono::duration<double, std::milli>(end-start).count() << "ms" << std::endl << std::endl;
         
@@ -356,6 +313,38 @@ void VisualInertialSLAM::saveResults() {
     }
 
     std::cout << "Saved" << std::endl << std::endl;
+
+    #ifdef USE_VIEWER
+    if (_viewerThread.joinable())
+        _viewerThread.join();
+    #endif
 }
+
+#ifdef SHOW_IMG
+void VisualInertialSLAM::showImage(cv::Mat& imgL) {
+    // Show pixels and reprojected pixels after optimization.
+    int yOffset = _pFeatureTracker->_cropOffset;
+    const cfsd::Ptr<Keyframe>& latestFrame = _pMap->_pKeyframes.back();
+    for (auto mapPointID : latestFrame->mapPointIDs) {
+        cfsd::Ptr<MapPoint> mp = _pMap->_pMapPoints[mapPointID];
+        Eigen::Vector3d pixel_homo = _pCameraModel->_P_L.block<3,3>(0,0) * (_pCameraModel->_T_CB * (latestFrame->R.inverse() * (mp->position - latestFrame->p)));
+        cv::Point2d& pixel = mp->pixels[_pMap->_pKeyframes.size()-1];
+        #ifdef CFSD
+        cv::rectangle(imgL, cv::Point(pixel.x-4, pixel.y-4 + yOffset), cv::Point(pixel.x+4, pixel.y+4 + yOffset), cv::Scalar(0));
+        cv::circle(imgL, cv::Point(pixel_homo(0)/pixel_homo(2), pixel_homo(1)/pixel_homo(2) + yOffset), 3, cv::Scalar(255));
+        #else
+        cv::rectangle(imgL, cv::Point(pixel.x-4, pixel.y-4), cv::Point(pixel.x+4, pixel.y+4), cv::Scalar(0));
+        cv::circle(imgL, cv::Point(pixel_homo(0)/pixel_homo(2), pixel_homo(1)/pixel_homo(2)), 3, cv::Scalar(255));
+        #endif
+    }
+    cv::Mat out;
+    cv::vconcat(imgL, cv::Mat::zeros(25, imgL.cols, CV_8U), out);
+    std::stringstream text;
+    text << "#keyframes: " << _pMap->_pKeyframes.size()-1 << ", #map points: " << _pMap->_pMapPoints.size() << ", #points in current frame: " << latestFrame->mapPointIDs.size();
+    cv::putText(out, text.str(), cv::Point(4, out.rows-8), cv::FONT_HERSHEY_PLAIN, 1, cv::Scalar(255), 1);
+    cv::imshow("pixel (black square) vs. reprojected pixel (white circle)", out);
+    cv::waitKey(Config::get<int>("delay"));
+}
+#endif
 
 } // namespace cfsd

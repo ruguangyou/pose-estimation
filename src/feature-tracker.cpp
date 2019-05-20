@@ -290,8 +290,6 @@ void FeatureTracker::externalTrack(const bool useRANSAC) {
     _matchedFeatureIDs.clear();
     std::vector<size_t>& mapPointIDs = _pMap->_pKeyframes.back()->mapPointIDs;
     cv::Mat& descriptors = _pMap->_pKeyframes.back()->descriptors;
-    mapPointIDs.clear();
-    descriptors = cv::Mat();
     matcher.match(_curDescriptorsR, _histDescriptorsR, matchesR);
     minDist = std::min_element(matchesR.begin(), matchesR.end(), [] (const cv::DMatch& m1, const cv::DMatch& m2) { return m1.distance < m2.distance; })->distance;
     std::unordered_map<size_t, bool> uniqueFeature;
@@ -309,6 +307,9 @@ void FeatureTracker::externalTrack(const bool useRANSAC) {
                 // Avoid adding repeated elements, which is due to one orb keypoint can be matched more than one time during matching.
                 if (uniqueFeature.find(featureID) != uniqueFeature.end()) continue;
                 uniqueFeature[featureID] = true;
+                
+                // Some unnecessary map points might have been erased.
+                if (_pMap->_pMapPoints.find(featureID) == _pMap->_pMapPoints.end()) continue;
                 
                 _pMap->_pMapPoints[featureID]->addPixel(_frameID, _curPixelsL[m.queryIdx]);
                 mapPointIDs.push_back(featureID);
@@ -522,61 +523,13 @@ bool FeatureTracker::structFromMotion(const cv::Mat& grayLeft, const cv::Mat& gr
     if (_verbose) std::cout << "solvePnPRansac elapsed time: " << std::chrono::duration<double, std::milli>(end-start).count() << "ms" << std::endl;
 
     // std::cout << r.norm() << std::endl << p.norm() << std::endl;
-    // if either rotation or translation is significant, keep this frame.
+    // If either rotation or translation is significant, keep this frame.
     if (r.norm() > _minRotation || p.norm() > _minTranslation) {
         _refKeypointsL = keypointsL;
         _refDescriptorsL = descriptorsL;
         return true;
     }
     return false;
-}
-
-bool FeatureTracker::computeLoopInfo(const int& refFrameID, const int& curFrameID, Eigen::Vector3d& r, Eigen::Vector3d& p) {
-    cfsd::Ptr<Keyframe>& keyframe1 = _pMap->_pKeyframes[refFrameID];
-    cfsd::Ptr<Keyframe>& keyframe2 = _pMap->_pKeyframes[curFrameID];
-    
-    cv::BFMatcher matcher(cv::NORM_HAMMING); // Brute Force Mathcer
-    std::vector<cv::DMatch> matches;
-    matcher.match(keyframe1->descriptors, keyframe2->descriptors, matches);
-
-    if (matches.size() < 40) {
-        std::cout << "Too few matches" << std::endl;
-        return false;
-    }
-
-    float minDist = std::min_element(matches.begin(), matches.end(), [] (const cv::DMatch& m1, const cv::DMatch& m2) { return m1.distance < m2.distance; })->distance;
-
-    // Only keep good matches.
-    std::vector<cv::Point2d> imagePoints;
-    std::vector<cv::Point3d> objectPoints;
-    for (auto& m : matches) {
-        if (m.distance < std::max(_matchRatio * minDist, _minMatchDist)) {
-            const size_t& mapPointID1 = keyframe1->mapPointIDs[m.queryIdx];
-            const Eigen::Vector3d& position = _pMap->_pMapPoints[mapPointID1]->position;
-            objectPoints.push_back(cv::Point3d(position(0), position(1), position(2)));
-            const size_t& mapPointID2 = keyframe2->mapPointIDs[m.trainIdx];
-            imagePoints.push_back(_pMap->_pMapPoints[mapPointID2]->pixels[curFrameID]);
-        }
-    }
-
-    if (imagePoints.size() < 20) {
-        std::cout << "Too few points" << std::endl;
-        return false;
-    }
-
-    cv::Mat rvec, tvec, inliers;
-    cv::solvePnPRansac(objectPoints, imagePoints, _pCameraModel->_K_L, cv::noArray(), rvec, tvec, false, 100, 8.0, 0.99, inliers, _solvePnP);
-
-    if (inliers.rows < 10) {
-        std::cout << "Too few inliers" << std::endl;
-        return false;
-    }
-    std::cout << "Number of inliers: " << inliers.rows << std::endl;
-
-    cv::cv2eigen(rvec, r);
-    cv::cv2eigen(tvec, p);
-    
-    return true;
 }
 
 } // namespace cfsd

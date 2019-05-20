@@ -86,6 +86,17 @@ struct Keyframe {
     long timestamp{0};
 };
 
+struct LoopInfo {
+    LoopInfo() {}
+    
+    LoopInfo(const int& loopFrameID, const Sophus::SO3d& R, const Eigen::Vector3d& p) : loopFrameID(loopFrameID), R(R), p(p) {}
+
+    int loopFrameID{-1};
+    // R and p are transform from loop frame to current frame.
+    Sophus::SO3d R{};
+    Eigen::Vector3d p{};
+};
+
 } // namespace cfsd
 
 #endif // STRUCTS_HPP
