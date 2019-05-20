@@ -56,7 +56,7 @@ void LoopClosure::run() {
                 std::cout << "Loop correction elapsed time: " << std::chrono::duration<double, std::milli>(end-start).count() << "ms" << std::endl << std::endl;
                 
                 #ifdef USE_VIEWER
-                _pMap->pushLoopInfo(loopFrameID, curFrameID);
+                _pMap->_pViewer->pushLoopConnection(loopFrameID, curFrameID);
                 #endif
             }
         }
@@ -112,7 +112,7 @@ int LoopClosure::detectLoop(const cv::Mat& descriptorsMat, const int& frameID) {
             if (ret[i].Id < minFrameID) 
                 minFrameID = ret[i].Id;
 
-        std::cout << "loop closure candidate, frame id: " << minFrameID << "\n\n\n\n\n\n\n\n\n\n\n\n" << std::endl;
+        std::cout << "loop closure candidate, frame id: " << minFrameID << std::endl << std::endl;
     }
 
     return (minFrameID == frameID) ? -1 : minFrameID;

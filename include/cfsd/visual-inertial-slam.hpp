@@ -47,7 +47,7 @@ class VisualInertialSLAM {
     void saveResults();
 
     #ifdef SHOW_IMG
-    void showImage(cv::Mat& imgL);
+    void showImage(cv::Mat& imgL, const double& dt);
     #endif
 
   private:

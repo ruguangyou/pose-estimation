@@ -42,6 +42,7 @@ bool VisualInertialSLAM::process(const cv::Mat& grayL, const cv::Mat& grayR, con
     switch (_state) {
         case OK:
         {
+            auto atStart = std::chrono::steady_clock::now();
             // Do imu preintegration.
             start = std::chrono::steady_clock::now();
             if(!_pImuPreintegrator->processImu(imgTimestamp)) {
@@ -79,12 +80,13 @@ bool VisualInertialSLAM::process(const cv::Mat& grayL, const cv::Mat& grayR, con
                 // break;
             }
 
-            #ifdef SHOW_IMG
-            showImage(imgL);
-            #endif
-
             // This step should be after the motion-only BA, s.t. we can know if current frame is keyframe and also the current camera pose.
             _pMap->checkKeyframe();
+
+            auto atEnd = std::chrono::steady_clock::now();
+            #ifdef SHOW_IMG
+            showImage(imgL, std::chrono::duration<double, std::milli>(atEnd-atStart).count());
+            #endif
 
             _pMap->manageMapPoints();
 
@@ -321,7 +323,7 @@ void VisualInertialSLAM::saveResults() {
 }
 
 #ifdef SHOW_IMG
-void VisualInertialSLAM::showImage(cv::Mat& imgL) {
+void VisualInertialSLAM::showImage(cv::Mat& imgL, const double& dt) {
     // Show pixels and reprojected pixels after optimization.
     int yOffset = _pFeatureTracker->_cropOffset;
     const cfsd::Ptr<Keyframe>& latestFrame = _pMap->_pKeyframes.back();
@@ -340,7 +342,7 @@ void VisualInertialSLAM::showImage(cv::Mat& imgL) {
     cv::Mat out;
     cv::vconcat(imgL, cv::Mat::zeros(25, imgL.cols, CV_8U), out);
     std::stringstream text;
-    text << "#keyframes: " << _pMap->_pKeyframes.size()-1 << ", #map points: " << _pMap->_pMapPoints.size() << ", #points in current frame: " << latestFrame->mapPointIDs.size();
+    text << " fps: " << std::round(1000.0f/dt) << ", #keyframes: " << _pMap->_pKeyframes.size()-1 << ", #map points: " << _pMap->_pMapPoints.size() << ", #points in current frame: " << latestFrame->mapPointIDs.size();
     cv::putText(out, text.str(), cv::Point(4, out.rows-8), cv::FONT_HERSHEY_PLAIN, 1, cv::Scalar(255), 1);
     cv::imshow("pixel (black square) vs. reprojected pixel (white circle)", out);
     cv::waitKey(Config::get<int>("delay"));

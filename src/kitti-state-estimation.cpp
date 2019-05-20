@@ -36,13 +36,6 @@ int main(int argc, char** argv) {
 
     cfsd::Ptr<cfsd::VisualInertialSLAM> pVISLAM{new cfsd::VisualInertialSLAM(false)};
     
-    #ifdef USE_VIEWER
-    // A thread for visulizing.
-    cfsd::Ptr<cfsd::Viewer> pViewer{new cfsd::Viewer()};
-    pVISLAM->setViewer(pViewer);
-    std::thread viewerThread(&cfsd::Viewer::run, pViewer); // no need to detach, since there is a while loop in Viewer::run()
-    #endif
-    
     double ax, ay, az, wx, wy, wz;
     long imuTimestamp, imgTimestamp;
 

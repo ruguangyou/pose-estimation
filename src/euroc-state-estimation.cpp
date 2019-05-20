@@ -36,7 +36,7 @@ int main(int argc, char** argv) {
     }
     std::getline(f_img,imgName); // Remove the header in csv file first line.
 
-    cfsd::Ptr<cfsd::VisualInertialSLAM> pVISLAM{new cfsd::VisualInertialSLAM(true)};
+    cfsd::Ptr<cfsd::VisualInertialSLAM> pVISLAM{new cfsd::VisualInertialSLAM(false)};
     
     double wx, wy, wz, ax, ay, az;
     long imuTimestamp, imgTimestamp;

@@ -173,13 +173,14 @@ void Map::checkKeyframe() {
 void Map::manageMapPoints() {
     // If there are too many map points, erase those only seen by few frames.
     int minFrames = 0;
-    if (_pMapPoints.size() > 6000) minFrames = 2;
+    if (_pMapPoints.size() > 9000) minFrames = 3;
+    else if (_pMapPoints.size() > 6000) minFrames = 2;
     else if (_pMapPoints.size() > 3000) minFrames = 1;
 
     if (minFrames > 0) {
         auto iter = _pMapPoints.begin();
         // Keep the latest map points untouched.    
-        for (int i = 0; i < _pMapPoints.size() - 500; i++) {
+        for (int i = 0; i < _pMapPoints.size() - 1000; i++) {
             if (iter->second->pixels.size() <= minFrames)
                 iter = _pMapPoints.erase(iter);
             else
@@ -308,11 +309,5 @@ Sophus::SE3d Map::getBodyPose() {
     // Return the latest frame's pose, i.e. T_WB.
     return Sophus::SE3d(_pKeyframes.back()->R, _pKeyframes.back()->p);
 }
-
-#ifdef USE_VIEWER
-void Map::pushLoopInfo(const int& refFrameID, const int& curFrameID) {
-    _pViewer->pushLoopConnection(refFrameID, curFrameID);
-}
-#endif
 
 } // namespace cfsd

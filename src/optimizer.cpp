@@ -156,7 +156,7 @@ void Optimizer::motionOnlyBA() {
     // if (_verbose) {
         // Show the report.
         // std::cout << summary.BriefReport() << std::endl;
-        std::cout << summary.FullReport() << std::endl;
+        // std::cout << summary.FullReport() << std::endl;
     // }
 
     _pMap->updateStates(delta_pose, delta_v_dbga);
@@ -334,6 +334,7 @@ void Optimizer::loopCorrection(const int& curFrameID) {
         for (int j = 0; j < 4; j++)
             delta_yaw_p[i][j] = 0;
     }
+    std::cout << "Number of keyframes in the loop: " << numKeyframes << std::endl << std::endl;
 
     std::vector<double*> delta;
 
@@ -371,7 +372,7 @@ void Optimizer::loopCorrection(const int& curFrameID) {
             for (auto& frameAndPixel : pMapPoint->pixels) {
                 int idx = frameAndPixel.first - n;
                 // frameAndPixel->first is frameID, >= n means the frame is within the sliding window.
-                if (idx >= 0) {
+                if (idx >= 0 && idx < numKeyframes) {
                     frameIDs.push_back(frameAndPixel.first);
                     delta.push_back(delta_yaw_p[idx]);
                 }
@@ -437,8 +438,8 @@ void Optimizer::loopCorrection(const int& curFrameID) {
 
     ceres::Solver::Options options;
     options.linear_solver_type = ceres::ITERATIVE_SCHUR;
-    options.minimizer_progress_to_stdout = false;
-    options.check_gradients = true;
+    // options.minimizer_progress_to_stdout = false;  // default: true
+    // options.check_gradients = true;
     ceres::Solver::Summary summary;
 
     ceres::Solve(options, &problem, &summary);

@@ -76,13 +76,6 @@ int main(int argc, char** argv) {
         }
     };
 
-    #ifdef USE_VIEWER
-    // A thread for visulizing.
-    cfsd::Ptr<cfsd::Viewer> pViewer{new cfsd::Viewer()};
-    pVISLAM->setViewer(pViewer);
-    std::thread viewerThread(&cfsd::Viewer::run, pViewer); // no need to detach, since there is a while loop in Viewer::run()
-    #endif
-
     // Sleep for .. seconds, wait for sensor initialization (e.g. camera adjusts its optical parameters).
     // using namespace std::chrono_literals;
     // auto start = std::chrono::steady_clock::now();

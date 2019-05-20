@@ -9,7 +9,7 @@
 // Local sliding-window size.
 #define WINDOWSIZE 4
 // Initialization window size.
-#define INITWINDOWSIZE 4
+#define INITWINDOWSIZE 6
 
 #ifdef USE_VIEWER
 #include "cfsd/viewer.hpp"
@@ -50,10 +50,6 @@ class Map {
     bool getLoopInfo(const int& curFrameID, int& loopFrameID, Sophus::SO3d& R, Eigen::Vector3d& p);
 
     Sophus::SE3d getBodyPose();
-
-    #ifdef USE_VIEWER
-    void pushLoopInfo(const int& refFrameID, const int& curFrameID);
-    #endif
   
   private:
     const bool _verbose;
