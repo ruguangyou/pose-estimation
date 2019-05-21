@@ -175,7 +175,7 @@ void Map::manageMapPoints() {
     int minFrames = 0;
     if (_pMapPoints.size() > 10000) minFrames = 3;
     else if (_pMapPoints.size() > 8000) minFrames = 2;
-    else if (_pMapPoints.size() > 5000) minFrames = 1;
+    else if (_pMapPoints.size() > 4000) minFrames = 1;
 
     if (minFrames > 0) {
         auto iter = _pMapPoints.begin();

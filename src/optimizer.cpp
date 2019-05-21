@@ -78,10 +78,9 @@ void Optimizer::motionOnlyBA() {
                     delta_pose_img.push_back(delta_pose[idx]);
                 }
             }
-            
+
             // A map point should be seen by at least two frames.
-            if (frameIDs.size() < 2)
-                continue;
+            if (frameIDs.size() < 2) continue;
             
             int errorTerms = frameIDs.size();
             // Each error term is a 2x1 vector.

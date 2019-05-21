@@ -153,7 +153,7 @@ h2: 320
 # Keyframe selection
 keyframeRotation: 0.2
 keyframeTranslation: 0.1
-maxImuTime: 2
+maxImuTime: 4
 # nearPointThres:
 
 # Reinitialization if bias is corrupted

@@ -6,6 +6,7 @@
 #include "cfsd/structs.hpp"
 #include "cfsd/map.hpp"
 #include "ORBextractor.h"
+#include "gms_matcher.h"
 
 #ifdef SHOW_IMG
 #include <opencv2/highgui/highgui.hpp>
@@ -68,6 +69,7 @@ class FeatureTracker {
 
     // Only part of the image is considered to be useful (e.g. the upper half of the image containing sky contributes little to useful features)
     cv::Rect _roi;
+    cv::Size _imgSize;
     
     // Match distance should be less than max(_matchRatio*minDist, _minMatchDist)
     // Ratio for selecting good matches.
@@ -83,6 +85,7 @@ class FeatureTracker {
 
     // Current frame's keypoints' pixel position and descriptors.
     std::vector<cv::Point2d> _curPixelsL, _curPixelsR;
+    std::vector<cv::KeyPoint> _curKeypointsL, _curKeypointsR;
     cv::Mat _curDescriptorsL, _curDescriptorsR;
 
     // Record which features in current frame will possibly be viewed as new features, if circular matching is satisfied, it will be false; otherwise, true.
@@ -90,6 +93,7 @@ class FeatureTracker {
 
     // History features' id and descriptors
     std::vector<size_t> _histFeatureIDs;
+    std::vector<cv::KeyPoint> _histKeypointsL, _histKeypointsR;
     cv::Mat _histDescriptorsL, _histDescriptorsR;
 
     // Previous frame's keypoints and descriptors in left image.

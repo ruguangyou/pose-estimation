@@ -41,13 +41,15 @@ struct ImuConstraint {
 struct Feature {
     Feature() {}
 
-    Feature(const int& frameID, const cv::Point2d& pixelL, const cv::Mat& descriptorL, const cv::Mat& descriptorR, const int& age)
-      : frameID(frameID), pixelL(pixelL), descriptorL(descriptorL), descriptorR(descriptorR), age(age) {}
+    Feature(const int& frameID, const cv::Point2d& pixelL, const cv::KeyPoint& keypointL, const cv::KeyPoint& keypointR, const cv::Mat& descriptorL, const cv::Mat& descriptorR, const int& age)
+      : frameID(frameID), pixelL(pixelL), keypointL(keypointL), keypointR(keypointR), descriptorL(descriptorL), descriptorR(descriptorR), age(age) {}
 
     int frameID{0};
 
     cv::Point2d pixelL{};
 
+    cv::KeyPoint keypointL{};
+    cv::KeyPoint keypointR{};
     cv::Mat descriptorL{};
     cv::Mat descriptorR{};
 
