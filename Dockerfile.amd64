@@ -35,19 +35,8 @@ ADD . /opt/sources
 WORKDIR /opt/sources
 RUN mkdir build && \
     cd build && \
-    cmake -D CMAKE_BUILD_TYPE=Release -D CMAKE_INSTALL_PREFIX=/tmp -D WITH_VIEWER=OFF -D WITH_IMSHOW=ON -D FOR_EUROC=ON .. && \
-<<<<<<< HEAD
-<<<<<<< HEAD
+    cmake -D CMAKE_BUILD_TYPE=Release -D CMAKE_INSTALL_PREFIX=/tmp -D WITH_VIEWER=OFF -D WITH_IMSHOW=ON -D FOR_CFSD=ON .. && \
     make -j4 && make install
-=======
-    make -j4 && make install && \
-    cd ../bin && ldd euroc-state-estimation
->>>>>>> 4d3948d79aae54deec6484bffec116e1ccc8e8e0
-=======
-    make -j4 && make install && \
-    cd ../bin && ldd euroc-state-estimation
->>>>>>> 4d3948d79aae54deec6484bffec116e1ccc8e8e0
-
 
 FROM chrberger/cluon-amd64:latest
 MAINTAINER Christian Berger "christian.berger@gu.se"
@@ -63,19 +52,10 @@ RUN echo http://dl-4.alpinelinux.org/alpine/v3.8/main > /etc/apk/repositories &&
         glog \
         gflags \
         libgomp \
-<<<<<<< HEAD
-<<<<<<< HEAD
-        gtk+2.0     
-=======
         gtk+2.0
-        
->>>>>>> 4d3948d79aae54deec6484bffec116e1ccc8e8e0
-=======
-        gtk+2.0
-        
->>>>>>> 4d3948d79aae54deec6484bffec116e1ccc8e8e0
+
 
 WORKDIR /usr/bin
 COPY --from=builder /usr/local/lib64 /usr/lib
-COPY --from=builder /tmp/bin/euroc-state-estimation .
-#ENTRYPOINT ["/usr/bin/euroc-state-estimation"]
+COPY --from=builder /tmp/bin/cfsd-state-estimation .
+#ENTRYPOINT ["/usr/bin/cfsd-state-estimation"]
