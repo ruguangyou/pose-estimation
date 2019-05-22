@@ -120,6 +120,9 @@ bool VisualInertialSLAM::process(const cv::Mat& grayL, const cv::Mat& grayR, con
                     // No loop candidate, set _toCloseLoop to false via overloading function.
                     _pLoopClosure->setToCloseLoop();
                 }
+
+                atEnd = std::chrono::steady_clock::now();
+                _pMap->_pKeyframes.back()->processTime = std::chrono::duration<double, std::milli>(atEnd-atStart).count();
             }
             break;
         }
@@ -259,15 +262,20 @@ void VisualInertialSLAM::saveResults() {
     ofs << "timestamp,qw,qx,qy,qz,px,py,pz,vx,vy,vz,bgx,bgy,bgz,bax,bay,baz\n";
     Eigen::Quaterniond q;
     Eigen::Vector3d p, v, bg, ba;
+
+    // Transform from the beginning frame to a global reference frame, from the file of ground truth.
+    Sophus::SO3d R_WB0(Eigen::Quaterniond(0.567395, -0.12904, -0.810903, -0.06203));
+    Eigen::Vector3d p_W0(4.62115, -1.837605, 0.739627);
+
     for (int i = 1; i < _pMap->_pKeyframes.size(); i++) {
         const cfsd::Ptr<Keyframe>& frame = _pMap->_pKeyframes[i];
 
         ofs << frame->timestamp << ",";
 
-        q = frame->R.unit_quaternion();
+        q = (R_WB0 * frame->R).unit_quaternion();
         ofs << q.w() << "," << q.x() << "," << q.y() << "," << q.z() << ",";
         
-        p = frame->p;
+        p = R_WB0 * frame->p + p_W0;
         ofs << p(0)  << ","  << p(1)  << ","  << p(2)  << ",";
 
         v = frame->v;
@@ -290,7 +298,7 @@ void VisualInertialSLAM::saveResults() {
         
         // Write estimated states to file.
         std::ofstream ofs1("fullBA.csv", std::ofstream::out);
-        ofs1 << "timestamp,qw,qx,qy,qz,px,py,pz,vx,vy,vz,bgx,bgy,bgz,bax,bay,baz\n";
+        ofs1 << "timestamp,qw,qx,qy,qz,px,py,pz,vx,vy,vz,bgx,bgy,bgz,bax,bay,baz,process_time\n";
         for (int i = 1; i < _pMap->_pKeyframes.size(); i++) {
             const cfsd::Ptr<Keyframe>& frame = _pMap->_pKeyframes[i];
 
@@ -309,7 +317,9 @@ void VisualInertialSLAM::saveResults() {
             ofs1 << bg(0) << "," << bg(1) << "," << bg(2) << ",";
 
             ba = frame->pImuConstraint->ba_i + frame->dba;
-            ofs1 << ba(0) << "," << ba(1) << "," << ba(2) << "\n";
+            ofs1 << ba(0) << "," << ba(1) << "," << ba(2) << ",";
+
+            ofs1 << frame->processTime << "\n";
         }
         ofs1.close();
     }

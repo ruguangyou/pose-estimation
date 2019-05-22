@@ -4,7 +4,6 @@
 namespace cfsd {
 
 Viewer::Viewer() {
-    viewScale = Config::get<int>("viewScale");
     pointSize = Config::get<float>("pointSize");
     landmarkSize = Config::get<float>("landmarkSize");
     lineWidth = Config::get<float>("lineWidth");
@@ -144,9 +143,8 @@ void Viewer::run() {
         if (pangolin::Pushed(menuReset)) {
             std::lock_guard<std::mutex> lockPosition(positionMutex);
             std::lock_guard<std::mutex> lockRawPosition(rawPositionMutex);
-            xs.clear(); ys.clear(); zs.clear();
-            xsRaw.clear(); ysRaw.clear(); zsRaw.clear();
-            frameAndPoints.clear();
+            positions.clear();
+            rawPositions.clear();
             readyToDrawPosition = false; readyToDrawRawPosition = false;
         }
 
@@ -175,7 +173,7 @@ void Viewer::drawCoordinate() {
     glEnd();
 }
 
-void Viewer::genOpenGlMatrix(const Eigen::Matrix3f& R, const float& x, const float& y, const float& z, pangolin::OpenGlMatrix& M) {
+void Viewer::genOpenGlMatrix(const Eigen::Matrix3f& R, const Eigen::Vector3d& p, pangolin::OpenGlMatrix& M) {
     M.m[0] = R(0,0);
     M.m[1] = R(1,0);
     M.m[2] = R(2,0);
@@ -188,9 +186,9 @@ void Viewer::genOpenGlMatrix(const Eigen::Matrix3f& R, const float& x, const flo
     M.m[9] = R(1,2);
     M.m[10] = R(2,2);
     M.m[11] = 0.0;
-    M.m[12] = x;
-    M.m[13] = y;
-    M.m[14] = z;
+    M.m[12] = p.x();
+    M.m[13] = p.y();
+    M.m[14] = p.z();
     M.m[15] = 1.0;
 }
 
@@ -198,7 +196,7 @@ void Viewer::followBody(pangolin::OpenGlRenderState& s_cam) {
     if (readyToDrawPose && readyToDrawPosition) {
         std::lock_guard<std::mutex> lockPose(poseMutex);
         std::lock_guard<std::mutex> lockPosition(positionMutex);
-        genOpenGlMatrix(pose, xs.back(), ys.back(), zs.back(), T_WB);
+        genOpenGlMatrix(pose, positions.back(), T_WB);
     }
     s_cam.Follow(T_WB);
 }
@@ -207,16 +205,10 @@ void Viewer::pushRawPosition(const Eigen::Vector3d& p, const int& offset) {
     std::lock_guard<std::mutex> lockRawPosition(rawPositionMutex);
 
     int i = idx + offset;
-    if (xsRaw.size() <= i) {
-        xsRaw.push_back(static_cast<float>(p(0) * viewScale));
-        ysRaw.push_back(static_cast<float>(p(1) * viewScale));
-        zsRaw.push_back(static_cast<float>(p(2) * viewScale));
-    }
-    else {
-        xsRaw[i] = static_cast<float>(p(0) * viewScale);
-        ysRaw[i] = static_cast<float>(p(1) * viewScale);
-        zsRaw[i] = static_cast<float>(p(2) * viewScale);
-    }
+    if (rawPositions.size() <= i)
+        rawPositions.push_back(p);
+    else
+        rawPositions[i] = p;
 
     readyToDrawRawPosition = true;
 }
@@ -226,17 +218,11 @@ void Viewer::pushPosition(const Eigen::Vector3d& p, const int& offset) {
     std::lock_guard<std::mutex> lockPosition(positionMutex);
 
     int i = idx + offset;
-    if (xs.size() <= i) {
-        xs.push_back(static_cast<float>(p(0) * viewScale));
-        ys.push_back(static_cast<float>(p(1) * viewScale));
-        zs.push_back(static_cast<float>(p(2) * viewScale));
-    }
-    else {
-        xs[i] = static_cast<float>(p(0) * viewScale);
-        ys[i] = static_cast<float>(p(1) * viewScale);
-        zs[i] = static_cast<float>(p(2) * viewScale);
-    }
-    if (xs.size() >= WINDOWSIZE && offset == WINDOWSIZE - 1) idx++;
+    if (positions.size() <= i)
+        positions.push_back(p);
+    else
+        positions[i] = p;
+    if (positions.size() >= WINDOWSIZE && offset == WINDOWSIZE - 1) idx++;
 
     readyToDrawPosition = true;
 }
@@ -249,12 +235,10 @@ void Viewer::pushPose(const Eigen::Matrix3d& R) {
     readyToDrawPose = true;
 }
 
-void Viewer::pushLandmark(const int& frameID, const Eigen::Vector3d& point) {
+void Viewer::pushLandmark(const std::map<size_t, cfsd::Ptr<MapPoint>>& pMPs) {
     std::lock_guard<std::mutex> lockLandmark(landmarkMutex);
 
-    if (frameAndPoints.size() < frameID+1)
-        frameAndPoints.push_back(std::vector<Eigen::Vector3d>());
-    frameAndPoints[frameID].push_back(point);
+    pMapPoints = pMPs;
 
     readyToDrawLandmark = true;
 }
@@ -275,18 +259,18 @@ void Viewer::drawRawPosition() {
     glColor3f(0.6f, 0.2f, 0.2f);
     glPointSize(pointSize);
     glBegin(GL_POINTS);
-    for (int i = 0; i < xsRaw.size(); i++)
-        glVertex3f(xsRaw[i], ysRaw[i], zsRaw[i]);
+    for (int i = 0; i < rawPositions.size(); i++)
+        glVertex3f(rawPositions[i].x(), rawPositions[i].y(), rawPositions[i].z());
     glEnd();
 
     glLineWidth(lineWidth);
     glBegin(GL_LINES);
-    glVertex3f(xsRaw[0], ysRaw[0], zsRaw[0]);
-    for (int i = 0; i < xsRaw.size(); i++) {
-        glVertex3f(xsRaw[i], ysRaw[i], zsRaw[i]);
-        glVertex3f(xsRaw[i], ysRaw[i], zsRaw[i]);
+    glVertex3f(rawPositions[0].x(), rawPositions[0].y(), rawPositions[0].z());
+    for (int i = 0; i < rawPositions.size(); i++) {
+        glVertex3f(rawPositions[i].x(), rawPositions[i].y(), rawPositions[i].z());
+        glVertex3f(rawPositions[i].x(), rawPositions[i].y(), rawPositions[i].z());
     }
-    glVertex3f(xsRaw.back(), ysRaw.back(), zsRaw.back());
+    glVertex3f(rawPositions.back().x(), rawPositions.back().y(), rawPositions.back().z());
     glEnd();
 }
 
@@ -295,32 +279,32 @@ void Viewer::drawPosition() {
 
     if (!readyToDrawPosition) return;
 
-    int n = xs.size()-WINDOWSIZE;
-    if (n < 0) n = xs.size();
+    int n = positions.size()-WINDOWSIZE;
+    if (n < 0) n = positions.size();
 
     glPointSize(pointSize);
     glColor3f(0.2f, 0.6f, 0.2f);
     glBegin(GL_POINTS);
     for (int i = 0; i < n; i++)
-        glVertex3f(xs[i], ys[i], zs[i]);
+        glVertex3f(positions[i].x(), positions[i].y(), positions[i].z());
     glEnd();
 
     glPointSize(pointSize+4);
     glColor3f(0.8f, 0.1f, 0.1f);
     glBegin(GL_POINTS);
-    for (int i = n; i < xs.size(); i++)
-        glVertex3f(xs[i], ys[i], zs[i]);
+    for (int i = n; i < positions.size(); i++)
+        glVertex3f(positions[i].x(), positions[i].y(), positions[i].z());
     glEnd();
 
     glLineWidth(lineWidth);
     glColor3f(0.2f, 0.6f, 0.2f);
     glBegin(GL_LINES);
-    glVertex3f(xs[0], ys[0], zs[0]);
-    for (int i = 1; i < xsRaw.size() - 1; i++) {
-        glVertex3f(xs[i], ys[i], zs[i]);
-        glVertex3f(xs[i], ys[i], zs[i]);
+    glVertex3f(positions[0].x(), positions[0].y(), positions[0].z());
+    for (int i = 1; i < positions.size() - 1; i++) {
+        glVertex3f(positions[i].x(), positions[i].y(), positions[i].z());
+        glVertex3f(positions[i].x(), positions[i].y(), positions[i].z());
     }
-    glVertex3f(xs.back(), ys.back(), zs.back());
+    glVertex3f(positions.back().x(), positions.back().y(), positions.back().z());
     glEnd();
 }
 
@@ -374,26 +358,12 @@ void Viewer::drawLandmark() {
 
     if (!readyToDrawLandmark) return;
 
-    int n = frameAndPoints.size()-WINDOWSIZE;
-    if (n < 0) n = frameAndPoints.size();
-
     glPointSize(landmarkSize);
     glBegin(GL_POINTS);
     glColor3f(0.2f, 0.2f, 0.6f);
-    for (int i = 0; i < n; i++) {
-        std::vector<Eigen::Vector3d>& points = frameAndPoints[i];
-        for (int j = 0; j < points.size(); j++)
-            glVertex3f(points[j].x(), points[j].y(), points[j].z());
-    }
-    glEnd();
-
-    glPointSize(landmarkSize+2);
-    glBegin(GL_POINTS);
-    glColor3f(0.8f, 0.1f, 0.1f);
-    for (int i = n; i < frameAndPoints.size(); i++){
-        std::vector<Eigen::Vector3d>& points = frameAndPoints[i];
-        for (int j = 0; j < points.size(); j++)
-            glVertex3f(points[j].x(), points[j].y(), points[j].z());
+    for (auto& pair : pMapPoints) {
+        Eigen::Vector3d& point = pair.second->position;
+        glVertex3f(point.x(), point.y(), point.z());
     }
     glEnd();
 }
@@ -409,8 +379,8 @@ void Viewer::drawLoopConnection() {
     for (int i = 0; i < loopConnection.size(); i++) {
         int idx1 = loopConnection[i].first;
         int idx2 = loopConnection[i].second;
-        glVertex3f(xs[idx1], ys[idx1], zs[idx1]);
-        glVertex3f(xs[idx2], ys[idx2], zs[idx2]);
+        glVertex3f(positions[idx1].x(), positions[idx1].y(), positions[idx1].z());
+        glVertex3f(positions[idx2].x(), positions[idx2].y(), positions[idx2].z());
     }
     glEnd();
 }

@@ -84,6 +84,7 @@ struct Keyframe {
     std::vector<size_t> mapPointIDs{};
     cv::Mat descriptors{};
     long timestamp{0};
+    double processTime{0};
 };
 
 struct LoopInfo {

@@ -238,6 +238,7 @@ void Map::updateStates(double delta_pose[WINDOWSIZE][6], double delta_v_dbga[WIN
 
     #ifdef USE_VIEWER
     _pViewer->pushPose(_pKeyframes.back()->R.matrix());
+    _pViewer->pushLandmark(_pMapPoints);
     #endif
 
     Eigen::Vector3d updated_bg = _pKeyframes.back()->pImuConstraint->bg_i + _pKeyframes.back()->dbg;
