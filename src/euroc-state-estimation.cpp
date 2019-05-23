@@ -43,46 +43,51 @@ int main(int argc, char** argv) {
 
     int rate = cfsd::Config::get<int>("samplingRate") / cfsd::Config::get<int>("cameraFrequency");
     int speedUp = cfsd::Config::get<int>("speedUp");
-    while (!f_imu.eof() && !f_img.eof()) {
-        for (int i = 0; i < speedUp*rate + 1; i++) {
-            f_imu >> imuTimestamp;
-            f_imu.ignore(1, ',');
-            f_imu >> wx;
-            f_imu.ignore(1, ',');
-            f_imu >> wy;
-            f_imu.ignore(1, ',');
-            f_imu >> wz;
-            f_imu.ignore(1, ',');
-            f_imu >> ax;
-            f_imu.ignore(1, ',');
-            f_imu >> ay;
-            f_imu.ignore(1, ',');
-            f_imu >> az;
+    while (!f_imu.eof() || !f_img.eof()) {
+        if (!f_imu.eof()) {
+            for (int i = 0; i < speedUp*rate + 1; i++) {
+                f_imu >> imuTimestamp;
+                f_imu.ignore(1, ',');
+                f_imu >> wx;
+                f_imu.ignore(1, ',');
+                f_imu >> wy;
+                f_imu.ignore(1, ',');
+                f_imu >> wz;
+                f_imu.ignore(1, ',');
+                f_imu >> ax;
+                f_imu.ignore(1, ',');
+                f_imu >> ay;
+                f_imu.ignore(1, ',');
+                f_imu >> az;
 
-            pVISLAM->collectImuData(cfsd::SensorType::ACCELEROMETER, imuTimestamp, ax, ay, az);
-            pVISLAM->collectImuData(cfsd::SensorType::GYROSCOPE, imuTimestamp, wx, wy, wz);
+                pVISLAM->collectImuData(cfsd::SensorType::ACCELEROMETER, imuTimestamp, ax, ay, az);
+                pVISLAM->collectImuData(cfsd::SensorType::GYROSCOPE, imuTimestamp, wx, wy, wz);
+            }
         }
 
-        for (int i = 0; i < speedUp; i++) {
-            f_img >> imgTimestamp;
-            f_img.ignore(1, ',');
-            f_img >> imgName;
-        }
-        cv::Mat grayL = cv::imread(imgLeftDataPath + imgName);
-        cv::Mat grayR = cv::imread(imgRightDataPath + imgName);
+        if (!f_img.eof()) {
+            for (int i = 0; i < speedUp; i++) {
+                f_img >> imgTimestamp;
+                f_img.ignore(1, ',');
+                f_img >> imgName;
+            }
 
-        if (grayL.channels() == 3) {
-            cv::cvtColor(grayL, grayL, CV_BGR2GRAY);
-            cv::cvtColor(grayR, grayR, CV_BGR2GRAY);
-        }
-        else if (grayL.channels() == 4) {
-            cv::cvtColor(grayL, grayL, CV_BGRA2GRAY);
-            cv::cvtColor(grayR, grayR, CV_BGRA2GRAY);
-        }
+            cv::Mat grayL = cv::imread(imgLeftDataPath + imgName);
+            cv::Mat grayR = cv::imread(imgRightDataPath + imgName);
 
-        if (!pVISLAM->process(grayL, grayR, imgTimestamp)) {
-            std::cerr << "Error occurs in processing!" << std::endl;
-            return 1;
+            if (grayL.channels() == 3) {
+                cv::cvtColor(grayL, grayL, CV_BGR2GRAY);
+                cv::cvtColor(grayR, grayR, CV_BGR2GRAY);
+            }
+            else if (grayL.channels() == 4) {
+                cv::cvtColor(grayL, grayL, CV_BGRA2GRAY);
+                cv::cvtColor(grayR, grayR, CV_BGRA2GRAY);
+            }
+
+            if (!pVISLAM->process(grayL, grayR, imgTimestamp)) {
+                std::cerr << "Error occurs in processing!" << std::endl;
+                return 1;
+            }
         }
     }
     f_imu.close();

@@ -187,6 +187,7 @@ bool ImuPreintegrator::processImu(const long& imgTimestamp) {
             _dataQueue.pop();  
         }
         std::cout << "Imu preintegrator initialized!" << std::endl << std::endl;
+        _pMap->_beginTimestamp = imgTimestamp;
         _isInitialized = true;
         return _isInitialized;
     }

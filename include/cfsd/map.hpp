@@ -78,6 +78,8 @@ class Map {
 
     Eigen::Vector3d _init_gravity{};
 
+    long _beginTimestamp{0};
+
     // State (R, v, p) and bias (bg, ba) from time i to j
     // keyframe: *                         *
     //   camear: *       *        *        *
@@ -90,7 +92,6 @@ class Map {
 
     // Current frame ID : LoopInfo pointer
     std::unordered_map<int, cfsd::Ptr<LoopInfo>> _pLoopInfos{};
-
 
     bool _isKeyframe{false};
 

@@ -45,6 +45,8 @@ void Viewer::run() {
     pangolin::Var<bool> menuShowPose("menu.Show Pose", true, true);
     pangolin::Var<bool> menuShowLandmark("menu.Show Landmark", true, true);
     pangolin::Var<bool> menuShowLoopConnection("menu.Show Loop Connection", true, true);
+    pangolin::Var<bool> menuShowFullBAPosition("menu.Show Full BA Position", true, true);
+    
     // ...
     pangolin::Var<bool> menuReset("menu.Reset", false, false);
     pangolin::Var<bool> menuExit("menu.Exit", false, false);
@@ -139,6 +141,9 @@ void Viewer::run() {
 
         if (menuShowLoopConnection)
             drawLoopConnection();
+
+        if (menuShowFullBAPosition)
+            drawFullBAPosition();
         
         if (pangolin::Pushed(menuReset)) {
             std::lock_guard<std::mutex> lockPosition(positionMutex);
@@ -214,7 +219,6 @@ void Viewer::pushRawPosition(const Eigen::Vector3d& p, const int& offset) {
 }
 
 void Viewer::pushPosition(const Eigen::Vector3d& p, const int& offset) {
-    // rvp: [rx,ry,rz, vx,vy,vz, px,py,pz]
     std::lock_guard<std::mutex> lockPosition(positionMutex);
 
     int i = idx + offset;
@@ -250,6 +254,14 @@ void Viewer::pushLoopConnection(const int& refFrameID, const int& curFrameID) {
 
     readyToDrawLoop = true;
 }
+
+void Viewer::pushFullBAPosition(const Eigen::Vector3d& p) {
+    std::lock_guard<std::mutex> lockPosition(fullBAPositionMutex);
+    fullBAPositions.push_back(p);
+
+    readyToDrawFullBAPosition = true;
+}
+
 
 void Viewer::drawRawPosition() {
     std::lock_guard<std::mutex> lockRawPosition(rawPositionMutex);
@@ -385,8 +397,28 @@ void Viewer::drawLoopConnection() {
     glEnd();
 }
 
-void Viewer::resetIdx() {
-    idx = 0;
+void Viewer::drawFullBAPosition() {
+    std::lock_guard<std::mutex> lockPosition(fullBAPositionMutex);
+
+    if (!readyToDrawFullBAPosition) return;
+
+    glPointSize(pointSize);
+    glColor3f(0.1f, 0.1f, 0.8f);
+    glBegin(GL_POINTS);
+    for (int i = 0; i < fullBAPositions.size(); i++)
+        glVertex3f(fullBAPositions[i].x(), fullBAPositions[i].y(), fullBAPositions[i].z());
+    glEnd();
+
+    glLineWidth(lineWidth);
+    glColor3f(0.1f, 0.1f, 0.8f);
+    glBegin(GL_LINES);
+    glVertex3f(fullBAPositions[0].x(), fullBAPositions[0].y(), fullBAPositions[0].z());
+    for (int i = 1; i < fullBAPositions.size() - 1; i++) {
+        glVertex3f(fullBAPositions[i].x(), fullBAPositions[i].y(), fullBAPositions[i].z());
+        glVertex3f(fullBAPositions[i].x(), fullBAPositions[i].y(), fullBAPositions[i].z());
+    }
+    glVertex3f(fullBAPositions.back().x(), fullBAPositions.back().y(), fullBAPositions.back().z());
+    glEnd();
 }
 
 } // namespace cfsd

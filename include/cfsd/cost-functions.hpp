@@ -826,6 +826,32 @@ struct ImageCostFunction4DOF : public ceres::CostFunction {
     Eigen::MatrixXd _F;
 };
 
+struct OriginCostFunction {
+    OriginCostFunction(const cfsd::Ptr<Keyframe>& endFrame, const double weight) : endFrame(endFrame), weight(weight) {}
+
+    template <typename T>
+    bool operator() (const T* delta_pose_end, T* residuals) const {
+        Eigen::Matrix<T,3,1> delta_r_end(delta_pose_end[0], delta_pose_end[1], delta_pose_end[2]);
+        Eigen::Matrix<T,3,1> delta_p_end(delta_pose_end[3], delta_pose_end[4], delta_pose_end[5]);
+
+        Eigen::Matrix<T,3,1> updated_r_end = (endFrame->R * Sophus::SO3<T>::exp(delta_r_end)).log();
+        Eigen::Matrix<T,3,1> updated_p_end = endFrame->p + endFrame->R * delta_p_end;
+
+        residuals[0] = (T)weight * updated_r_end.x();
+        residuals[1] = (T)weight * updated_r_end.y();
+        residuals[2] = (T)weight * updated_r_end.z();
+        residuals[3] = (T)weight * updated_p_end.x();
+        residuals[4] = (T)weight * updated_p_end.y();
+        residuals[5] = (T)weight * updated_p_end.z();
+
+        return true;
+    }
+
+  private:
+    cfsd::Ptr<Keyframe> endFrame{};
+    double weight{0};
+};
+
 } // namespace cfsd
 
 #endif // COST_FUNCTIONS_HPP

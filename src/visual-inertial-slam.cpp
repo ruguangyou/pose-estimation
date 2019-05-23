@@ -87,6 +87,7 @@ bool VisualInertialSLAM::process(const cv::Mat& grayL, const cv::Mat& grayR, con
             #ifdef SHOW_IMG
             showImage(imgL, std::chrono::duration<double, std::milli>(atEnd-atStart).count());
             #endif
+            _pMap->_pKeyframes.back()->processTime = std::chrono::duration<double, std::milli>(atEnd-atStart).count();
 
             _pMap->manageMapPoints();
 
@@ -120,9 +121,6 @@ bool VisualInertialSLAM::process(const cv::Mat& grayL, const cv::Mat& grayR, con
                     // No loop candidate, set _toCloseLoop to false via overloading function.
                     _pLoopClosure->setToCloseLoop();
                 }
-
-                atEnd = std::chrono::steady_clock::now();
-                _pMap->_pKeyframes.back()->processTime = std::chrono::duration<double, std::milli>(atEnd-atStart).count();
             }
             break;
         }
@@ -257,35 +255,65 @@ void VisualInertialSLAM::collectImuData(const cfsd::SensorType& st, const long& 
 void VisualInertialSLAM::saveResults() {
     std::cout << "Saving results..." << std::endl;
 
+    // Pop out the last frame.
+    _pMap->_pKeyframes.pop_back();
+
     // Write estimated states to file.
     std::ofstream ofs("states.csv", std::ofstream::out);
-    ofs << "timestamp,qw,qx,qy,qz,px,py,pz,vx,vy,vz,bgx,bgy,bgz,bax,bay,baz\n";
+    ofs << "timestamp,px,py,pz,qw,qx,qy,qz,vx,vy,vz,bgx,bgy,bgz,bax,bay,baz,process_time\n";
     Eigen::Quaterniond q;
     Eigen::Vector3d p, v, bg, ba;
 
     // Transform from the beginning frame to a global reference frame, from the file of ground truth.
-    Sophus::SO3d R_WB0(Eigen::Quaterniond(0.567395, -0.12904, -0.810903, -0.06203));
-    Eigen::Vector3d p_W0(4.62115, -1.837605, 0.739627);
+    Sophus::SO3d R_WB0(Eigen::Quaterniond(1, 0, 0, 0));
+    Eigen::Vector3d p_W0(0, 0, 0);
+
+    #ifdef EUROC
+    std::ifstream f_gt(cfsd::Config::get<std::string>("dataset") + "state_groundtruth_estimate0/data.csv");
+    if (!f_gt.is_open()) {
+        std::cerr << "Failed to open ground trurh data file" << std::endl;
+        return;
+    }
+    std::string temp;
+    std::getline(f_gt, temp); // Remove the header in csv file first line.
+    long timestamp;
+    double px, py, pz, qw, qx, qy, qz;
+    f_gt >> timestamp;
+    f_gt.ignore(1, ',');
+    f_gt >> px;
+    f_gt.ignore(1, ',');
+    f_gt >> py;
+    f_gt.ignore(1, ',');
+    f_gt >> pz;
+    f_gt.ignore(1, ',');
+    f_gt >> qw;
+    f_gt.ignore(1, ',');
+    f_gt >> qx;
+    f_gt.ignore(1, ',');
+    f_gt >> qy;
+    f_gt.ignore(1, ',');
+    f_gt >> qz;
+    std::cout << "Initial frame to global reference: timestamp(" << timestamp << "), p(" << px << ", " << py << ", " << pz << "), q(" << qw << ", " << qx << ", " << qy << ", " << qz << ")" << std::endl;
+    R_WB0 = Sophus::SO3d(Eigen::Quaterniond(qw, qx, qy, qz));
+    p_W0 = Eigen::Vector3d(px, py, pz);
+    #endif
 
     for (int i = 1; i < _pMap->_pKeyframes.size(); i++) {
         const cfsd::Ptr<Keyframe>& frame = _pMap->_pKeyframes[i];
-
         ofs << frame->timestamp << ",";
 
         q = (R_WB0 * frame->R).unit_quaternion();
-        ofs << q.w() << "," << q.x() << "," << q.y() << "," << q.z() << ",";
-        
         p = R_WB0 * frame->p + p_W0;
-        ofs << p(0)  << ","  << p(1)  << ","  << p(2)  << ",";
-
         v = frame->v;
-        ofs << v(0) << "," << v(1) << "," << v(2) << ",";
-
         bg = frame->pImuConstraint->bg_i + frame->dbg;
-        ofs << bg(0) << "," << bg(1) << "," << bg(2) << ",";
-
         ba = frame->pImuConstraint->ba_i + frame->dba;
-        ofs << ba(0) << "," << ba(1) << "," << ba(2) << "\n";
+
+        ofs << p(0)  << ","  << p(1)  << ","  << p(2)  << ",";
+        ofs << q.w() << "," << q.x() << "," << q.y() << "," << q.z() << ",";
+        ofs << v(0) << "," << v(1) << "," << v(2) << ",";
+        ofs << bg(0) << "," << bg(1) << "," << bg(2) << ",";
+        ofs << ba(0) << "," << ba(1) << "," << ba(2) << ",";
+        ofs << frame->processTime << "\n";
     }
     ofs.close();
     
@@ -298,29 +326,25 @@ void VisualInertialSLAM::saveResults() {
         
         // Write estimated states to file.
         std::ofstream ofs1("fullBA.csv", std::ofstream::out);
-        ofs1 << "timestamp,qw,qx,qy,qz,px,py,pz,vx,vy,vz,bgx,bgy,bgz,bax,bay,baz,process_time\n";
+        ofs1 << "timestamp,px,py,pz,qw,qx,qy,qz,vx,vy,vz,bgx,bgy,bgz,bax,bay,baz,process_time\n";
         for (int i = 1; i < _pMap->_pKeyframes.size(); i++) {
             const cfsd::Ptr<Keyframe>& frame = _pMap->_pKeyframes[i];
-
             ofs1 << frame->timestamp << ",";
 
             q = frame->R.unit_quaternion();
-            ofs1 << q.w() << "," << q.x() << "," << q.y() << "," << q.z() << ",";
-            
             p = frame->p;
-            ofs1 << p(0)  << ","  << p(1)  << ","  << p(2)  << ",";
-
             v = frame->v;
-            ofs1 << v(0) << "," << v(1) << "," << v(2) << ",";
-
             bg = frame->pImuConstraint->bg_i + frame->dbg;
-            ofs1 << bg(0) << "," << bg(1) << "," << bg(2) << ",";
-
             ba = frame->pImuConstraint->ba_i + frame->dba;
+            
+            ofs1 << q.w() << "," << q.x() << "," << q.y() << "," << q.z() << ",";
+            ofs1 << p(0)  << ","  << p(1)  << ","  << p(2)  << ",";
+            ofs1 << v(0) << "," << v(1) << "," << v(2) << ",";
+            ofs1 << bg(0) << "," << bg(1) << "," << bg(2) << ",";
             ofs1 << ba(0) << "," << ba(1) << "," << ba(2) << ",";
-
             ofs1 << frame->processTime << "\n";
         }
+        ofs1 << "global optimization time: " << std::chrono::duration<double, std::milli>(end-start).count() << "\n";
         ofs1.close();
     }
 

@@ -1,11 +1,11 @@
 %YAML:1.0
-dataset: /home/ruguang/docker-CFSD/cfsd/2019/euroc/V1_01_easy/mav0/
-# dataset: /home/ruguang/docker-CFSD/cfsd/2019/euroc/V1_02_medium/mav0/
-# dataset: /home/ruguang/docker-CFSD/cfsd/2019/euroc/V1_03_difficult/mav0/
-# dataset: /home/ruguang/docker-CFSD/cfsd/2019/euroc/MH_03_medium/mav0/
+# dataset: /home/cfsd/slam/euroc/V1_01_easy/mav0/
+# dataset: /home/cfsd/slam/euroc/V1_02_medium/mav0/
+# dataset: /home/cfsd/slam/euroc/V1_03_difficult/mav0/
+dataset: /home/cfsd/slam/euroc/MH_03_medium/mav0/
 
 # Skip some images
-speedUp: 2
+speedUp: 1
 
 ################################################################################
 ##### Sensor settings #####
@@ -95,7 +95,7 @@ delay: 10
 cvORB: 0 # default: not use OpenCV ORB
 
 # ORB feature detector parameters
-numberOfFeatures: 1200
+numberOfFeatures: 1000
 scaleFactor: 1.2
 levelPyramid: 8
 
@@ -138,7 +138,7 @@ maxGyrBias: 0.1
 maxAccBias: 0.6
 
 # Initialize with SfM
-initializeWithSfm: 1
+initializeWithSfm: 0
 
 # SfM frame selection
 sfmRotation: 0
@@ -171,7 +171,7 @@ priorWeight: 1e-5
 loopClosure: 0
 
 # Global optimization
-globalOptimize: 0
+globalOptimize: 1
 
 ################################################################################
 ##### Loop closure settings #####

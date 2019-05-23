@@ -33,6 +33,7 @@ class Viewer {
     void pushPose(const Eigen::Matrix3d& R);
     void pushLandmark(const std::map<size_t, cfsd::Ptr<MapPoint>>& pMPs);
     void pushLoopConnection(const int& refFrameID, const int& curFrameID);
+    void pushFullBAPosition(const Eigen::Vector3d& p);
     
     void drawCoordinate();
     void drawRawPosition();
@@ -40,8 +41,7 @@ class Viewer {
     void drawPose(pangolin::OpenGlMatrix &M);
     void drawLandmark();
     void drawLoopConnection();
-
-    void resetIdx();
+    void drawFullBAPosition();
 
   private:
     // Viewer settings (refer to ORB-SLAM2).
@@ -56,6 +56,7 @@ class Viewer {
     std::vector<Eigen::Vector3d> rawPositions{};
     std::map<size_t, cfsd::Ptr<MapPoint>> pMapPoints{};
     std::vector<std::pair<int,int>> loopConnection{};
+    std::vector<Eigen::Vector3d> fullBAPositions{};
 
     Eigen::Matrix3f pose{};
     pangolin::OpenGlMatrix T_WB{};
@@ -65,8 +66,9 @@ class Viewer {
     bool readyToDrawPose{false}, readyToDrawRawPose{false};
     bool readyToDrawLandmark{false};
     bool readyToDrawLoop{false};
+    bool readyToDrawFullBAPosition{false};
 
-    std::mutex positionMutex{}, rawPositionMutex{}, poseMutex{}, landmarkMutex{}, loopMutex{};
+    std::mutex positionMutex{}, rawPositionMutex{}, poseMutex{}, landmarkMutex{}, loopMutex{}, fullBAPositionMutex{};
 
     int idx{0};
 };
